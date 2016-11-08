@@ -1,0 +1,7 @@
+      SUBROUTINE MABORT
+C
+      call lnkerr('MAbort called')
+C
+      STOP
+C
+      END

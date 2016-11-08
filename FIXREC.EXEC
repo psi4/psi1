@@ -1,0 +1,14 @@
+/* */
+ 
+makebuf
+'l * * a (l fifo'
+pull .
+nqueued = queued()
+do i = 1 to nqueued
+  pull fn ft . recfm .
+  if recfm ^= 'V' & ft ^= 'TEXT' then do
+    say fn ft A recfm
+    copy fn ft A '(recfm V olddate'
+    end
+  end
+dropbuf

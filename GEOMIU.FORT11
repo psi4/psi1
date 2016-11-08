@@ -1,0 +1,133 @@
+      SUBROUTINE FENTRY(RARRAY,IARRAY,MAXCOR)
+c This version of geomup changes the '# GEOMUP #' to a '# GEOM   #'
+c
+c mtext = maximum number of lines in the input file past the first
+c         '# GEOMUP #'
+c matom = maximum number of atoms.
+ 
+C**********************************************************************
+C*   MODIFICATION FOR IMS VERSION                                     *
+C*   BY: YUKIO YAMAGUCHI                                              *
+C*   DATE: FEBRUARY 21, 1989                                          *
+C**********************************************************************
+C Moved to PSI distribution disk on 020289 - clj.                     *
+C---------------------------------------------------------------------*
+C Updated: May 7, 1988 by Curtis Janssen                              *
+C Reason:   Test number of atoms and size of input file to            *
+C        avoid overwriting when reading data.  Also, test             *
+C        ierr after 'call locate'.                                    *
+C**********************************************************************
+C***LAST UPDATED ON FEBRUARY 13, 1985 BY YUKIO YAMAGUCHI              *
+C**********************************************************************
+C   THE SOURCE CODE OF GEOMETRY UPDATING PROGRAM
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION RARRAY(MAXCOR),IA(1)
+      parameter (mtext=1200, matom=200)
+      CHARACTER TEXT(mtext)*80
+      DIMENSION I30(200),CHG(50),COORD(3,matom)
+    1 FORMAT(//,2X,' THE GEOMETRY UPDATING PROGRAM'//)
+    2 FORMAT(//,2X,' PARAMETERS'/
+     1 2X,' MPOINT = ',I5/
+     2 2X,' MCONST = ',I5/
+     3 2X,' NCALCS = ',I5/
+     4 2X,' NATOM  = ',I5/
+     5 2X,' N3N    = ',I5/
+     6 2X,' IGEOP  = ',I5)
+    3 FORMAT(//,2X,' OLD COORDINATES IN TAPE30'/
+     1 39X,' OLD X IN A.U.'/
+     2 4X,4H NO.,4X,7H CHARGE,9X,2H X,14X,2H Y,14X,2H Z/)
+    4 FORMAT(3X,I5,1X,4F16.10)
+    5 FORMAT(//,2X,' NEW COORDINATES IN TAPE30'/
+     1 39X,' NEW X IN A.U.'/
+     2 4X,4H NO.,4X,7H CHARGE,9X,2H X,14X,2H Y,14X,2H Z/)
+    6 FORMAT(3F20.10)
+    7 FORMAT(//,2X,' GEOMETRY IN TAPE30 IS UPDATED'/)
+C
+      CALL TSTART(6)
+      CALL NOUNFL
+C
+      INPUT=5
+      ITAPE6=6
+      ITAP30=30
+C
+      WRITE(6,1)
+C
+C************************************
+C***UPDATE TAPE30 FOR NEW GEOMETRY***
+C************************************
+C
+C   READ IN GEOMETRY FROM TAPE30
+      CALL RFILE(ITAP30)
+      CALL WREADW(ITAP30,I30,200,101,JUNK)
+      MPOINT=I30(2)
+      MCONST=I30(3)
+      NCALCS=I30(5)
+      NATOM=I30(19)
+      N3N=NATOM*3
+      IGEOP=100+MCONST+MPOINT+NCALCS
+c
+      if (natom .gt. matom) then
+         write(6,*) '--ERROR--------------------------------'
+         write(6,*) 'GEOMUPIU: You have too many atoms. Increase matom.'
+         call mabort
+         endif
+C
+      WRITE(6,2) MPOINT,MCONST,NCALCS,NATOM,N3N,IGEOP
+      JUNK=101+MCONST
+      CALL WREADW(ITAP30,IPT,1,JUNK,JUNK)
+      CALL WREADW(ITAP30,CHG,NATOM*2,IPT,JUNK)
+      CALL WREADW(ITAP30,LOCCAL,1,IGEOP,JUNK)
+      IGEOP=LOCCAL+80
+      CALL WREADW(ITAP30,COORD,N3N*2,IGEOP,JUNK)
+C
+      WRITE(6,3)
+      DO 101 I=1,NATOM
+      WRITE(6,4) I,CHG(I),COORD(1,I),COORD(2,I),COORD(3,I)
+  101 CONTINUE
+C
+      CALL LOCATE(INPUT,'# GEOMUP #',IERR)
+      if (ierr .ne. 0) then
+          write(6,*) '--ERROR--------------------------------'
+          write(6,*) 'GEOMUPIU: The input must have a ''# GEOMUP #'''
+          call mabort
+          endif
+c
+      WRITE(6,5)
+CWA
+ 1000 FORMAT(A80)
+ 1001 FORMAT('# GEOM   #')
+      KWA=1
+ 1005 READ(INPUT,1000,END=1010) TEXT(KWA)
+          KWA=KWA+1
+          if (kwa .gt. mtext) then
+              write(6,*) '--ERROR--------------------------------'
+              write(6,*) 'GEOMUPIU: Your input file is too large.'
+              write(6,*) '         Decrease its size or increase mtext'
+              call mabort
+              endif
+          GO TO 1005
+ 1010 continue
+      DO 1015  I=1,KWA+1
+ 1015     BACKSPACE INPUT
+      WRITE(INPUT,1001)
+      DO 1020  I=1,KWA-1
+ 1020     WRITE(INPUT,1000) TEXT(I)
+      DO 1025  I=1,KWA-1
+ 1025     BACKSPACE INPUT
+CWA
+      DO 102 I=1,NATOM
+      READ(5,6) XX,YY,ZZ
+      COORD(1,I)=XX
+      COORD(2,I)=YY
+      COORD(3,I)=ZZ
+      WRITE(6,4) I,CHG(I),COORD(1,I),COORD(2,I),COORD(3,I)
+  102 CONTINUE
+      CALL WWRITW(ITAP30,COORD,N3N*2,IGEOP,JUNK)
+      WRITE(6,7)
+C
+      CALL TSTOP(6)
+      CALL RCLOSE(ITAP30,3)
+C
+C2-21-89 STOP
+      RETURN
+      END

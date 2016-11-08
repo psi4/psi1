@@ -1,0 +1,20 @@
+/* */
+term chardel off
+spool prt dest ccqc3820
+link tcpip  592 592 rr
+access 31a x
+link fritz  191 1a1 rr
+link maint 19d 19d rr; ac 19d k
+link maint  319 319 rr
+access 319 p
+link psfmaint 519 519 rr; ac 519 j
+link psfmaint 51A 51A rr; ac 51A C
+link psfmaint 51B 51B rr; ac 51B f
+link psfmaint 51C 51C rr; ac 51C D
+link ispvm    192 120 rr; ac 120 i
+access 592 g  /* access before system disks to get new sendfile */
+set pf1 retrieve
+set pf4 vmc smart d
+set pf5 immed vmc smart d
+set pf6 immed vmc smart d user all
+set pf7 immed vmc smart n

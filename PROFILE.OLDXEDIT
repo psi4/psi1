@@ -1,0 +1,90 @@
+/* PROFILE XEDIT */
+extract  '/fname/ftype/fmode/'
+ 
+set color file green
+set color curl red
+set color tofeof red
+set color prefix blue
+set color scale  yellow
+set color cmdline pink
+ 
+set cmdline    bottom
+set curline  on   5
+set scale on  2
+set case mixed
+set msgline on 2 2 o
+ 
+set autosave 10
+set cmstype rt
+set prefix   on  left
+set arbchar  on   $                /* makes $ a wildcard */
+set varblank on                    /* ignore blanks in comparisons */
+set pf1      top
+set pf2      gobot
+set pf5      set case m
+ 
+set nulls on
+set pf13 before file
+set pf19 before left  20
+set pf21 before right 20
+set pf24 before qquit
+set tabs 1 22 43
+/*
+set trunc  80
+set lrecl  80
+set zone    1   80
+*/
+set verify     1  72
+set fullread on
+ 
+/* this part set all files with ftype in upper_stuff to uppercase */
+upper_stuff = 'CADINPUT INPUT BMAT INTDER1 FFIN POLYINP DATA'
+if find(upper_stuff, ftype.1) ^= 0 then do
+    set case upper ignore
+    end
+else do
+    set case mixed ignore
+    end
+ 
+/* Need to distinguish between REXX and EXEC 2 */
+executables = 'EXEC SUBMIT'
+if find(executables, ftype.1) ^= 0 then do
+    set cmstype ht
+    state fname.1 ftype.1 fmode.1
+    if rc = 28 then do
+        set case mixed ignore
+        END
+    else do
+        "execio 1 diskr" fname.1 ftype.1 fmode.1
+        pull exec_line_1
+        if compare("/*", exec_line_1) = 1 then do
+            set case mixed ignore
+            end
+        else do
+            set case mixed ignore
+            end
+        finis fname.1 ftype.1 fmode.1
+        end
+    set cmstype rt
+    end
+ 
+/* set prefix off if file is read only */
+set cmstype ht
+statew fname.1 ftype.1 fmode.1
+if rc = 28 then do
+    state fname.1 ftype.1 fmode.1
+    if rc ^= 28 then do
+        no_prefix = false
+        end
+    end
+ 
+if ftype.1 = NOTEBOOK then no_prefix = true
+ 
+if no_prefix = true then do
+    set prefix off
+    set ver  1 79
+    end
+    else
+    set ver  1 72
+ 
+exit

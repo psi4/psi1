@@ -1,0 +1,29 @@
+/* Generic job exec. */
+arg molecule .
+loadfiles = bmatin6 bml110
+debug = ''
+ 
+if debug ^= 'DEBUG' then debug = ''
+ 
+say '*********' loadfiles molecule debug '***************************'
+ 
+psiinit
+fi '*' clear
+fi AFFPRINT disk job      AFFPRINT A
+fi AFFIN    term
+fi AFFON    disk job      AFFON    A
+fi  5 disk molecule INPUT   A
+fi  6 disk molecule FILE6   A  '('lrecl 132 block 132
+fi 30 disk molecule BMAT    A
+fi 31 disk molecule RESUL1  A  '('lrecl 132 block 132
+fi 32 disk molecule RESUL2  A  '('lrecl 132 block 132
+fi 33 disk molecule RESUL3  A  '('lrecl 132 block 132
+fi
+ 
+load loadfiles '(' clear noauto
+ 
+start '*' debug
+jobrc = rc
+copy molecule resul1 a '=' output a '('append
+copy molecule resul3 a '=' makeft a '('append
+exit jobrc

@@ -1,0 +1,3037 @@
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+c Moved to PSI distribution disk on 2/4/89 by clj.
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         search:  c5-22-88  *
+C*  DATE:  MAY   22,   1988                                           *
+C*  REASON: DECREASE CORE TO RUN IN 7MB ON 9370                       *
+C**********************************************************************
+C     PROGRAM LAST UPDATED OCTOBER 6, 1987                            *
+C     BY: GES                                                         *
+C     REASON: INCLUDE OPEN-SHELL AND TCSCF.                           *
+C**********************************************************************
+C     PROGRAM LAST UPDATED JULY  7, 1987                              *
+C     BY: GES                                                         *
+C     REASON: VERSION FOR CPHFL  (LOOK FOR CGES)                      *
+C**********************************************************************
+C     PROGRAM LAST UPDATED APRIL 8, 1986                              *
+C     BY: TJL                                                         *
+C     REASON: FIX BUG IN D-D-D-D CASE 5.                              *
+C     PROGRAM LAST UPDATED JULY 18, 1985                              *
+C     BY: TJL                                                         *
+C**********************************************************************
+C
+      SUBROUTINE GTINT2(A,ETA,ZETA,F,ALPHA,BETA,IJORD,KADD,LADD,
+     1IJADD,IJGRP,ORBSYM,INTS,S,EPA,JT1C,IOFF,EX,RS,LG,IJDEP,BOX,
+     2EAVF,LSTEPA,EX2)
+      IMPLICIT INTEGER (A-Z)
+      LOGICAL IJEQ,IJKEQ,JKEQ,IKEQ,JLEQ,JKLEQ,ILEQ
+      INTEGER XDF,N112(112),JULIA(70),IJDEP(NUMIJ)
+      REAL*8 A0,A1,A2,A1S2,A4,FOCC,EFAC,BOX(NDF),XFAC,SFAC,A3S2
+      REAL*8 EAVF(NUMIJ),LSTEPA(NUMIJ),EX2(IJIND)
+      DIMENSION IJORD(NUMIJ),KADD(SYMORB),LADD(SYMORB),JT1C(1)
+      DIMENSION ORBSYM(NORBS),IJADD(NUMIJ),IJGRP(NUMIJ)
+      DIMENSION IOFF(NUMIJ)
+      REAL*8 A(IJIND,NDF),F(NORBS),INTS(NMAX),LG(NORBS,NORBS)
+     1,S(NUMIJ,NDF),EPA(NORBS,NORBS),EX(IJIND),RS(NUMDEP,NDF)
+      REAL*8 ZETA(NUMIJ,NORBS),ALPHA(NUMIJ),BETA(NUMIJ)
+      REAL*8 C1A,C2A,C1,C2
+      REAL*8 VAL1,VAL2,VAL3,ETA(NUMIJ),ESCF,REPNUC
+      COMMON /CIA/ C1A(45),C2A(45),C1,C2,ESCF
+      COMMON /TAPES/ NOUT,ICHK,IT30,IT42,IT47,IT52,IT58,IT94,IT96,IT98
+      COMMON /DIMSG/ SYMORB,NUMIJ,NBF,NMAX,NBFORB,NSYM,NDF,NORBS
+      COMMON /POINT/ FOCC(5),IPOINT(5),JPOINT(5),NSORB(5)
+      COMMON /FUNCS/ IOCC,JOCC,KOCC,NTYPES,NBSET,NAT
+      COMMON /OCCS/ NSPE,NSA,NSB,NALP,NOP,NDOC,LFERM,NUOC,IJIND,IJIND3
+      COMMON/OCCS2/NUMCOR,NCOR,FDOC,CORDOC,NUMVIR,FVIR,LUOC,NUMDEP,VUOC
+      COMMON /LOC22/ IA22(100),IBF2AT(284)
+      COMMON /IEXT/ IPRINT,IGRP,ICIDIP
+      COMMON /REN/ REPNUC
+C
+ 1100 FORMAT(/'  IN THE CONSTRUCTION OF THE A MATRIX, THE CASE ',A7
+     * /'  IS NOT POSSIBLE IN THE ',A11,'  SET OF LOOPS.'/'  ERROR
+     * IN LOOP STRUCTURE SOMEWHERE.')
+   2  FORMAT(/'  IN GTINT2, IJKLT UNKNOWN TYPE ',I5/'  ORBITALS: ',4I5
+     * /'  BASIS FUNCTIONS: ',4I5/,'  SYMMETRIES: ',4I5)
+ 2005 FORMAT(/'  IN GTINT2, LAD TOO BIG: ',I6)
+C
+      IJIND2 = IJIND
+      ITEST = 0
+      A0 = 0.0D+00
+      A1 = 1.0D+00
+      A2 = 2.0D+00
+      A4 = 4.0D+00
+      A1S2 = 0.50D+00
+      A3S2 = 1.5D+00
+CTJL
+C     WRITE(*,*) ' THE RS MATRIX '
+C     CALL MATOUT(RS,NUMDEP,NDF,NUMDEP,NDF,NOUT)
+C     WRITE(*,*) ' IN GTINT2 ; NOP,NBF ',NOP,NBF
+C     WRITE(*,*) ' THE AVERAGED FOCK MATRIX '
+C     CALL PRINT(EAVF,NUMIJ,NBF,NOUT)
+CTJL
+C
+C THIS IS THE BEGINNING OF THE THIRD PART OF GETINT TJL 7/09/84
+C
+COUT  WRITE(*,*)'IN SUBROUTINE GTINT2,  NALP=',NALP
+      IF (NALP.EQ.0) GOTO 540
+C
+      DO 4070 IOR=NALP,NOP,-1
+        IO=IOFF(IOR)
+        II=IO+IOR
+        ISM=ORBSYM(IOR)
+        ITYP=1
+        DO 4080 JOR=IOR,NOP,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+C
+          IF (IGRP.NE.IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+C
+          DO 4090 KOR=1,NUOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            IKSYM=IEOR((ISM-1),(KSM-1))
+            JKSYM=IEOR((JSM-1),(KSM-1))
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+C
+C  ALP-ALP-UOC-UOC
+C
+            DO 4100 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO  406
+              LSM=ORBSYM(LOR)
+              ILSYM=IEOR((ISM-1),(LSM-1))
+              JLSYM=IEOR((JSM-1),(LSM-1))
+              IF ((LSM-1) .NE. IJKSYM) GOTO 406
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT)=JULIA(IJKLT)+1
+CTJL
+         KLVU = IJDEP(KL)
+CTJL
+              GOTO (116,126,136,146,156,166,176)IJKLT
+ 116          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      IF(IKSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA1(IK  ,JL  ,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      IF(ILSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA1(IL  ,JK  ,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1,VAL2,VAL1,VAL3,IJ)
+C
+ 4110      CONTINUE
+           GO TO 406
+ 126          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','THIRTEENTH '
+              CALL MABORT
+ 136          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.ILSYM.EQ.0)
+     .CALL GA3(IK  ,IL  ,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1S2,VAL2,VAL1,VAL1,IJ)
+C
+ 4120      CONTINUE
+              GOTO 406
+ 146          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA4(IK  ,JK  ,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+              GOTO 406
+ 156          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','THIRTEENTH '
+              CALL MABORT
+ 166          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0)
+     .CALL GA6(IK  ,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+              GOTO 406
+ 176          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','THIRTEENTH '
+              CALL MABORT
+ 406          CONTINUE
+ 4100       CONTINUE
+ 4090     CONTINUE
+          DO 4150 KOR=LFERM,NDOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            IKSYM=IEOR((ISM-1),(KSM-1))
+            JKSYM=IEOR((JSM-1),(KSM-1))
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+C
+C  ALP-ALP-DOC-UOC
+C
+            DO 4160 LOR=1,NUOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 407
+              LSM=ORBSYM(LOR)
+              ILSYM=IEOR((ISM-1),(LSM-1))
+              JLSYM=IEOR((JSM-1),(LSM-1))
+              IF ((LSM-1) .NE. IJKSYM) GOTO 407
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+7)=JULIA(IJKLT+7)+1
+              GOTO (117,127,137,147,157,167,177)IJKLT
+ 117          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      IF(IKSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA1(IK  ,JL  ,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      IF(ILSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA1(IL  ,JK  ,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+              GOTO 407
+ 127          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','FOURTEENTH '
+              CALL MABORT
+ 137          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.ILSYM.EQ.0)
+     .CALL GA3(IK  ,IL  ,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GBD(KLND,IK,IL,VAL2,VAL1,II)
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+              GOTO 407
+ 147          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','FOURTEENTH '
+              CALL MABORT
+ 157          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','FOURTEENTH '
+              CALL MABORT
+ 167          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','FOURTEENTH '
+              CALL MABORT
+ 177          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','FOURTEENTH '
+              CALL MABORT
+ 407          CONTINUE
+ 4160       CONTINUE
+C
+C ALP-ALP-DOC-DOC
+C
+            DO 4190 LOR=LFERM,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 408
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 408
+              ILSYM=IEOR((ISM-1),(LSM-1))
+              JLSYM=IEOR((JSM-1),(LSM-1))
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+14)=JULIA(IJKLT+14)+1
+CTJL
+            KLDC = IJDEP(KL)
+CTJL
+              GOTO (118,128,138,148,158,168,178)IJKLT
+ 118          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      IF(IKSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA1(IK  ,JL  ,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      IF(ILSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA1(IL  ,JK  ,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLDC.NE.0) CALL RS1(KLDC,A1,VAL2,VAL1,VAL3,IJ)
+C
+ 4200      CONTINUE
+              GOTO 408
+ 128          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','FIFTEENTH  '
+              CALL MABORT
+ 138          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.ILSYM.EQ.0)
+     .CALL GA3(IK  ,IL  ,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+      IF(KLDC.NE.0) CALL RS1(KLDC,A1S2,VAL2,VAL1,VAL1,IJ)
+C
+ 4210      CONTINUE
+              GOTO 408
+ 148          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA4(IK  ,JK  ,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+              GOTO 408
+ 158          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','FIFTEENTH '
+              CALL MABORT
+ 168          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0)
+     .CALL GA6(IK  ,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+              GOTO 408
+ 178          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','FIFTEENTH '
+              CALL MABORT
+ 408          CONTINUE
+ 4190       CONTINUE
+ 4150     CONTINUE
+          DO 4240 KOR=NOP,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+C
+C  ALP-ALP-ALP-UOC/DOC
+C
+            DO 4250 LOR=1,NDOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 607
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 607
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+21)=JULIA(IJKLT+21)+1
+              GOTO (717,727,737,747,757,767,777)IJKLT
+ 717          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+              GOTO 607
+ 727          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+              GOTO 607
+ 737          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(KLND,IK,IL,VAL2,VAL1,II)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+              GOTO 607
+ 747          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','FIFTEENTH+1'
+              CALL MABORT
+ 757          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,II,IL,VAL1,VAL1,II)
+      IF(LOR.GT.NUOC) CALL GBD(ILND,IL,LL,VAL2,VAL2,LL)
+CTJL  IF(LOR.GT.NUOC) CALL GBD(ILND,II,IL,VAL2,VAL2,LL)
+              GOTO 607
+ 767          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','FIFTEENTH+1'
+              CALL MABORT
+ 777          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','FIFTEENTH+1'
+              CALL MABORT
+ 607          CONTINUE
+ 4250       CONTINUE
+ 4240     CONTINUE
+ 4080   CONTINUE
+C
+        DO 4300 JOR=NDOC,LFERM,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+C
+          IF (IGRP.NE.IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+C
+          DO 4310 KOR=1,NUOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            IKSYM=IEOR((ISM-1),(KSM-1))
+            JKSYM=IEOR((JSM-1),(KSM-1))
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+C
+C  ALP-DOC-UOC-UOC
+C
+            DO 4320 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 409
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 409
+              ILSYM=IEOR((ISM-1),(LSM-1))
+              JLSYM=IEOR((JSM-1),(LSM-1))
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+28)=JULIA(IJKLT+28)+1
+CTJL
+         KLVU = IJDEP(KL)
+CTJL
+              GOTO (119,129,139,149,159,169,179)IJKLT
+ 119          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+CTJL
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+C
+      IF(IKSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA1(IK  ,JL  ,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      IF(ILSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA1(IL  ,JK  ,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLVU.NE.0) CALL RS1(KLVU,A3S2,VAL2,VAL1,VAL3,IJ)
+C
+ 4330     CONTINUE
+              GOTO 409
+ 129          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','SIXTEENTH  '
+              CALL MABORT
+ 139          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','SIXTEENTH  '
+              CALL MABORT
+ 149          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA4(IK  ,JK  ,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+              GOTO 409
+ 159          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','SIXTEENTH  '
+              CALL MABORT
+ 169          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','SIXTEENTH  '
+              CALL MABORT
+ 179          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','SIXTEENTH  '
+              CALL MABORT
+ 409          CONTINUE
+ 4320       CONTINUE
+ 4310     CONTINUE
+          DO 4350 KOR=LFERM,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            IKSYM=IEOR((ISM-1),(KSM-1))
+            JKSYM=IEOR((JSM-1),(KSM-1))
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+          JKDC = IJDEP(JK)
+CTJL
+C
+C  ALP-DOC-DOC-UOC
+C
+            DO 4360 LOR=1,NUOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 410
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 410
+              ILSYM=IEOR((ISM-1),(LSM-1))
+              JLSYM=IEOR((JSM-1),(LSM-1))
+              KLSYM=IEOR((KSM-1),(LSM-1))
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+35)=JULIA(IJKLT+35)+1
+              GOTO (211,221,231,241,251,261,271)IJKLT
+ 211          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      IF(JKDC.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+C
+      IF(IJSYM.EQ.0.AND.KLSYM.EQ.0)
+     .CALL GA1(IJ  ,KL  ,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      IF(IKSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA1(IK  ,JL  ,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+C
+      IF(JKDC.NE.0) CALL RS1(JKDC,A1S2,VAL3,VAL1,VAL2,IL)
+C
+ 4370      CONTINUE
+              GOTO 410
+ 221          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IJSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA2(IJ  ,JL  ,IL,JL,IJ,JJ,VAL1,VAL2,JOR)
+C
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+      CALL GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+              GOTO 410
+ 231          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','SEVENTEENTH'
+              CALL MABORT
+ 241          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','SEVENTEENTH'
+              CALL MABORT
+ 251          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','SEVENTEENTH'
+              CALL MABORT
+ 261          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','SEVENTEENTH'
+              CALL MABORT
+ 271          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','SEVENTEENTH'
+              CALL MABORT
+ 410          CONTINUE
+ 4360       CONTINUE
+C
+C ALP-DOC-DOC-DOC
+C
+            DO 4390 LOR=LFERM,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 710
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 710
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+42)=JULIA(IJKLT+42)+1
+CTJL
+            JLDC = IJDEP(JL)
+            KLDC = IJDEP(KL)
+CTJL
+              GOTO (711,721,731,741,751,761,771)IJKLT
+ 711          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+CTJL
+      IF(JKDC.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+      IF(JLDC.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL3,VAL2)
+      IF(KLDC.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+C
+      IF(JKDC.NE.0) CALL RS1(JKDC,A3S2,VAL3,VAL1,VAL2,IL)
+      IF(JLDC.NE.0) CALL RS1(JLDC,A3S2,VAL1,VAL3,VAL2,IK)
+      IF(KLDC.NE.0) CALL RS1(KLDC,A3S2,VAL2,VAL1,VAL3,IJ)
+C
+ 4400      CONTINUE
+              GOTO 710
+ 721          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+CTJL
+      IF(JLDC.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JLDC.NE.0) CALL RS1(JLDC,A3S2,VAL1,VAL1,VAL2,IK)
+ 4410      CONTINUE
+              GOTO 710
+ 731          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','SEVENTNTH+1'
+              CALL MABORT
+ 741          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+C
+      IF(JLDC.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JLDC.NE.0) CALL RS1(JLDC,A3S2,VAL1,VAL1,VAL2,IK)
+C
+ 4420      CONTINUE
+              GOTO 710
+ 751          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','SEVENTNTH+1'
+              CALL MABORT
+ 761          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','SEVENTNTH+1'
+              CALL MABORT
+ 771          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','SEVENTNTH+1'
+              CALL MABORT
+ 710          CONTINUE
+ 4390       CONTINUE
+ 4350     CONTINUE
+ 4300   CONTINUE
+        DO 4430 JOR=NUOC,1,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+C
+          IF (IGRP.NE.IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+C
+       ISKIP3 = 0
+       IF(ISKIP3.EQ.1) GOTO 8400
+          DO 8410 KOR=1,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+            JKVU = IJDEP(JK)
+CTJL
+C
+C     ALP-UOC-UOC-UOC
+C
+            DO 8420 LOR=1,KOR
+          IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO  8430
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 8430
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+56)=JULIA(IJKLT+56)+1
+CTJL
+          JLVU = IJDEP(JL)
+          KLVU = IJDEP(KL)
+CTJL
+              GOTO (8412,8422,8432,8442,8452,8462,8472)IJKLT
+ 8412         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+CTJL
+      IF(JKVU.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+      IF(JLVU.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL3,VAL2)
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+C
+      IF(JKVU.NE.0) CALL RS1(JKVU,A1S2,VAL3,VAL2,VAL1,IL)
+      IF(JLVU.NE.0) CALL RS1(JLVU,A1S2,VAL1,VAL2,VAL3,IK)
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1S2,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 8430
+ 8422         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      IF(JLVU.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JLVU.NE.0) CALL RS1(JLVU,A1S2,VAL1,VAL1,VAL2,IK)
+C
+              GOTO 8430
+ 8432      WRITE(*,*) ' HIT I=J IN D-U-U-U ERROR IN LOOPS'
+              GOTO 8430
+ 8442         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      IF(JKVU.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JKVU.NE.0) CALL RS1(JKVU,A1S2,VAL1,VAL1,VAL2,IL)
+C
+              GOTO 8430
+ 8452      WRITE(*,*) ' HIT CASE 5 IN D-U-U-U ERROR IN LOOPS'
+CTJL
+CTJL THIS TERM , EITHER I=J=K OR J=K=L, DOES NOT CONTRIBUTE.
+CTJL
+              GOTO 8430
+ 8462      WRITE(*,*) ' HIT CASE 6 IN D-U-U-U ERROR IN LOOPS'
+              GOTO 8430
+ 8472         CONTINUE
+      WRITE(*,*) ' I=K=J=L ERROR IN LOOPS',IOR,JOR,KOR,LOR
+CTJL          WRITE(NOUT,1100) 'I=J=K=L','NINTEENTH+1'
+CTJL   I=J=J=L DOES NOT CONTRIBUTE
+CTJL          CALL MABORT
+ 8430         CONTINUE
+ 8420       CONTINUE
+ 8410       CONTINUE
+ 8400       CONTINUE
+CTJL
+ 4430   CONTINUE
+ 4070 CONTINUE
+C
+ 540  CONTINUE
+C
+      DO 4440 IOR=NDOC,LFERM,-1
+        IO=IOFF(IOR)
+        II=IO+IOR
+        ISM=ORBSYM(IOR)
+        ITYP=1
+        DO 4450 JOR=IOR,LFERM,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+C
+          IF (IGRP.NE.IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+C
+CTJL
+        IJDC = IJDEP(IJ)
+CTJL
+          DO 4460 KOR=1,NUOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            IKSYM=IEOR((ISM-1),(KSM-1))
+            JKSYM=IEOR((JSM-1),(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+C
+C  DOC-DOC-UOC-UOC
+C
+            DO 4470 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 411
+              LSM=ORBSYM(LOR)
+              ILSYM=IEOR((ISM-1),(LSM-1))
+              JLSYM=IEOR((JSM-1),(LSM-1))
+              IF ((LSM-1) .NE. IJKSYM) GOTO 411
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+49)=JULIA(IJKLT+49)+1
+CTJL
+             KLVU = IJDEP(KL)
+CTJL
+              GOTO (212,222,232,242,252,262,272)IJKLT
+ 212          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+CGES
+C     CONSTRUCT A MATRIX ONLY IF BOTH PAIRS ARE TOTALLY SYMMETRIC
+C
+CGES  CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+CGES  CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      IF(IKSYM.EQ.0.AND.JLSYM.EQ.0)
+     .CALL GA1(IK  ,JL  ,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      IF(ILSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA1(IL  ,JK  ,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLVU.NE.0) CALL RS1(KLVU,A2,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 411
+ 222          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','EIGHTEENTH '
+              CALL MABORT
+ 232          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.ILSYM.EQ.0)
+     .CALL GA3(IK  ,IL  ,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1,VAL2,VAL1,VAL1,IJ)
+C
+              GOTO 411
+ 242          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0.AND.JKSYM.EQ.0)
+     .CALL GA4(IK  ,JK  ,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+              GOTO 411
+ 252          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','EIGHTEENTH '
+              CALL MABORT
+ 262          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKSYM.EQ.0)
+     .CALL GA6(IK  ,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+              GOTO 411
+ 272          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','EIGHTEENTH '
+              CALL MABORT
+ 411          CONTINUE
+ 4470       CONTINUE
+ 4460     CONTINUE
+          DO 4520 KOR=LFERM,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+            IKDC = IJDEP(IK)
+            JKDC = IJDEP(JK)
+CTJL
+C
+C  DOC-DOC-DOC-DOC
+C
+       ISKIP = 0
+       IF(ISKIP.EQ.1) GOTO 9220
+CTJL
+            DO 9530 LOR=LFERM,KOR
+            IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 9811
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 9811
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+56)=JULIA(IJKLT+56)+1
+CTJL
+          ILDC = IJDEP(IL)
+          JLDC = IJDEP(JL)
+          KLDC = IJDEP(KL)
+CTJL
+              GOTO (9712,9722,9732,9742,9752,9762,9772)IJKLT
+ 9712         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+CTJL
+C
+      IF(IJDC.NE.0) CALL RS1(IJDC,A2,VAL2,VAL1,VAL3,KL)
+      IF(IKDC.NE.0) CALL RS1(IKDC,A2,VAL1,VAL3,VAL2,JL)
+      IF(ILDC.NE.0) CALL RS1(ILDC,A2,VAL3,VAL1,VAL2,JK)
+      IF(JKDC.NE.0) CALL RS1(JKDC,A2,VAL3,VAL1,VAL2,IL)
+      IF(JLDC.NE.0) CALL RS1(JLDC,A2,VAL1,VAL3,VAL2,IK)
+      IF(KLDC.NE.0) CALL RS1(KLDC,A2,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 9811
+ 9722         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+CTJL
+C
+      IF(IJDC.NE.0) CALL RS1(IJDC,A2,VAL1,VAL1,VAL2,KL)
+      IF(ILDC.NE.0) CALL RS1(ILDC,A1,VAL2,VAL1,VAL1,JK)
+      IF(JLDC.NE.0) CALL RS1(JLDC,A2,VAL1,VAL1,VAL2,IK)
+C
+              GOTO 9811
+ 9732         VAL1 = INTS(LAD+1)
+              VAL2 = INTS(LAD+2)
+CTJL
+C
+      IF(IKDC.NE.0) CALL RS1(IKDC,A2,VAL1,VAL1,VAL2,JL)
+      IF(ILDC.NE.0) CALL RS1(ILDC,A2,VAL1,VAL1,VAL2,JK)
+      IF(KLDC.NE.0) CALL RS1(KLDC,A1,VAL2,VAL1,VAL1,IJ)
+C
+              GOTO 9811
+ 9742         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+CTJL
+C
+      IF(IJDC.NE.0) CALL RS1(IJDC,A1,VAL2,VAL1,VAL1,KL)
+      IF(IKDC.NE.0) CALL RS1(IKDC,A2,VAL1,VAL1,VAL2,JL)
+      IF(JKDC.NE.0) CALL RS1(JKDC,A2,VAL1,VAL1,VAL2,IL)
+C
+              GOTO 9811
+ 9752         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+CTJL
+CTJL THIS TERM , EITHER I=J=K OR J=K=L, DOES NOT CONTRIBUTE.
+CTJL
+C
+CTJL  IF(IJDC.NE.0) CALL RS1(IJDC,A1,VAL2,VAL2,VAL2,KL)
+      IF(ILDC.NE.0) CALL RS1(ILDC,A1,VAL2,VAL2,VAL2,LL)
+      IF(ILDC.NE.0) CALL RS1(ILDC,A1,VAL1,VAL1,VAL1,JK)
+C
+              GOTO 9811
+ 9762         VAL1 = INTS(LAD+1)
+              VAL2 = INTS(LAD+2)
+CTJL
+C
+      IF(IKDC.NE.0) CALL RS1(IKDC,A2,VAL1,VAL1,VAL2,JL)
+C
+              GOTO 9811
+ 9772         CONTINUE
+CTJL          WRITE(NOUT,1100) 'I=J=K=L','NINTEENTH+1'
+CTJL   I=J=J=L DOES NOT CONTRIBUTE
+CTJL          CALL MABORT
+ 9811         CONTINUE
+ 9530       CONTINUE
+ 9220       CONTINUE
+C
+C  DOC-DOC-DOC-UOC
+C
+            DO 4530 LOR=1,NUOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 811
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 811
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+63)=JULIA(IJKLT+63)+1
+              GOTO (712,722,732,742,752,762,772)IJKLT
+ 712          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      IF(IJDC.NE.0) CALL EX1(KLND,JJ,II,JOR,IOR,VAL2,VAL1,VAL3)
+      IF(IKDC.NE.0) CALL EX1(JLND,KK,II,KOR,IOR,VAL1,VAL3,VAL2)
+      IF(JKDC.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+C
+      IF(IJDC.NE.0) CALL RS1(IJDC,A1,VAL2,VAL1,VAL3,KL)
+      IF(IKDC.NE.0) CALL RS1(IKDC,A1,VAL1,VAL3,VAL2,JL)
+      IF(JKDC.NE.0) CALL RS1(JKDC,A1,VAL3,VAL1,VAL2,IL)
+C
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+              GOTO 811
+ 722          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IJDC.NE.0) CALL EX1(KLND,JJ,II,JOR,IOR,VAL1,VAL1,VAL2)
+C
+      IF(IJDC.NE.0) CALL RS1(IJDC,A1,VAL1,VAL2,VAL1,KL)
+C
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+              GOTO 811
+ 732          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      IF(IKDC.NE.0) CALL EX1(JLND,KK,II,KOR,IOR,VAL1,VAL1,VAL2)
+C
+      IF(IKDC.NE.0) CALL RS1(IKDC,A1,VAL1,VAL1,VAL2,JL)
+C
+      CALL GBD(KLND,IK,IL,VAL2,VAL1,II)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+              GOTO 811
+ 742          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','NINTEENTH  '
+              CALL MABORT
+ 752          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,II,IL,VAL1,VAL1,II)
+              GOTO 811
+ 762          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','NINETEENTH '
+              CALL MABORT
+ 772          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','NINETEENTH '
+              CALL MABORT
+ 811          CONTINUE
+ 4530       CONTINUE
+ 4520     CONTINUE
+ 4450   CONTINUE
+        DO 4580 JOR=NUOC,1,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+C
+          IF (IGRP.NE.IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+C
+C     DOC-UOC-UOC-UOC
+C
+       ISKIP2 = 0
+       IF(ISKIP2.EQ.1) GOTO 9400
+          DO 9410 KOR=1,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+            JKVU = IJDEP(JK)
+CTJL
+            DO 9420 LOR=1,KOR
+          IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO  9430
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 9430
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+56)=JULIA(IJKLT+56)+1
+          JLVU = IJDEP(JL)
+          KLVU = IJDEP(KL)
+CTJL
+              GOTO (9412,9422,9432,9442,9452,9462,9472)IJKLT
+ 9412         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+CTJL
+      IF(JKVU.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+      IF(JLVU.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL3,VAL2)
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+C
+      IF(JKVU.NE.0) CALL RS1(JKVU,A1,VAL3,VAL1,VAL2,IL)
+      IF(JLVU.NE.0) CALL RS1(JLVU,A1,VAL1,VAL3,VAL2,IK)
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 9430
+ 9422         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      IF(JLVU.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JLVU.NE.0) CALL RS1(JLVU,A1,VAL1,VAL2,VAL1,IK)
+C
+              GOTO 9430
+ 9432      WRITE(*,*) ' HIT I=J IN D-U-U-U ERROR IN LOOPS'
+              GOTO 9430
+ 9442         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      IF(JKVU.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JKVU.NE.0) CALL RS1(JKVU,A1,VAL1,VAL2,VAL1,IL)
+C
+              GOTO 9430
+ 9452      WRITE(*,*) ' HIT CASE 5 IN D-U-U-U ERROR IN LOOPS'
+CTJL
+CTJL THIS TERM , EITHER I=J=K OR J=K=L, DOES NOT CONTRIBUTE.
+CTJL
+              GOTO 9430
+ 9462      WRITE(*,*) ' HIT CASE 6 IN D-U-U-U ERROR IN LOOPS'
+CTJL
+              GOTO 9430
+ 9472         CONTINUE
+      WRITE(*,*) ' I=K=J=L ERROR IN LOOPS',IOR,JOR,KOR,LOR
+CTJL          WRITE(NOUT,1100) 'I=J=K=L','NINTEENTH+1'
+CTJL   I=J=J=L DOES NOT CONTRIBUTE
+CTJL          CALL MABORT
+ 9430         CONTINUE
+ 9420       CONTINUE
+ 9410       CONTINUE
+ 9400       CONTINUE
+CTJL
+ 4580   CONTINUE
+ 4440 CONTINUE
+CC    JT4=104
+CC    CALL SREW(JT4)
+C     WRITE(*,*) ' THE A AND B MATRICES BEFORE ADDING EPA '
+C     CALL MATOUT(A,IJIND2,IJIND3,IJIND2,IJIND3,NOUT)
+      IEA=2*NDF+NBSET*NDF+1
+      ISEA=JT1C(IEA)
+      DO 4590 II=1,NDF
+        CALL WREADW(IT94,EPA,INTOWP(NORBS*NORBS),ISEA,ISEA)
+        IF (IAND(IPRINT,256) .NE. 0) THEN
+          WRITE(NOUT,3014) II,ISEA
+ 3014     FORMAT(/'  EPA FOR DEGREE ',I5,'  AS READ FROM ADDRESS ',I8)
+          CALL MATOUT(EPA,NORBS,NORBS,NORBS,NORBS,NOUT)
+        END IF
+        IJ=0
+        DO 4600 I=1,NORBS
+          DO 4610 J=1,I
+            IJ=IJ+1
+            INDEX=IJORD(IJ)
+            IF(INDEX.NE.0)THEN
+CGES     A(INDEX,II+IJIND2)=A(INDEX,II+IJIND2)-A2*(EPA(I,J)-EPA(J,I))
+         A(INDEX,II       )=A(INDEX,II       )-A2*(EPA(I,J)-EPA(J,I))
+            END IF
+ 4610     CONTINUE
+ 4600   CONTINUE
+ 4590 CONTINUE
+CTJL
+CTJLNEW
+C       WRITE(*,*) ' THE AVERAGED FOCK OPERATOR FOCK MATRIX '
+C       CALL PRINT(EAVF,NUMIJ,NORBS,NOUT)
+        DO 9750 IDF = 1,NDF
+        DO 9760 I = 1,NBF
+         IO = IOFF(I)
+         II = IO + I
+         DO 9770 J = 1,I
+         JO = IOFF(J)
+          JJ = JO + J
+          IJ = IO + J
+          IJDC = IJDEP(IJ)
+          IF(IJDC.EQ.0) GOTO 9770
+C         DO 9780 M = 1,NUOC
+C         MI = IO + M
+C         MJ = JO + M
+C         RS(IJDC,IDF) = RS(IJDC,IDF) + (S(MI,IDF)*EAVF(MJ) +
+C    1  S(MJ,IDF)*EAVF(MI))
+C         WRITE(*,*) ' IN VIRTUAL PART; I,J,M,MI,MJ,F1,F2 '
+C         WRITE(*,*) I,J,M,MI,MJ,EAVF(MI),EAVF(MJ)
+ 9780     CONTINUE
+          IF(NOP.EQ.0) GOTO 9771
+          DO 9790 M = NOP,NBF
+          MO = IOFF(M)
+          MI = MO + I
+          MJ = MO + J
+          RS(IJDC,IDF) = RS(IJDC,IDF) + (S(MI,IDF)*EAVF(MJ) +
+     1  S(MJ,IDF)*EAVF(MI))
+ 9790     CONTINUE
+ 9771     CONTINUE
+          IF(NSPE.EQ.0) GOTO 9770
+          DO 9791 M = NSA,NBF
+          MO = IOFF(M)
+          MI = MO + I
+          MJ = MO + J
+          RS(IJDC,IDF) = RS(IJDC,IDF) + (S(MI,IDF)*EAVF(MJ) +
+     1  S(MJ,IDF)*EAVF(MI))
+ 9791     CONTINUE
+ 9770     CONTINUE
+ 9760     CONTINUE
+ 9750     CONTINUE
+CTJLOLD
+C     WRITE(*,*) ' BEFORE END ',IJIND
+      ISEA = 1
+      DO 5590 IDF=1,NDF
+        CALL WREADW(IT96,LSTEPA,INTOWP(NUMIJ),ISEA,ISEA)
+CTJL      WRITE(*,*) ' IT96,ISEA ',IT96,ISEA
+CTJL    CALL PRINT(LSTEPA,NUMIJ,NORBS,NOUT)
+        DO 9600 I = 1,NBF
+         IO = IOFF(I)
+         II = IO + I
+         DO 9610 J = 1,I
+         JO = IOFF(J)
+          JJ = JO + J
+          IJ = IO + J
+          IJDC = IJDEP(IJ)
+          IF(IJDC.EQ.0) GOTO 9610
+          EFAC = A1/(EAVF(JJ)-EAVF(II))
+          SFAC = (EAVF(II)+EAVF(JJ))*(-EFAC)
+          XFAC = (LG(J,I)-LG(I,J))
+          BOX(IDF)=BOX(IDF)+XFAC*((A2*LSTEPA(IJ)-RS(IJDC,IDF))*EFAC +
+     1 SFAC*S(IJ,IDF))
+CTJL      WRITE(*,*) ' IT96,ISEA ',IT96,ISEA
+ 9650     CONTINUE
+ 9610     CONTINUE
+ 9600     CONTINUE
+ 5590 CONTINUE
+CTJL
+CTJL
+      CALL ZERO(EX2,IJIND)
+      I = 0
+      IF(I.EQ.1) RETURN
+        DO 9660 I = 1,NBF
+         IO = IOFF(I)
+         II = IO + I
+         DO 9670 J = 1,I
+         JO = IOFF(J)
+          JJ = JO + J
+          IJ = IO + J
+          IJDC = IJDEP(IJ)
+          IF(IJDC.EQ.0) GOTO 9670
+          EFAC = A1/(EAVF(JJ)-EAVF(II))
+          XFAC = (LG(J,I)-LG(I,J))*EFAC
+CTJL      WRITE(*,*) ' IN ALPHA PART; EFAC,XFAC ',EFAC,XFAC
+C         DO 9680 M = 1,NUOC
+C         MI = IO + M
+C         MJ = JO + M
+C         MJND = IJORD(MJ)
+C         MIND = IJORD(MI)
+C         EX2(MJND) = EX2(MJND) - XFAC*EAVF(MI)
+C         EX2(MIND) = EX2(MIND) - XFAC*EAVF(MJ)
+CTJL      WRITE(*,*) ' IN VIRTUAL PART; M,EX2 ',M,EX2(MJND),EX2(MIND)
+C9680     CONTINUE
+CTJL      WRITE(*,*) ' IN EX2 PART ; NOP,NBF ',NOP,NBF
+          IF(NOP.EQ.0) GOTO 9671
+          DO 9690 M = NOP,NBF
+          MO = IOFF(M)
+          MI = MO + I
+          MJ = MO + J
+          MJND = IJORD(MJ)
+          MIND = IJORD(MI)
+          EX2(MJND) = EX2(MJND) + XFAC*EAVF(MI)
+          EX2(MIND) = EX2(MIND) + XFAC*EAVF(MJ)
+CTJL      WRITE(*,*) ' IN ALPHA PART; M,EX2 ',M,EX2(MJND),EX2(MIND)
+ 9690     CONTINUE
+ 9671     CONTINUE
+          IF(NSPE.EQ.0) GOTO 9670
+          DO 9691 M = NSA,NBF
+          MO = IOFF(M)
+          MI = MO + I
+          MJ = MO + J
+          MJND = IJORD(MJ)
+          MIND = IJORD(MI)
+          EX2(MJND) = EX2(MJND) + XFAC*EAVF(MI)
+          EX2(MIND) = EX2(MIND) + XFAC*EAVF(MJ)
+CTJL      WRITE(*,*) ' IN ALPHA PART; M,EX2 ',M,EX2(MJND),EX2(MIND)
+ 9691     CONTINUE
+ 9670     CONTINUE
+ 9660     CONTINUE
+C     WRITE(*,*) ' THE A AND B MATRICES AS CONSTRUCTED IN GETINT '
+C     CALL MATOUT(A,IJIND2,IJIND3,IJIND2,IJIND3,NOUT)
+CTJL  CALL MATOUT(B0,IJIND,NDF,IJIND,NDF,NOUT)
+      RETURN
+CTJL
+ 9902 CONTINUE
+      WRITE(NOUT,2005)LAD
+      CALL MABORT
+ 9903 CONTINUE
+      WRITE(NOUT,2)IJKLT,IOR,JOR,KOR,LOR,IBF,JBF,KBF,LBF,ISM,JSM,KSM,LSM
+      CALL MABORT
+CTJL
+      END
+      SUBROUTINE GTINTS(A,ETA,ZETA,F,ALPHA,BETA,IJORD,KADD,LADD,
+     1IJADD,IJGRP,ORBSYM,INTS,S,EPA,JT1C,IOFF,EX,RS,LG,IJDEP,BOX,
+     2EAVF,LSTEPA)
+      IMPLICIT INTEGER (A-Z)
+      LOGICAL IJEQ,IJKEQ,JKEQ
+      INTEGER XDF,N112(112),JULIA(70),IJDEP(NUMIJ)
+      REAL*8 A0,A1,A2,A1S2,A4,FOCC,BOX(NDF),A3S2
+      REAL*8 EAVF(NUMIJ),LSTEPA(NUMIJ)
+      DIMENSION IJORD(NUMIJ),KADD(SYMORB),LADD(SYMORB),JT1C(1)
+      DIMENSION ORBSYM(NORBS),IJADD(NUMIJ),IJGRP(NUMIJ)
+      DIMENSION IOFF(NUMIJ)
+      REAL*8 A(IJIND,IJIND3),F(NORBS),INTS(NMAX),LG(NORBS,NORBS)
+     1,S(NUMIJ,NDF),EPA(NORBS,NORBS),EX(IJIND),RS(NUMDEP,NDF)
+      REAL*8 ZETA(NUMIJ,NORBS),ALPHA(NUMIJ),BETA(NUMIJ)
+      REAL*8 C1A,C2A,C1,C2
+      REAL*8 VAL1,VAL2,VAL3,ETA(NUMIJ),ESCF,REPNUC
+      COMMON /CIA/ C1A(45),C2A(45),C1,C2,ESCF
+C!!!  COMMON /TAPES/     ,   ,NOUT,IT2,    ,JTAP1,     ,  OLD TAPES USED
+C!!!  COMMON /TAPES/ IT22,IT8,NOUT,IT2,IT42,JTAP1,IUTAP,JTAP2
+      COMMON /TAPES/ NOUT,ICHK,IT30,IT42,IT47,IT52,IT58,IT94,IT96,IT98
+      COMMON /DIMSG/ SYMORB,NUMIJ,NBF,NMAX,NBFORB,NSYM,NDF,NORBS
+      COMMON /POINT/ FOCC(5),IPOINT(5),JPOINT(5),NSORB(5)
+      COMMON /FUNCS/ IOCC,JOCC,KOCC,NTYPES,NBSET,NAT
+      COMMON /OCCS/ NSPE,NSA,NSB,NALP,NOP,NDOC,LFERM,NUOC,IJIND,IJIND3
+      COMMON/OCCS2/NUMCOR,NCOR,FDOC,CORDOC,NUMVIR,FVIR,LUOC,NUMDEP,VUOC
+      COMMON /LOC22/ IA22(100),IBF2AT(284)
+      COMMON /IEXT/ IPRINT,IGRP,ICIDIP
+      COMMON /REN/ REPNUC
+C
+ 3001 FORMAT(10I5)
+ 1100 FORMAT(/'  IN THE CONSTRUCTION OF THE A MATRIX, THE CASE ',A7
+     * /'  IS NOT POSSIBLE IN THE ',A11,'  SET OF LOOPS.'/'  ERROR
+     * IN LOOP STRUCTURE SOMEWHERE.')
+   2  FORMAT(/'  IN GTINT2, IJKLT UNKNOWN TYPE ',I5/'  ORBITALS: ',4I5
+     * /'  BASIS FUNCTIONS: ',4I5/,'  SYMMETRIES: ',4I5)
+ 2005 FORMAT(/'  IN GTINT2, LAD TOO BIG: ',I6)
+      IJIND2=IJIND
+      A0=0.0D+00
+      A1=1.0D+00
+      A2=2.0D+00
+      A4=4.00D+00
+      A1S2=0.50D+00
+      A3S2=1.50D+00
+C
+C THIS IS THE BEGINNING OF THE SECOND PART OF GETINT TJL 11/24/84
+C
+      IF (NSPE.EQ.0) RETURN
+      DO 3400 IOR=NSB,NSA,-1
+        IO=IOFF(IOR)
+        II=IO+IOR
+        ISM=ORBSYM(IOR)
+        ITYP=1
+        DO 3410 JOR=IOR,NSA,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+          IF (IGRP .NE. IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+          DO 3420 KOR=1,NUOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+C      I1FL = 0
+C      IF(I1FL.EQ.1) GOTO 3431
+            DO 3430 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 303
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 303
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+CTJL
+         KLVU = IJDEP(KL)
+CTJL
+C
+C     SPE-SPE-UOC-UOC
+C
+              GOTO (13,23,33,43,53,63,73)IJKLT
+ 13           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 303
+ 23           CONTINUE
+              WRITE(NOUT,2012)
+ 2012         FORMAT(/     '  IN CONSTRUCTON OF A, J=K IS NOT POSSIBLE I
+     *N THE FIRST SET OF LOOPS'/'  ERROR IN LOOPS SOMEWHERE')
+              CALL MABORT
+ 33           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1S2,VAL2,VAL1,VAL1,IJ)
+C
+              GOTO 303
+ 43           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 303
+ 53           CONTINUE
+              WRITE(NOUT,2013)
+ 2013         FORMAT(/     '  IN CONSTRUCTON OF THE A MATRIX, I=J=K IS N
+     *OT POSSIBLE DO THE FIRST SET OF LOOPS'/'  ERROR IN LOOPS SOMEWHERE
+     *')
+              CALL MABORT
+ 63           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA6(IKND,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+C
+              GOTO 303
+ 73           CONTINUE
+              WRITE(NOUT,2014)
+ 2014         FORMAT(/     '  IN CONSTRUCTON OF THE A MATRIX,I=J=K=L IS
+     *NOT POSSIBLE DO THE FIRST SET OF LOOPS'/'  ERROR IN LOOPS SOMEWHER
+     *E')
+              CALL MABORT
+ 303          CONTINUE
+ 3430       CONTINUE
+C3431 CONTINUE
+ 3420     CONTINUE
+          DO 3480 KOR=LFERM,NDOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+       I2FL = 0
+       IF(I2FL.EQ.1) GOTO 3491
+            DO 3490 LOR=1,NUOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 304
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 304
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C   SPE-SPE-DOC-UOC
+C
+              GOTO (14,24,34,44,54,64,74)IJKLT
+ 14           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+              GOTO 304
+ 24           CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','SECOND     '
+              CALL MABORT
+  34          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GBD(KLND,IK,IL,VAL2,VAL1,II)
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+              GOTO 304
+ 44           CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','SECOND     '
+              CALL MABORT
+ 54           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','SECOND     '
+              CALL MABORT
+ 64           CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','SECOND     '
+              CALL MABORT
+ 74           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','SECOND     '
+              CALL MABORT
+ 304          CONTINUE
+ 3490       CONTINUE
+ 3491 CONTINUE
+CTJL
+       I3FL = 0
+       IF(I3FL.EQ.1) GOTO 3521
+            DO 3520 LOR=LFERM,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 305
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 305
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+CTJL
+         KLDC = IJDEP(KL)
+CTJL
+C
+C    SPE-SPE-DOC-DOC
+C
+              GOTO (15,25,35,45,55,65,75)IJKLT
+ 15           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLDC.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+      IF(KLDC.NE.0) CALL RS1(KLDC,A1,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 305
+ 25           CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','THIRD      '
+              CALL MABORT
+ 35           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+      IF(KLDC.NE.0) CALL RS1(KLDC,A1S2,VAL2,VAL1,VAL1,IJ)
+C
+              GOTO 305
+ 45           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 305
+ 55           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','THIRD     '
+              CALL MABORT
+ 65           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA6(IKND,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+C
+              GOTO 305
+ 75           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','THIRD     '
+              CALL MABORT
+ 305          CONTINUE
+ 3520       CONTINUE
+ 3521 CONTINUE
+ 3480     CONTINUE
+          IF(IAND(IPRINT,1024).NE.0) WRITE(NOUT,1505)
+ 1505     FORMAT(/'  ABOUT TO JUMP TO 520')
+C
+          IF (NALP.EQ.0) GOTO 520
+C
+          DO 3570 KOR=NOP,NALP
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+            DO 3580 LOR=1,NDOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 306
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 306
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C    SPE-SPE-ALP-UOC/DOC
+C
+              GOTO (16,26,36,46,56,66,76)IJKLT
+ 16           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+              GOTO 306
+ 26           CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','FOURTH     '
+              CALL MABORT
+  36          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GBD(KLND,IK,IL,VAL2,VAL1,II)
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+              GOTO 306
+ 46           CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','FOURTH     '
+              CALL MABORT
+ 56           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','FOURTH     '
+              CALL MABORT
+ 66           CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','FOURTH     '
+              CALL MABORT
+ 76           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','FOURTH     '
+              CALL MABORT
+ 306          CONTINUE
+ 3580       CONTINUE
+            DO 3610 LOR=NOP,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 307
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 307
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C     SPE-SPE-ALP-ALP
+C
+              GOTO (17,27,37,47,57,67,77)IJKLT
+ 17           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+              GOTO 307
+ 27           CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','FIFTH      '
+              CALL MABORT
+ 37           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+              GOTO 307
+ 47           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 307
+ 57           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','FIFTH     '
+              CALL MABORT
+ 67           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA6(IKND,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+C
+              GOTO 307
+ 77           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','FIFTH     '
+              CALL MABORT
+ 307          CONTINUE
+ 3610       CONTINUE
+ 3570     CONTINUE
+C
+ 520      CONTINUE
+          DO 3660 KOR=NSA,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+       I6FL = 0
+       IF(I6FL.EQ.1) GOTO 3671
+            DO 3670 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 508
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 508
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C       SPE-SPE-SPE-UOC/DOC/ALP/SPE
+C
+              GOTO (518,528,538,548,558,568,578)IJKLT
+518           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+              GOTO 508
+528           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA2(IJND,JLND,IL,JL,IJ,JJ,VAL1,VAL2,JOR)
+C
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+      CALL GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+C
+              GOTO 508
+538           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C
+      CALL GBD(KLND,IK,IL,VAL2,VAL1,II)
+      CALL GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+      CALL GB3(ILND,IK,KL,II,IL,VAL1,VAL2,IK,IOR)
+C
+              GOTO 508
+548           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 508
+558           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,II,IL,VAL1,VAL1,II)
+      IF(LOR.GT.NUOC) CALL GBD(ILND,IL,LL,VAL2,VAL2,LL)
+C
+              GOTO 508
+568           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA6(IKND,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C
+      CALL GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+C
+              GOTO 508
+578           CONTINUE
+C  THIS TYPE (I=J=K=L) DOES NOT CONTRIBUTE
+ 508          CONTINUE
+ 3670       CONTINUE
+ 3671 CONTINUE
+ 3660     CONTINUE
+ 3410   CONTINUE
+C
+        IF (NALP.EQ.0) GOTO 530
+        DO 3740 JOR=NALP,NOP,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+          IF (IGRP .NE. IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+          DO 3750 KOR=1,NUOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+            DO 3760 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 309
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 309
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+CTJL
+         KLVU = IJDEP(KL)
+CTJL
+C
+C    SPE-ALP-UOC-UOC
+C
+              GOTO (19,29,39,49,59,69,79)IJKLT
+ 19           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 309
+ 29           CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','SEVENTH    '
+              CALL MABORT
+ 39           CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','SEVENTH    '
+              CALL MABORT
+ 49           VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 309
+ 59           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','SEVENTH    '
+              CALL MABORT
+ 69           CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','SEVENTH    '
+              CALL MABORT
+ 79           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','SEVENTH    '
+              CALL MABORT
+ 309          CONTINUE
+ 3760       CONTINUE
+ 3750     CONTINUE
+          DO 3790 KOR=LFERM,NDOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+            DO 3800 LOR=1,NUOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 401
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 401
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C    SPE-ALP-DOC-UOC
+C
+              GOTO (111,121,131,141,151,161,171)IJKLT
+ 111          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+              GOTO 401
+ 121          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','EIGHTH     '
+              CALL MABORT
+ 131          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','EIGHTH     '
+              CALL MABORT
+ 141          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','EIGHTH     '
+              CALL MABORT
+ 151          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','EIGHTH     '
+              CALL MABORT
+ 161          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','EIGHTH     '
+              CALL MABORT
+ 171          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','EIGHTH     '
+              CALL MABORT
+ 401          CONTINUE
+ 3800       CONTINUE
+            DO 3820 LOR=LFERM,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 402
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 402
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+CTJL
+         KLDC = IJDEP(KL)
+CTJL
+C
+C   SPE-ALP-DOC-DOC
+C
+              GOTO (112,122,132,142,152,162,172)IJKLT
+ 112          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLDC.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+      IF(KLDC.NE.0) CALL RS1(KLDC,A1,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 402
+ 122          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','NINTH      '
+              CALL MABORT
+ 132          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','NINTH      '
+              CALL MABORT
+ 142          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 402
+152           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','NINTH      '
+              CALL MABORT
+162           CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','NINTH      '
+              CALL MABORT
+172           CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','NINTH      '
+              CALL MABORT
+ 402          CONTINUE
+ 3820       CONTINUE
+ 3790     CONTINUE
+C
+          DO 3850 KOR=NOP,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+            DO 3860 LOR=1,NDOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 403
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 403
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C     SPE-ALP-ALP-UOC/DOC
+C
+              GOTO (113,123,133,143,153,163,173)IJKLT
+ 113          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 403
+ 123          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA2(IJND,JLND,IL,JL,IJ,JJ,VAL1,VAL2,JOR)
+C
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+      CALL GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+C
+              GOTO 403
+ 133          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','TENTH      '
+              CALL MABORT
+ 143          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','TENTH      '
+              CALL MABORT
+ 153          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','TENTH      '
+              CALL MABORT
+ 163          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','TENTH      '
+              CALL MABORT
+ 173          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','TENTH      '
+              CALL MABORT
+ 403          CONTINUE
+ 3860       CONTINUE
+C
+            DO 3890 LOR=NOP,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 603
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 603
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C    SPE-ALP-ALP-ALP
+C
+              GOTO (613,623,633,643,653,663,673)IJKLT
+ 613          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+C
+              GOTO 603
+ 623          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+C
+              GOTO 603
+ 633          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','TENTH+1    '
+              CALL MABORT
+ 643          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+C
+              GOTO 603
+ 653          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','TENTH+1    '
+              CALL MABORT
+ 663          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','TENTH+1    '
+              CALL MABORT
+ 673          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','TENTH+1    '
+              CALL MABORT
+ 603          CONTINUE
+ 3890       CONTINUE
+ 3850     CONTINUE
+ 3740   CONTINUE
+C
+ 530    CONTINUE
+C
+        DO 3930 JOR=NDOC,LFERM,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+          IF (IGRP .NE. IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+          DO 3940 KOR=1,NUOC
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+       I12FL = 0
+       IF(I12FL.EQ.1) GOTO 3951
+            DO 3950 LOR=1,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 404
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 404
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+CTJL
+         KLVU = IJDEP(KL)
+CTJL
+C
+C   SPE-DOC-UOC-UOC
+C
+              GOTO (114,124,134,144,154,164,174)IJKLT
+ 114          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+      CALL GA1(ILND,JKND,IK,KL,IJ,JL,VAL3,VAL2,VAL1)
+C
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(JKND,IJ,IK,JL,KL,VAL3,VAL2,VAL1,IL)
+C
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+      IF(KLVU.NE.0) CALL RS1(KLVU,A3S2,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 404
+ 124          CONTINUE
+              WRITE(NOUT,1100) 'J=K    ','ELEVENTH   '
+              CALL MABORT
+ 134          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','ELEVENTH   '
+              CALL MABORT
+ 144          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+      CALL GB4(JKND,JK,KK,IJ,IK,VAL1,VAL2,IK,KOR)
+C
+              GOTO 404
+ 154          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','ELEVENTH   '
+              CALL MABORT
+ 164          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','ELEVENTH   '
+              CALL MABORT
+ 174          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','ELEVENTH   '
+              CALL MABORT
+ 404          CONTINUE
+ 3950       CONTINUE
+ 3951 CONTINUE
+ 3940     CONTINUE
+          DO 3980 KOR=LFERM,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+         JKDC = IJDEP(JK)
+CTJL
+       I13FL = 0
+       IF(I13FL.EQ.1) GOTO 3991
+            DO 3990 LOR=1,NUOC
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 405
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 405
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+C
+C   SPE-DOC-DOC-UOC
+C
+              GOTO (115,125,135,145,155,165,175)IJKLT
+ 115          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+C
+      CALL GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+      CALL GA1(IKND,JLND,IL,KL,IJ,JK,VAL1,VAL2,VAL3)
+C
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(JLND,JK,KL,IJ,IL,VAL1,VAL2,VAL3,IK)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+      CALL GB1(KLND,IK,IL,JK,JL,VAL2,VAL1,VAL3,IJ)
+C
+      IF(JKDC.NE.0) CALL RS1(JKDC,A1S2,VAL3,VAL1,VAL2,IL)
+      IF(JKDC.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+C
+              GOTO 405
+ 125          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+C
+      CALL GA2(IJND,JLND,IL,JL,IJ,JJ,VAL1,VAL2,JOR)
+C
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+C
+              GOTO 405
+ 135          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','TWELVTH    '
+              CALL MABORT
+ 145          CONTINUE
+              WRITE(NOUT,1100) 'K=L    ','TWELVTH    '
+              CALL MABORT
+ 155          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K  ','TWELVTH    '
+              CALL MABORT
+ 165          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','TWELVTH    '
+              CALL MABORT
+ 175          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','TWELVTH    '
+              CALL MABORT
+ 405          CONTINUE
+ 3990       CONTINUE
+ 3991 CONTINUE
+CTJL
+       I14FL = 0
+       IF(I14FL.EQ.1) GOTO 4021
+            DO 4020 LOR=LFERM,KOR
+         IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO 605
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 605
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+CTJL
+         JLDC = IJDEP(JL)
+         KLDC = IJDEP(KL)
+CTJL
+C
+C    SPE-DOC-DOC-DOC
+C
+              GOTO (615,625,635,645,655,665,675)IJKLT
+ 615          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+      CALL GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+      CALL GB1(IKND,IL,KL,IJ,JK,VAL1,VAL2,VAL3,JL)
+      CALL GB1(ILND,IJ,JL,IK,KL,VAL3,VAL2,VAL1,JK)
+C
+      IF(JKDC.NE.0) CALL RS1(JKDC,A2,VAL3,VAL1,VAL2,IL)
+      IF(JLDC.NE.0) CALL RS1(JLDC,A2,VAL1,VAL1,VAL2,IK)
+      IF(KLDC.NE.0) CALL RS1(KLDC,A2,VAL2,VAL1,VAL3,IJ)
+      IF(JKDC.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+      IF(JLDC.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL3,VAL2)
+      IF(KLDC.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+C
+              GOTO 605
+ 625          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(ILND,IJ,JL,VAL2,VAL1,JJ)
+      CALL GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+C
+      IF(JLDC.NE.0) CALL RS1(JLDC,A1,VAL1,VAL1,VAL2,IK)
+      IF(JLDC.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+              GOTO 605
+ 635          CONTINUE
+              WRITE(NOUT,1100) 'I=J    ','TWELVTH+1  '
+              CALL MABORT
+ 645          VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      CALL GBD(IJND,IK,JK,VAL2,VAL1,KK)
+      CALL GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+C
+      IF(JKDC.NE.0) CALL RS1(JKDC,A1,VAL1,VAL1,VAL2,IL)
+      IF(JLDC.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+              GOTO 605
+ 655       CONTINUE
+C THERE IS NO CONTRIBUTION HERE; DONE IN SPE-SPE-SPE-ALL SECTION
+              WRITE(NOUT,1100) 'I=J=K  ','TWELVTH+1  '
+              CALL MABORT
+              GOTO 605
+ 665          CONTINUE
+              WRITE(NOUT,1100) 'I=J;K=L','TWELVTH+1  '
+              CALL MABORT
+ 675          CONTINUE
+              WRITE(NOUT,1100) 'I=J=K=L','TWELVTH    '
+              CALL MABORT
+ 605          CONTINUE
+ 4020       CONTINUE
+ 4021 CONTINUE
+ 3980     CONTINUE
+ 3930   CONTINUE
+C     SKIP I,UOC,UOC,UOC PART
+        DO 4060 JOR=NUOC,1,-1
+          JO=IOFF(JOR)
+          IJ=IO+JOR
+          JJ=JO+JOR
+          IJND=IJORD(IJ)
+          JSM=ORBSYM(JOR)
+          IJEQ=IOR.EQ.JOR
+          IJT=ITYP
+          IF (IJEQ) IJT=IJT+2
+          IJSYM=IEOR((ISM-1),(JSM-1))
+          KOFF=IJSYM*NORBS
+          JAD=IJADD(IJ)
+CTJL
+       I20FL = 0
+       IF(I20FL.EQ.1) GOTO 8411
+C
+          IF(IGRP.NE.IJGRP(IJ)) THEN
+            CALL SREAD(IT52,INTS,NMAX*2)
+            SRIN=SRIN+NMAX*2/112
+            IGRP=IJGRP(IJ)
+          END IF
+C
+          DO 8410 KOR=1,JOR
+            KO=IOFF(KOR)
+            IK=IO+KOR
+            JK=JO+KOR
+            KK=KO+KOR
+            IKND=IJORD(IK)
+            JKND=IJORD(JK)
+            KSM=ORBSYM(KOR)
+            JKEQ=JOR.EQ.KOR
+            IJKT=IJT
+            IF (JKEQ) IJKT=IJKT+1
+            IJKEQ=IJEQ.AND.JKEQ
+            IJKSYM=IEOR(IJSYM,(KSM-1))
+            LOFF=IJKSYM*NORBS
+            KAD=JAD+KADD(KOFF+KOR)
+CTJL
+            JKVU = IJDEP(JK)
+CTJL
+C
+C     SPE-UOC-UOC-UOC
+C
+            DO 8420 LOR=1,KOR
+          IF (JOR.EQ.KOR .AND. KOR.EQ.LOR .AND. LOR.LT.IOR) GOTO  8430
+              LSM=ORBSYM(LOR)
+              IF ((LSM-1) .NE. IJKSYM) GOTO 8430
+              LO=IOFF(LOR)
+              IL=IO+LOR
+              JL=JO+LOR
+              KL=KO+LOR
+              LL=LO+LOR
+              ILND=IJORD(IL)
+              JLND=IJORD(JL)
+              KLND=IJORD(KL)
+              IJKLT=IJKT
+              IF (IJKEQ .AND. KOR.GT.LOR) IJKLT=IJKLT+1
+              IF (KOR.EQ.LOR) IJKLT=IJKLT+3
+              LAD=KAD+LADD(LOFF+LOR)
+              IF (IJKLT.GT.7 .OR. IJKLT.LT.1) GOTO 9903
+              IF (LAD .GT. NMAX) GOTO 9902
+              JULIA(IJKLT+56)=JULIA(IJKLT+56)+1
+CTJL
+          JLVU = IJDEP(JL)
+          KLVU = IJDEP(KL)
+CTJL
+              GOTO (8412,8422,8432,8442,8452,8462,8472)IJKLT
+ 8412         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+              VAL3=INTS(LAD+3)
+CTJL
+      IF(JKVU.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL3,VAL1,VAL2)
+      IF(JLVU.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL3,VAL2)
+      IF(KLVU.NE.0) CALL EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+C
+      IF(JKVU.NE.0) CALL RS1(JKVU,A1S2,VAL3,VAL2,VAL1,IL)
+      IF(JLVU.NE.0) CALL RS1(JLVU,A1S2,VAL1,VAL2,VAL3,IK)
+      IF(KLVU.NE.0) CALL RS1(KLVU,A1S2,VAL2,VAL1,VAL3,IJ)
+C
+              GOTO 8430
+ 8422         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      IF(JLVU.NE.0) CALL EX1(IKND,LL,JJ,LOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JLVU.NE.0) CALL RS1(JLVU,A1S2,VAL1,VAL1,VAL2,IK)
+C
+              GOTO 8430
+ 8432      WRITE(*,*) ' HIT I=J IN D-U-U-U ERROR IN LOOPS'
+              GOTO 8430
+ 8442         VAL1=INTS(LAD+1)
+              VAL2=INTS(LAD+2)
+      IF(JKVU.NE.0) CALL EX1(ILND,KK,JJ,KOR,JOR,VAL1,VAL1,VAL2)
+C
+      IF(JKVU.NE.0) CALL RS1(JKVU,A1S2,VAL1,VAL1,VAL2,IL)
+C
+              GOTO 8430
+ 8452      WRITE(*,*) ' HIT CASE 5 IN D-U-U-U ERROR IN LOOPS'
+CTJL
+CTJL THIS TERM , EITHER I=J=K OR J=K=L, DOES NOT CONTRIBUTE.
+CTJL
+              GOTO 8430
+ 8462      WRITE(*,*) ' HIT CASE 6 IN D-U-U-U ERROR IN LOOPS'
+              GOTO 8430
+ 8472         CONTINUE
+      WRITE(*,*) ' I=K=J=L ERROR IN LOOPS',IOR,JOR,KOR,LOR
+CTJL          WRITE(NOUT,1100) 'I=J=K=L','NINTEENTH+1'
+CTJL   I=J=J=L DOES NOT CONTRIBUTE
+CTJL          CALL MABORT
+ 8430         CONTINUE
+ 8420       CONTINUE
+ 8410       CONTINUE
+ 8411   CONTINUE
+ 4060   CONTINUE
+ 3400 CONTINUE
+CTJL
+CTJL  WRITE(*,*) ' THE A AND B MATRICES AFTER GTINTS '
+C     CALL MATOUT(A,IJIND2,IJIND3,IJIND2,IJIND3,NOUT)
+C
+      RETURN
+CTJL
+ 9902 CONTINUE
+      WRITE(NOUT,2005)LAD
+      CALL MABORT
+ 9903 CONTINUE
+      WRITE(NOUT,2)IJKLT,IOR,JOR,KOR,LOR,IBF,JBF,KBF,LBF,ISM,JSM,KSM,LSM
+      CALL MABORT
+CTJL
+      END
+      SUBROUTINE GETA(A,EPS,ZETA,ALPHA,BETA,DOFF,DADD,IDIM,IDIMA)
+      IMPLICIT INTEGER (A-Z)
+      INTEGER DOFF(IDIM),DADD(IDIM)
+      REAL*8 A(IDIMA),EPS(NUMIJ),ZETA(NUMIJ,NORBS)
+      REAL*8 ALPHA(NUMIJ),BETA(NUMIJ)
+      REAL*8 A2,VAL1,VAL2,VAL3
+      COMMON /TAPES/ NOUT,ICHK,IT30,IT42,IT47,IT52,IT58,IT94,IT96,IT98
+      COMMON /DIMSG/ SYMORB,NUMIJ,NBF,NMAX,NBFORB,NSYM,NDF,NORBS
+      COMMON /OCCS/ NSPE,NSA,NSB,NALP,NOP,NDOC,LFERM,NUOC,IJIND,IJIND3
+      DATA A2 /2.0D+00/
+C
+C INITIALIZATION OF SUROUTINE GETA.
+C
+      RETURN
+C
+      ENTRY GA1(IJND,KLND,IL,JL,IK,JK,VAL2,VAL1,VAL3)
+C
+C     WRITE(*,*)'ENTRY GA1'
+      IJKL=DOFF(IJND)+DADD(KLND)
+      A(IJKL) = A2*(ALPHA(IL)-ALPHA(JL)-ALPHA(IK)+ALPHA(JK))*
+     1  VAL2 + (BETA(IL)-BETA(JL)-BETA(IK)+BETA(JK))*(VAL3+VAL1)
+      KLIJ=DOFF(KLND)+DADD(IJND)
+      A(KLIJ) = A(IJKL)
+C     A(KLND,IJND) = A(IJND,KLND)
+      RETURN
+C
+      ENTRY GA2(IJND,JLND,IL,JL,IJ,JJ,VAL1,VAL2,JOR)
+C     WRITE(*,*)'ENTRY GA2'
+C
+      IJJL=DOFF(IJND)+DADD(JLND)
+      A(IJJL) = A2*(ALPHA(IL)-ALPHA(JL)-ALPHA(IJ)+ALPHA(JJ))*
+     1  VAL1 + (BETA(IL)-BETA(JL)-BETA(IJ)+BETA(JJ))*(VAL2+VAL1)
+     2  -EPS(IL) + ZETA(IL,JOR)
+      JLIJ=DOFF(JLND)+DADD(IJND)
+      A(JLIJ) = A(IJJL)
+C     A(JLND,IJND) = A(IJND,JLND)
+      RETURN
+C
+      ENTRY GA3(IKND,ILND,IL,KL,II,IK,VAL1,VAL2,IOR)
+C     WRITE(*,*)'ENTRY GA3'
+C
+      IKIL=DOFF(IKND)+DADD(ILND)
+      A(IKIL) = A2*(ALPHA(IL)-ALPHA(KL)-ALPHA(II)+ALPHA(IK))*
+     1  VAL1 + (BETA(IL)-BETA(KL)-BETA(II)+BETA(IK))*(VAL2+VAL1)
+     2  +EPS(KL) - ZETA(KL,IOR)
+      ILIK=DOFF(ILND)+DADD(IKND)
+      A(ILIK) = A(IKIL)
+      RETURN
+C
+      ENTRY GA4(IKND,JKND,IK,KK,IJ,JK,VAL1,VAL2,KOR)
+C     WRITE(*,*)'ENTRY GA4'
+C
+      IKJK=DOFF(IKND)+DADD(JKND)
+      A(IKJK) = A2*(ALPHA(IK)-ALPHA(KK)-ALPHA(IJ)+ALPHA(JK))*
+     1  VAL1 + (BETA(IK)-BETA(KK)-BETA(IJ)+BETA(JK))*(VAL2+VAL1)
+     2  +EPS(IJ) - ZETA(IJ,KOR)
+      JKIK=DOFF(JKND)+DADD(IKND)
+      A(JKIK) = A(IKJK)
+C     A(JKND,IKND) = A(IKND,JKND)
+      RETURN
+C
+      ENTRY GA6(IKND,IK,KK,II,VAL1,VAL2,IOR,KOR)
+C     WRITE(*,*)'ENTRY GA6'
+C
+      IKIK=DOFF(IKND)+DADD(IKND)
+      A(IKIK) = A2*(ALPHA(IK)-ALPHA(KK)-ALPHA(II)+ALPHA(IK))*
+     1  VAL1 + (BETA(IK)-BETA(KK)-BETA(II)+BETA(IK))*(VAL2+VAL1)
+     2  +EPS(II) - ZETA(II,KOR) + EPS(KK) - ZETA(KK,IOR)
+      RETURN
+C
+      END
+      SUBROUTINE GETB(A,EPS,ZETA,ALPHA,BETA,SS)
+      IMPLICIT INTEGER (A-Z)
+C     REAL*8 A(IJIND,IJIND3),EPS(NUMIJ),ZETA(NUMIJ,NORBS)
+      REAL*8 A(IJIND,NDF   ),EPS(NUMIJ),ZETA(NUMIJ,NORBS)
+      REAL*8 ALPHA(NUMIJ),BETA(NUMIJ),SS(NUMIJ,NDF)
+      REAL*8 A2,VAL1,VAL2,VAL3
+      COMMON /TAPES/ NOUT,ICHK,IT30,IT42,IT47,IT52,IT58,IT94,IT96,IT98
+      COMMON /DIMSG/ SYMORB,NUMIJ,NBF,NMAX,NBFORB,NSYM,NDF,NORBS
+      COMMON /OCCS/ NSPE,NSA,NSB,NALP,NOP,NDOC,LFERM,NUOC,IJIND,IJIND3
+      DATA A2 /2.0D+00/
+C
+C INITIALIZATION OF SUROUTINE GETB.
+C
+      RETURN
+C
+      ENTRY GB1(IJND,IL,JL,IK,JK,VAL2,VAL1,VAL3,KL)
+C
+      DO 10 IDF = 1,NDF
+C     XDF = IJIND + IDF
+      XDF =  IDF
+      A(IJND,XDF)=A(IJND,XDF)+SS(KL,IDF)*(A2*(ALPHA(IL)-ALPHA(JL) +
+     1  ALPHA(IK)-ALPHA(JK))*VAL2+(BETA(IL)-BETA(JL)+BETA(IK)-BETA(JK))
+     2 *(VAL1+VAL3))
+   10 CONTINUE
+      RETURN
+C
+      ENTRY GB21(JLND,JJ,JL,IJ,IL,VAL1,VAL2,IJ,JOR)
+C
+      DO 21 IDF = 1,NDF
+      XDF =  IDF
+      A(JLND,XDF)=A(JLND,XDF)+SS(IJ,IDF)*(A2*(ALPHA(JJ)-ALPHA(JL) +
+     1  ALPHA(IJ)-ALPHA(IL))*VAL1+(BETA(JJ)-BETA(JL)+BETA(IJ)-BETA(IL))
+     2 *(VAL1+VAL2)-EPS(IL)+ZETA(IL,JOR))
+   21 CONTINUE
+      RETURN
+C
+      ENTRY GB22(IJND,IL,JL,IJ,JJ,VAL1,VAL2,JL,JOR)
+C
+      DO 20 IDF = 1,NDF
+      XDF =  IDF
+      A(IJND,XDF)=A(IJND,XDF)+SS(JL,IDF)*(A2*(ALPHA(IL)-ALPHA(JL) +
+     1  ALPHA(IJ)-ALPHA(JJ))*VAL1+(BETA(IL)-BETA(JL)+BETA(IJ)-BETA(JJ))
+     2 *(VAL1+VAL2)+EPS(IL)-ZETA(IL,JOR))
+   20 CONTINUE
+      RETURN
+C
+      ENTRY GB3(IKND,IL,KL,II,IK,VAL1,VAL2,IL,IOR)
+C
+      DO 30 IDF = 1,NDF
+      XDF =  IDF
+      A(IKND,XDF)=A(IKND,XDF)+SS(IL,IDF)*(A2*(ALPHA(IL)-ALPHA(KL) +
+     1  ALPHA(II)-ALPHA(IK))*VAL1+(BETA(IL)-BETA(KL)+BETA(II)-BETA(IK))
+     2 *(VAL1+VAL2)-EPS(KL)+ZETA(KL,IOR))
+   30 CONTINUE
+      RETURN
+C
+      ENTRY GB4(IKND,IK,KK,IJ,JK,VAL1,VAL2,JK,KOR)
+C
+      DO 40 IDF = 1,NDF
+      XDF =  IDF
+      A(IKND,XDF)=A(IKND,XDF)+SS(JK,IDF)*(A2*(ALPHA(IK)-ALPHA(KK) +
+     1  ALPHA(IJ)-ALPHA(JK))*VAL1+(BETA(IK)-BETA(KK)+BETA(IJ)-BETA(JK))
+     2 *(VAL1+VAL2)+EPS(IJ)-ZETA(IJ,KOR))
+   40 CONTINUE
+      RETURN
+C
+      ENTRY GB6(IKND,II,KK,VAL1,VAL2,IK,IOR,KOR)
+C
+      DO 60 IDF = 1,NDF
+      XDF =  IDF
+      A(IKND,XDF)=A(IKND,XDF)+SS(IK,IDF)*(A2*(ALPHA(II)-ALPHA(KK))*
+     1  VAL1+(BETA(II)-BETA(KK))*(VAL1+VAL2) +
+     2  EPS(II)-ZETA(II,KOR)-EPS(KK)+ZETA(KK,IOR))
+   60 CONTINUE
+      RETURN
+C
+      ENTRY GBD(IJND,IK,JK,VAL2,VAL1,KK)
+C
+      DO 80 IDF = 1,NDF
+      XDF =  IDF
+      A(IJND,XDF)=A(IJND,XDF)+SS(KK,IDF)*A2*((ALPHA(IK)-ALPHA(JK))*
+     1  VAL2+(BETA(IK)-BETA(JK))*VAL1)
+   80 CONTINUE
+      RETURN
+      END
+      SUBROUTINE GETCV(RS,EX,EAVF,LG,SS)
+      IMPLICIT INTEGER (A-Z)
+      REAL*8 LG(NBF,NBF),SS(NUMIJ,NDF),EAVF(NUMIJ)
+      REAL*8 RS(NUMDEP,NDF),EX(IJIND)
+      REAL*8 A1,A4,VAL1,VAL2,VAL3,FAC1,EFAC
+      COMMON /TAPES/ NOUT,ICHK,IT30,IT42,IT47,IT52,IT58,IT94,IT96,IT98
+      COMMON /DIMSG/ SYMORB,NUMIJ,NBF,NMAX,NBFORB,NSYM,NDF,NORBS
+      COMMON /OCCS/ NSPE,NSA,NSB,NALP,NOP,NDOC,LFERM,NUOC,IJIND,IJIND3
+      COMMON/OCCS2/NUMCOR,NCOR,FDOC,CORDOC,NUMVIR,FVIR,LUOC,NUMDEP,VUOC
+      DATA A1,A4 /1.0D+00,4.0D+00/
+C
+C INITIALIZATION OF SUROUTINE GETCV
+C
+      RETURN
+C
+      ENTRY RS1(IJDEP,FAC1,VAL2,VAL1,VAL3,KL)
+      DO 10 IDF = 1,NDF
+      RS(IJDEP,IDF)=RS(IJDEP,IDF)+FAC1*SS(KL,IDF)*(A4*VAL2-VAL1-VAL3)
+   10 CONTINUE
+      RETURN
+C
+      ENTRY EX1(IJND,LL,KK,LOR,KOR,VAL2,VAL1,VAL3)
+      EFAC = (A1/(EAVF(LL) - EAVF(KK)))*(LG(LOR,KOR)-LG(KOR,LOR))
+      EX(IJND) = EX(IJND) + EFAC*(A4*VAL2-VAL1-VAL3)
+      RETURN
+      END

@@ -1,0 +1,5167 @@
+      SUBROUTINE FENTRY(CC,IA,MAXCOR)
+C   COUPLED PERTURBED HARTREE-FOCK PROGRAM IN AO BASIS
+C   FOR THE GVB AND PAIR EXCITATION SELF-CONSISTENT-FILED WAVEFUNCTIONS
+C
+C:::THIS PROGRAM EMPLOYS I/O WITH THE SUPERMATRICES
+C
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+C*  BY:  YUKIO YAMAGUCHI                           SEARCH: C02-20-89  *
+C*  DATE:  FEBRUARY 20, 1989                                          *
+C*  REASON: MODIFICATION FOR IMS VERSION                              *
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         SEARCH: C01-31-89  *
+C*  DATE:  JANUARY  31, 1989                                          *
+C*  REASON: DECREASE CORE FROM 15MB ON 3090 TO 7MB ON 9370.           *
+C**********************************************************************
+C*  LAST UPDATED ON APRIL 02, 1987 BY YUKIO YAMAGUCHI                 *
+C**********************************************************************
+      IMPLICIT REAL*8 (A-H,O-Z)
+C01-31-89   DIMENSION CC(1650000),IA(1),I30(200),NADD(10)
+C02-20-89   DIMENSION CC(650000),IA(1),I30(200),NADD(10)
+      DIMENSION CC(MAXCOR),IA(1),I30(200),NADD(10)
+      CHARACTER*80 ALABEL
+      CHARACTER*8 RESTRT
+      LOGICAL RSTART
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CALIF/LPARA(1024),APARA(1024)
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPEX/PEXC(100),INDPEX(20,100),MOPEX(20),ICIMO(20)
+      COMMON/CIPMO/IIMO(5050),JJMO(5050)
+      COMMON/CIPOS/ICITYP(5050),ICPOS(200,100)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/CITYP/IJGRP,IBM(200),JBM(200),IBNUM(200)
+      COMMON/DENST/ALPC(465),BETC(465)
+      COMMON/DIPOL/DIPDA(3,45),DIPDM(3,45),DIPDN(3,45),DIPDT(3,45)
+      COMMON/ENRGY/ESCF,ENUC,ELEC
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/ALPA(30,30),BETA(30,30)
+      COMMON/LIMIT/MAXBAS,MAXBUF,MAXBF2,MAXBF4
+      COMMON/MFSEC/MASTER,NSECT
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/RSTRT/IGSTOP,ILSTOP
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SIZES/MAXVEC,MAXVX
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/SUPER/MAXIJ
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/TOLER/ICONV
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+      COMMON/CI103/CI(100)
+      COMMON/CI104/IEIJ(5050)
+C2-20-89  EQUIVALENCE (CC,IA)
+      DATA ALABEL / ' SCF FIRST DERIVATIVE BROUGHT YOU BY Y & Y CO. EST.
+     1 IN MARCH , 1982             ' /
+    1 FORMAT(//,2X,' COUPLED PERTURBED HARTREE-FOCK PROGRAM FOR GVB-SCF
+     1IN THE AO BASIS'/)
+    2 FORMAT(7I5)
+    3 FORMAT(A8)
+    4 FORMAT(2X,10I5)
+    5 FORMAT(//,2X,' PARAMETERS'/
+     * 2X,' NBASIS = ',I8/
+     * 2X,' NTRI   = ',I8/
+     * 2X,' NBFAO  = ',I8/
+     * 2X,' NBATRI = ',I8/
+     * 2X,' NATOMS = ',I8/
+     * 2X,' N3N    = ',I8/
+     * 2X,' N3NP3  = ',I8/
+     * 2X,' N3NXX  = ',I8/
+     * 2X,' IOCC   = ',I8/
+     * 2X,' JOCC   = ',I8/
+     * 2X,' KOCC   = ',I8/
+     * 2X,' NTYPES = ',I8/
+     * 2X,' NTYPEP = ',I8/
+     * 2X,' NTREAD = ',I8/
+     * 2X,' NTYTRI = ',I8)
+    6 FORMAT(2X,' NCPEX  = ',I8/
+     * 2X,' NORPEX = ',I8/
+     * 2X,' NCTRI  = ',I8/
+     * 2X,' LVPEX  = ',I8/
+     * 2X,' ITEST  = ',I8/
+     * 2X,' IORB   = ',I8/
+     * 2X,' IPOL   = ',I8/
+     * 2X,' ICONV  = ',I8/
+     * 2X,' ICORE  = ',I8/
+     * 2X,' IPRNT  = ',I8/
+     * 2X,' RSTART = ',L8)
+    7 FORMAT(2X,' ISTEP  = ',I8/
+     * 2X,' IGSTOP = ',I8/
+     * 2X,' ILSTOP = ',I8/)
+    8 FORMAT(//,2X,' SCF EIGENVECTOR (AO BASIS) MATRIX'/)
+    9 FORMAT(//,2X,' ALPA MATRIX'/)
+   10 FORMAT(//,2X,' BETA MATRIX'/)
+   11 FORMAT(//,2X,' SCF EIGENVECTOR (SO BASIS) MATRIX'/)
+   12 FORMAT(//,2X,' ICMAX = ',I10,5X,' MAXCOR = ',I10/)
+   13 FORMAT(//,2X,' REQUIRED MEMORY EXCEEDS MAXCOR'/
+     1          2X,' ICMAX = ',I7,5X,' MAXCOR = ',I7/)
+   14 FORMAT(//,2X,' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'/
+     1          2X,' %%%THE CPHF STEP HAS ALREADY BEEN COMPLETED%%%'/
+     2          2X,' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'/)
+C
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C   REFERENCES FOR TCSCF AND GRSCF :                       :
+C   Y.YAMAGUCHI, Y.OSAMURA, AND H.F.SCHAEFER III,          :
+C   J.AM.CHEM.SOC. 105,7506(1983)                          :
+C                     &                                    :
+C   Y.OSAMURA, Y.YAMAGUCHI, P.SAXE, D.J.FOX, M.A.VINCENT,  :
+C   AND H.F.SCHAEFER III, J.MOL.STRUC. 103,183 (1983)      :
+C                     &                                    :
+C   Y.OSAMURA, Y.YAMAGUCHI, P.SAXE, M.A.VINCENT, J.F.GAW,  :
+C   AND H.F.SCHAEFER III, CHEM.PHYS. 72,131 (1982)         :
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+C   ITAP11 = GEOMETRY AND GRADIENTS
+C   ITAP15 = SCF SECOND DERIVATIVES
+C   ITAP17 = DIPOLE MOMENT DERIVATIVES
+C   ITAP25 = FIRST DERIVATIVES OF ORBITAL ENERGIES
+C   ITAP37 = TWO ELECTRON AO INTEGRALS (PK-FILE)
+C   ITAP42 = FIRST AND SECOND DERIVATIVE INFORMATION
+C   ITAP43 = DERIVATIVE DIPOLE MOMENTS
+C   ITAP44 = FIRST DERIVATIVE
+C   ITAP47 = THE "BARE" GENERALIZED LAGRANGIAN MATRICES
+C   JTAPE1 = WORKING TAPE FOR CPHF
+C   JTAPE2 = WORKING TAPE FOR E MATRICES
+C
+      CALL TSTART(6)
+      CALL NOUNFL
+      CALL INITMF(1)
+      CALL RCLOSE(MASTER,3)
+C
+C::::::::::::::::::::::::::::::::::::::::
+C:::DEFINE MACHINE-DEPENDENT CONSTANTS:::
+C::::::::::::::::::::::::::::::::::::::::
+C01-31-89   MAXCOR=1650000
+C02-20-89   MAXCOR= 650000
+      MAXVEC=600
+      MAXVX=30
+C
+      ITAPE3=3
+      ITAPE4=4
+      INPUT=5
+      ITAPE6=6
+      ITAP11=11
+      ITAP15=15
+      ITAP17=17
+      ITAP25=25
+      ITAP30=30
+      ITAP37=37
+      ITAP42=42
+      ITAP43=43
+      ITAP44=44
+      ITAP47=47
+      JTAPE1=91
+      JTAPE2=92
+C
+C   LOCATION OF MATRICES IN ITAP44
+C   (1) SA (N3NXX*NTRIL)
+C   (2) HA (N3NXX*NTRIL)
+C   (3) TA AND FA (N3NXX*NTRIL)
+C   (4) EA (N3NXX*NBASQL)
+C   (5) BA (N3NXX*NTRIL)
+C   (6) UA (N3NXX*NBASQL)
+C
+      IOFF(1)=0
+      DO 101 I=1,255
+  101 IOFF(I+1)=IOFF(I)+I
+C
+      CALL LOCATE(INPUT,'# CPHFAO #',IERR)
+      WRITE(6,1)
+      WRITE(3,1)
+      DO 102 I=1,10
+  102 WRITE(4,*) ' '
+      WRITE(4,*) '  *************************************************'
+      WRITE(4,*) '  ***THE COUPLED PERTUBED HATREE-FOCK PROGRAM******'
+      WRITE(4,*) '  ***FOR THE GVB AND PEX SCF WAVE FUNCTIONS********'
+      WRITE(4,*) '  *************************************************'
+      DO 103 I=1,2
+  103 WRITE(4,*) ' '
+C
+C   READ IN PARAMETERS
+      READ(5,2) ITEST,IORB,IPOL,ICONV,ICORE,ISTEP,IPRNT
+      READ(5,3) RESTRT
+      RSTART=RESTRT.EQ.'RESTART '
+C
+C   READ IN SCF INFORMATION
+      NBASIS=LPARA(3)
+      NBFAO=LPARA(11)
+      NTRI=LPARA(4)
+      NTRI2=NTRI*2
+      NBATRI=IOFF(NBFAO+1)
+      NBATR2=NBATRI*2
+      IOCC=LPARA(7)
+      KOCC=LPARA(8)
+      JOCC=LPARA(9)
+      NATOMS=LPARA(10)
+      N3N=LPARA(17)
+      NATRI=IOFF(N3N+1)
+      N3NP3=N3N+3
+      N3NXX=N3NP3
+      IF(IPOL.EQ.0) N3NXX=N3N
+      NTRIL=((NTRI2-1)/NSECT+1)
+      NBASQ=NBASIS*NBASIS*2
+      NBASQL=((NBASQ-1)/NSECT+1)
+      NSEC3L=((N3N*2-1)/NSECT+1)
+      N3TRL=N3NXX*NTRIL
+      N3QRL=N3NXX*NBASQL
+      NTYPES=LPARA(18)
+      NTYPEP=NTYPES+1
+      NTREAD=NTYPES*2
+      MAXIJ=(MAXBUF*16)/20
+C
+      IF(RSTART.AND.ISTEP.EQ.0) THEN
+        ISTEP=LPARA(101)
+        IGSTOP=LPARA(102)
+        ILSTOP=LPARA(103)
+      END IF
+      IF(RSTART.AND.ISTEP.NE.0) THEN
+        IGSTOP=LPARA(102)
+        ILSTOP=LPARA(103)
+      END IF
+      IF(.NOT.RSTART) THEN
+        ISTEP=0
+        IGSTOP=0
+        ILSTOP=0
+      END IF
+C
+      DO 104 I=1,N3NXX
+      ISA(I)=(I-1)*NTRIL+1
+      IHA(I)=(I-1)*NTRIL+N3TRL+1
+      IFA(I)=(I-1)*NTRIL+N3TRL+N3TRL+1
+      IEA(I)=(I-1)*NBASQL+N3TRL+N3TRL+N3TRL+1
+      IBA(I)=(I-1)*NTRIL+N3TRL+N3TRL+N3TRL+N3QRL+1
+      IUA(I)=(I-1)*NBASQL+N3TRL+N3TRL+N3TRL+N3QRL+N3TRL+1
+      WRITE(3,4) I,ISA(I),IHA(I),IFA(I),IEA(I),IBA(I),IUA(I)
+  104 CONTINUE
+      ENUC=APARA(1)
+      ESCF=APARA(2)
+      NSECMX=IUA(N3NXX)+NBASQL
+      DO 105 I=1,NTYPEP
+      NSORB(I)=LPARA(I+40)
+      FOCC(I)=APARA(I+10)
+  105 CONTINUE
+      NTYTRI=IOFF(NTYPEP+1)
+C
+C   READ IN CI INFORMATION
+      CALL RFILE(ITAP30)
+      CALL WREADW(ITAP30,I30,200,101,JUNK)
+      NCPEX=I30(46)
+      NORPEX=I30(47)
+      LVPEX=I30(48)
+      NCTRI=IOFF(NCPEX+1)
+      CALL WREADW(ITAP30,PEXC,2*NCPEX,LVPEX,LOCVEC)
+      CALL WREADW(ITAP30,INDPEX,20*NCPEX,LOCVEC,LOCVEC)
+      CALL WREADW(ITAP30,MOPEX,20,LOCVEC,LOCVEC)
+      CALL RCLOSE(ITAP30,3)
+C
+      WRITE(6,5) NBASIS,NTRI,NBFAO,NBATRI,NATOMS,N3N,N3NP3,N3NXX,
+     1           IOCC,JOCC,KOCC,NTYPES,NTYPEP,NTREAD,NTYTRI
+      WRITE(6,6) NCPEX,NORPEX,NCTRI,LVPEX,ITEST,IORB,IPOL,ICONV,ICORE,
+     1           IPRNT,RSTART
+      IF(RSTART) THEN
+        WRITE(6,7) ISTEP,IGSTOP,ILSTOP
+        WRITE(4,*) ' '
+        WRITE(4,*) '  RESTARTING.....'
+        WRITE(4,*)
+        IF(ISTEP.GE.18) GO TO 400
+      END IF
+C
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+C   DYNAMIC ALLOCATION
+C     IC1  = EIG(NBASIS)
+C     IC2  = OCC(NBASIS)
+C     IC3  = EAO OR ESO(NBFAO,NBASIS)
+C     IC4  = NIJ(NTRI,2)
+C     IC5  = KIJ(NTRI,2)
+C     IC6  = FIJ(NTYPEP,ICIUNQ)
+C     IC7  = AIJ(NTYTRI,ICIUNQ)
+C     IC8  = BIJ(NTYTRI,ICIUNQ)
+C     IC9  = E1A(N3N)
+C     IC10 = E2A(N3N,N3N)
+C     IC11 = D1W(N3N)
+C     IC12 = E1T(N3NXX)
+C     IC13 = EPS(NTRI)
+C     IC14 = ZETA(NTRI,NTYPEP)
+C     IC15 = HCIA(NCTRI,N3NXX)
+C     IC16 = HCI(NCTRI)
+C     IC17 = BAF2(NCPEX,N3NXX)
+C     IC18 = CIA(NCPEX,N3NXX)
+C     IC19 = A22(NCPEX,NCPEX)
+C     IC20 = A12(NIND,NCPEX)
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+      IC1=1
+      IC2=IC1+NBASIS
+      IC3=IC2+NBASIS
+      IC4=IC3+NBFAO*NBASIS
+      IA4=IC4+IC4-1
+      IC5=IC4+NTRI
+      IA5=IC5+IC5-1
+      IC6=IC5+NTRI
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+C   READ IN AO-MO EIGENVECTORS
+      CALL RMREAD(CC(IC1),18)
+      CALL RMREAD(CC(IC2),19)
+      CALL RMREAD(CC(IC3),22)
+      IF(IPRNT.LE.2) GO TO 301
+      WRITE(6,8)
+      CALL EIGOUT(CC(IC3),CC(IC1),CC(IC2),NBFAO,NBASIS,NBFAO,NBASIS,6)
+C
+C   CALCULATE ALPA AND BETA MATRICES
+  301 CONTINUE
+      NTYTRI=IOFF(NTYPEP+1)
+      DO 106 I=1,NTYTRI
+      ALPC(I)=APARA(I+40)
+      BETC(I)=APARA(I+505)
+  106 CONTINUE
+      CALL ZERO(ALPA,NTYPEP*NTYPEP)
+      CALL ZERO(BETA,NTYPEP*NTYPEP)
+      IJ=0
+      DO 107 I=1,NTYPES
+      DO 107 J=1,I
+      IJ=IJ+1
+      ALPA(I,J)=ALPC(IJ)
+      BETA(I,J)=BETC(IJ)
+      IF(I.EQ.J) GO TO 107
+      ALPA(J,I)=ALPA(I,J)
+      BETA(J,I)=BETA(I,J)
+  107 CONTINUE
+C*    IF(IPRNT.LE.2) GO TO 302
+      WRITE(6,9)
+      CALL MATOUT(ALPA,30,30,NTYPEP,NTYPEP,6)
+      WRITE(6,10)
+      CALL MATOUT(BETA,30,30,NTYPEP,NTYPEP,6)
+C
+C**************************************
+C***PREPARATION FOR FIRST ORDER CPHF***
+C**************************************
+C
+C   FORM REGISTER MATRICES
+  302 CONTINUE
+      WRITE(3,20)
+      WRITE(4,20)
+   20 FORMAT(//,2X,' NOW YOU ARE IN REGIST'/)
+C.................NIJ     KIJ.....
+      CALL REGIST(IA(IA4),IA(IA5))
+C
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C   REST OF DYNAMIC ALLOCATION
+      IC7=IC6+NTYPEP*ICIUNQ
+      IC8=IC7+NTYTRI*ICIUNQ
+      IC9=IC8+NTYTRI*ICIUNQ
+      IC10=IC9+N3N
+      IC11=IC10+N3N*N3N
+      IC12=IC11+N3N
+      IC13=IC12+N3NXX
+      IC14=IC13+NTRI
+      IC15=IC14+NTRI*NTYPEP
+      IC16=IC15+NCTRI*N3NXX
+      IC17=IC16+NCTRI
+      IC18=IC17+NCPEX*N3NXX
+      IC19=IC18+NCPEX*N3NXX
+      IC20=IC19+NCPEX*NCPEX
+      ICKEEP=IC20+NIND*NCPEX
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+      DO 108 I=1,IIUNQ+IJGRP
+      IEIJ(I)=(I-1)*NBASQL+1
+      IF(IPRNT.LE.2) GO TO 108
+      WRITE(3,4) I,IEIJ(I)
+  108 CONTINUE
+C
+C   CALCULATE REQUIRED CORE MEMORY FOR THE CALCULATION
+      CALL CORSIZ(MAXCOR,N3NXX,NADD,MAXVC,ITEST,IORB,IPOL,ICORE)
+C
+C   FORM THE COUPLING CONSTANT MATRICES
+      WRITE(3,21)
+      WRITE(4,21)
+   21 FORMAT(//,2X,' NOW YOU ARE IN BARES'/)
+C................FIJ     AIJ     BIJ.....
+      CALL BARES(CC(IC6),CC(IC7),CC(IC8))
+C
+C#########################
+C###BEGINNING OF STEP 1###
+C#########################
+C
+C   READ IN FIRST AND SECOND DERIVATIVE INFORMATION
+C   AND FORM SM, HM AND FM MATRICES
+C**   IF(ISTEP.GE.1) GO TO 303
+      WRITE(3,22)
+      WRITE(4,22)
+   22 FORMAT(//,2X,' NOW YOU ARE IN DERMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NBFAO*NBFAO
+      ICMAX=IC23+NBFAO*NBFAO
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C.................EAO     E1A     E2A      SS       U        T........
+      CALL DERMAT(CC(IC3),CC(IC9),CC(IC10),CC(IC21),CC(IC22),CC(IC23),
+C..............................
+     1            NSECMX,ISTEP)
+C
+      LPARA(101)=1
+      CALL RMWRIT(LPARA,2)
+C
+C###################
+C###END OF STEP 1###
+C###################
+C
+C   READ IN SO-MO EIGENVECTORS
+  303 CONTINUE
+      CALL RMREAD(CC(IC3),21)
+      IF(IPRNT.LE.2) GO TO 304
+      WRITE(6,11)
+      CALL EIGOUT(CC(IC3),CC(IC1),CC(IC2),NBFAO,NBASIS,NBFAO,NBASIS,6)
+C
+C#########################
+C###BEGINNING OF STEP 2###
+C#########################
+C
+  304 CONTINUE
+      IF(ITEST.EQ.0) GO TO 306
+      IF(ISTEP.GE.2) GO TO 305
+C
+C   CALCULATE SCF ENERGY FOR A TEST
+      WRITE(3,23)
+      WRITE(4,23)
+   23 FORMAT(//,2X,' NOW YOU ARE IN E0CAL'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NTRI
+      IC24=IC23+NTRI
+      IC25=IC24+NBFAO*NBFAO
+      IC26=IC25+NBFAO*NBFAO
+      IC27=IC26+NTRI*NTYPES
+      IC28=IC27+NTRI*NTYPES
+      IC29=IC28+NTRI*NTYPES
+      IA29=IC29+IC29-1
+      ICMAX=IC29+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................ESO     HSO      HMO      TM       U        T........
+      CALL E0CAL(CC(IC3),CC(IC21),CC(IC22),CC(IC23),CC(IC24),CC(IC25),
+C................DP       DQ       DM       MIJ      PQ.............
+     1           CC(IC26),CC(IC27),CC(IC28),IA(IA29),IA(IA29+MAXIJ))
+C
+      LPARA(101)=2
+      CALL RMWRIT(LPARA,2)
+C
+C###################
+C###END OF STEP 2###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 3###
+C#########################
+C
+C   CALCULATE SCF FIRST ENERGY DERIVATIVES
+  305 CONTINUE
+      IF(ITEST.EQ.0) GO TO 306
+      IF(ISTEP.GE.3) GO TO 306
+      WRITE(3,24)
+      WRITE(4,24)
+   24 FORMAT(//,2X,' NOW YOU ARE IN EADER'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N
+      IC23=IC22+N3N
+      IC24=IC23+NTRI
+      IC25=IC24+NTRI
+      ICMAX=IC25+NTRI*N3N*NTREAD
+      WRITE(3,12) ICMAX,MAXCOR
+C................D1W      E1T      EPS      D1O      D1T......
+      CALL EADER(CC(IC11),CC(IC12),CC(IC13),CC(IC21),CC(IC22),
+C................SM       HM       TM..................
+     1           CC(IC23),CC(IC24),CC(IC25),N3N*NTREAD)
+C
+      LPARA(101)=3
+      CALL RMWRIT(LPARA,2)
+C
+C###################
+C###END OF STEP 3###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 4###
+C#########################
+C
+C   FORM HA MATRICES
+  306 CONTINUE
+      IF(ISTEP.GE.4) GO TO 307
+      WRITE(3,25)
+      WRITE(4,25)
+   25 FORMAT(//,2X,' NOW YOU ARE IN HAMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N
+      IC23=IC22+NTRI*N3N
+      ICMAX=IC23+NTRI*N3N*NTREAD
+      WRITE(3,12) ICMAX,MAXCOR
+C................FIJ     AIJ     BIJ     D1W      E1T      HCIA.....
+      CALL HAMAT(CC(IC6),CC(IC7),CC(IC8),CC(IC11),CC(IC12),CC(IC15),
+C................D1E      HM       TM........................
+     1           CC(IC21),CC(IC22),CC(IC23),N3N*NTREAD,N3NXX)
+C
+      LPARA(101)=4
+      CALL RMWRIT(LPARA,2)
+C
+C###################
+C###END OF STEP 4###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 5###
+C#########################
+C
+C   FORM DERIVATIVE LAGRANGIAN MATRICES
+  307 CONTINUE
+      IF(ISTEP.GE.5) GO TO 308
+      WRITE(3,26)
+      WRITE(4,26)
+   26 FORMAT(//,2X,' NOW YOU ARE IN FAMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NBASIS*NBASIS
+      IC24=IC23+NTRI*N3N
+      ICMAX=IC24+NTRI*N3N*NTREAD
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................FF       EPA      HM       TM..................
+      CALL FAMAT(CC(IC21),CC(IC22),CC(IC23),CC(IC24),N3N*NTREAD)
+C
+      LPARA(101)=5
+      CALL RMWRIT(LPARA,2)
+C
+C###################
+C###END OF STEP 5###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 6###
+C#########################
+C
+C   CALCULATE BA MATRICES
+C   FOR INDEPENDENT PAIRS
+  308 CONTINUE
+      IF(ISTEP.GE.6) GO TO 309
+      NGROUP=(N3N-1)/NADD(1)+1
+      WRITE(3,27) NGROUP
+      WRITE(4,27) NGROUP
+   27 FORMAT(//,2X,' NOW YOU ARE IN BAIND (# OF GROUPS = ',I3,')'/)
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NTRI
+      IC25=IC24+NBASIS*NBASIS
+      IC26=IC25+NTRI*NTYPEP*NADD(1)
+      IC27=IC26+NTRI*NTYPEP*NADD(1)
+      IC28=IC27+NTRI*NTYPEP*NADD(1)
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................ESO     NIJ     ZETA     U        T        B0.......
+      CALL BAIND(CC(IC3),IA(IA4),CC(IC14),CC(IC21),CC(IC22),CC(IC23),
+C................EPA      DP       DQ       DM       SM.......
+     1           CC(IC24),CC(IC25),CC(IC26),CC(IC27),CC(IC27),
+C................MIJ      PQ.....................
+     2           IA(IA28),IA(IA28+MAXIJ),NADD(1))
+C
+      LPARA(101)=6
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 309
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C###################
+C###END OF STEP 6###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 7###
+C#########################
+C
+C   FOR DEPENDENT PAIRS
+  309 CONTINUE
+      IF(ISTEP.GE.7) GO TO 310
+      NGROUP=(N3N-1)/NADD(2)+1
+      WRITE(3,28) NGROUP
+      WRITE(4,28) NGROUP
+   28 FORMAT(//,2X,' NOW YOU ARE IN BADEP (# OF GROUPS = ',I3,')'/)
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NTRI
+      IC25=IC24+NTRI
+      IC26=IC25+NTRI*NADD(2)
+      IC27=IC26+NTRI*NADD(2)
+      IC28=IC27+NTRI*NADD(2)
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................EIG     ESO     KIJ     U        T.......
+      CALL BADEP(CC(IC1),CC(IC3),IA(IA5),CC(IC21),CC(IC22),
+C................B0       FF       DP       DQ       DM.......
+     1           CC(IC23),CC(IC24),CC(IC25),CC(IC26),CC(IC27),
+C................MIJ      PQ.....................
+     2           IA(IA28),IA(IA28+MAXIJ),NADD(2))
+C
+      LPARA(101)=7
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 310
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C###################
+C###END OF STEP 7###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 8###
+C#########################
+C
+C   CALCULATE H AND E MATRICES
+  310 CONTINUE
+      IF(ISTEP.GE.8) GO TO 311
+      WRITE(3,29)
+      WRITE(4,29)
+   29 FORMAT(//,2X,' NOW YOU ARE IN HEMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NTRI
+      IC24=IC23+NTRI*NTYPEP
+      IC25=IC24+NTRI*NTYPEP
+      IC26=IC25+NTRI*NTYPEP
+      IC27=IC26+NBFAO*NBFAO
+      IC28=IC27+NTRI
+      IC29=IC28+NBFAO*NBFAO
+      IC30=IC29+NBFAO*NBFAO
+      IC31=IC30+NBFAO*NBFAO
+      IA31=IC31+IC31-1
+      ICMAX=IC31+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................ESO     FIJ     AIJ     BIJ     HCI......
+      CALL HEMAT(CC(IC3),CC(IC6),CC(IC7),CC(IC8),CC(IC16),
+C................HSO      HMO      DP       DQ       DM       EIJ......
+     1           CC(IC21),CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),
+C................ZIJ      EE       U        T........
+     2           CC(IC27),CC(IC28),CC(IC29),CC(IC30),
+C................MIJ      PQ.............
+     3           IA(IA31),IA(IA31+MAXIJ))
+C
+      LPARA(101)=8
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 311
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C###################
+C###END OF STEP 8###
+C###################
+C
+C#########################
+C###BEGINNING OF STEP 9###
+C#########################
+C
+C   FORM BF MATRICES
+  311 CONTINUE
+      IF(IPOL.EQ.0) GO TO 312
+C**   IF(ISTEP.GE.9) GO TO 312
+      WRITE(3,30)
+      WRITE(4,30)
+   30 FORMAT(//,2X,' NOW YOU ARE IN BFMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*3
+      IC23=IC22+NTRI*NTYPES*3
+      IC24=IC23+NBASIS*NBASIS
+      ICMAX=IC24+NTRI
+      WRITE(3,12) ICMAX,MAXCOR
+C................NIJ     KIJ     FIJ     E1T      HCIA     HF.......
+      CALL BFMAT(IA(IA4),IA(IA5),CC(IC6),CC(IC12),CC(IC15),CC(IC21),
+C................HM       EPF      BF...................
+     1           CC(IC22),CC(IC23),CC(IC24),N3NXX,ISTEP)
+C
+      LPARA(101)=9
+      CALL RMWRIT(LPARA,2)
+      IF(IPRNT.LE.2) GO TO 312
+      WRITE(6,*) ' AFTER BFMAT'
+      CALL WRBMAT(CC(IC21),N3NXX)
+C
+C###################
+C###END OF STEP 9###
+C###################
+C
+C##########################
+C###BEGINNING OF STEP 10###
+C##########################
+C
+C   FORM BAF MATRICES
+  312 CONTINUE
+      IF(ISTEP.GE.10) GO TO 313
+      WRITE(3,31)
+      WRITE(4,31)
+   31 FORMAT(//,2X,' NOW YOU ARE IN AB2CI'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*N3N
+      ICMAX=IC22+NBASIS*NBASIS
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................NIJ     E1T      HCIA     HCI      BAF2     A22......
+      CALL AB2CI(IA(IA4),CC(IC12),CC(IC15),CC(IC16),CC(IC17),CC(IC19),
+C................A12      SA       EIJ............
+     1           CC(IC20),CC(IC21),CC(IC22),N3NXX)
+C
+      LPARA(101)=10
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 313
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 10###
+C####################
+C
+C********************************
+C***FIRST ORDER CPHF PROCEDURE***
+C********************************
+C
+C##########################
+C###BEGINNING OF STEP 11###
+C##########################
+C
+C   SOLVE SIMULTANEOUS EQUATIONS ITERATIVELY
+  313 CONTINUE
+C\\\\\\\\\\\\\\\\\\\\
+      IPRNT=3
+C\\\\\\\\\\\\\\\\\\\\
+      IF(ISTEP.GE.11) GO TO 314
+      NGROUP=(N3NXX-1)/NADD(3)+1
+      WRITE(3,32) NGROUP
+      WRITE(4,32) NGROUP
+   32 FORMAT(//,2X,' NOW YOU ARE IN CPHF (# OF GROUPS = ',I3,')'/)
+      NINDPX=NIND+NCPEX
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NBFAO*NBFAO
+      IC25=IC24+NTRI
+      IC26=IC25+NINDPX
+      IC27=IC26+NINDPX
+      IC28=IC27+NTYPEP*(NTRI*NADD(3))
+      IC29=IC28+NTYPEP*(NTRI*NADD(3))
+      IC30=IC29+NTYPEP*(NTRI*NADD(3))
+      IC31=IC30+MAXVC*(MAXVC+NADD(3))
+      IC32=IC31+NINDPX*MAXVC*2
+      IA32=IC32+IC32-1
+      ICMAX=IC32+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C...............ESO     NIJ     KIJ     ZETA     BAF2     CIA......
+      CALL CPHF(CC(IC3),IA(IA4),IA(IA5),CC(IC14),CC(IC17),CC(IC18),
+C...............A22      A12      A........
+     1          CC(IC19),CC(IC20),CC(IC21),
+C...............U        T        B0       AA       TT       DP.......
+     2          CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),CC(IC27),
+C...............DQ       DM       W        BB       MIJ......
+     3          CC(IC28),CC(IC29),CC(IC30),CC(IC31),IA(IA32),
+C...............PQ........................................
+     4          IA(IA32+MAXIJ),NINDPX,MAXVC,NADD(3),N3NXX)
+C
+C\\\\\\\\\\\\\\\\\\\\
+      IPRNT=0
+C\\\\\\\\\\\\\\\\\\\\
+      LPARA(101)=11
+      CALL RMWRIT(LPARA,2)
+      IF(IPRNT.LE.2) GO TO 314
+      CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 11###
+C####################
+C
+C##########################
+C###BEGINNING OF STEP 12###
+C##########################
+C
+C   CALCULATE DEPENDENT PAIRS OF U MATRICES
+  314 CONTINUE
+      IF(ISTEP.GE.12) GO TO 315
+      NGROUP=(N3NXX-1)/NADD(4)+1
+      WRITE(3,33) NGROUP
+      WRITE(4,33) NGROUP
+   33 FORMAT(//,2X,' NOW YOU ARE IN UCMAT (# OF GROUPS = ',I3,')'/)
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NTRI
+      IC25=IC24+NTRI*NADD(4)
+      IC26=IC25+NTRI*NADD(4)
+      IC27=IC26+NTRI*NADD(4)
+      IC28=IC27+NTRI
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................EIG     ESO     NIJ     KIJ     U........
+      CALL UCMAT(CC(IC1),CC(IC3),IA(IA4),IA(IA5),CC(IC21),
+C................T        B        DP       DQ       DM       DEL......
+     1           CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),CC(IC27),
+C................MIJ      PQ...........................
+     2           IA(IA28),IA(IA28+MAXIJ),NADD(4),N3NXX)
+C
+      LPARA(101)=12
+      CALL RMWRIT(LPARA,2)
+      IF(IPRNT.LE.2) GO TO 315
+      CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 12###
+C####################
+C
+C##########################
+C###BEGINNING OF STEP 13###
+C##########################
+C
+C   COMPLETE U MATRICES
+  315 CONTINUE
+      IF(ISTEP.GE.13) GO TO 316
+      WRITE(3,34)
+      WRITE(4,34)
+   34 FORMAT(//,2X,' NOW YOU ARE IN UXMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*N3NXX
+      IC23=IC22+NTRI*N3NXX
+      ICMAX=IC23+NBASIS*NBASIS
+      WRITE(3,12) ICMAX,MAXCOR
+C................KIJ     B        SM       U..............
+      CALL UXMAT(IA(IA5),CC(IC21),CC(IC22),CC(IC23),N3NXX)
+C
+      LPARA(101)=13
+      CALL RMWRIT(LPARA,2)
+      IF(IPRNT.LE.2) GO TO 316
+      CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 13###
+C####################
+C
+C##########################
+C###BEGINNING OF STEP 14###
+C##########################
+C
+C   CALCULATE WA MATRICES
+  316 CONTINUE
+      IF(ISTEP.GE.14) GO TO 317
+      NGROUP=(N3N-1)/NADD(5)+1
+      WRITE(3,35) NGROUP
+      WRITE(4,35) NGROUP
+   35 FORMAT(//,2X,' NOW YOU ARE IN WAMAT (# OF GROUPS = ',I3,')'/)
+      IC21=ICKEEP
+      IC22=IC21+NBASIS*NBASIS
+      IC23=IC22+NBASIS*NBASIS
+      IC24=IC23+NBASIS*NBASIS
+      IC25=IC24+NBASIS*NBASIS
+      IC26=IC25+NTRI*NTYPEP*NADD(5)
+      IC27=IC26+NTRI*NTYPEP*NADD(5)
+      IC28=IC27+NTRI*NTYPEP*NADD(5)
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................ESO     ZETA     U        T        EPA      WA.......
+      CALL WAMAT(CC(IC3),CC(IC14),CC(IC21),CC(IC22),CC(IC23),CC(IC24),
+C................SA       DP       DQ       DM       MIJ......
+     1           CC(IC25),CC(IC26),CC(IC27),CC(IC25),IA(IA28),
+C................PQ.....................
+     2           IA(IA28+MAXIJ),NADD(5))
+C
+      LPARA(101)=14
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 317
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 14###
+C####################
+C
+C##########################
+C###BEGINNING OF STEP 15###
+C##########################
+C
+C   CALCULATE SCF SECOND DERIVATIVES
+  317 CONTINUE
+      IF(ISTEP.GE.15) GO TO 318
+      WRITE(3,36)
+      WRITE(4,36)
+   36 FORMAT(//,2X,' NOW YOU ARE IN SCF2W'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N*N3N
+      IC23=IC22+N3N*N3N
+      IC24=IC23+N3N*N3N
+      IC25=IC24+NBASIS*NBASIS
+      IC26=IC25+NBASIS*NBASIS
+      IC27=IC26+NTRI*N3N
+      ICMAX=IC27+NBASIS*NBASIS*N3N
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................E2M      E2P      E2Q      EPA      UA       SA.......
+      CALL SCF2W(CC(IC21),CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),
+C................WA.......
+     1           CC(IC27))
+C
+      WRITE(3,37)
+      WRITE(4,37)
+   37 FORMAT(//,2X,' NOW YOU ARE IN SCF2ND'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N*N3N
+      IC23=IC22+N3N*N3N
+      IC24=IC23+N3N*N3N
+      IC25=IC24+NTRI*N3N
+      ICMAX=IC25+NBASIS*NBASIS
+      WRITE(3,12) ICMAX,MAXCOR
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C.................E2A      HCIA     CIA      E2M      E2C      E2T
+      CALL SCF2ND(CC(IC10),CC(IC15),CC(IC18),CC(IC21),CC(IC22),CC(IC23),
+C.................SA       EIJ
+     1            CC(IC24),CC(IC25))
+C
+      LPARA(101)=15
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 318
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 15###
+C####################
+C
+C   CALCULATE CI FIRST DERIVATIVES
+C 318 CONTINUE
+C     WRITE(3,38)
+C     WRITE(4,38)
+C  38 FORMAT(//,2X,' NOW YOU ARE IN CI1ST'/)
+C     IC1=1
+C     IC2=IC1+NBASIS*NBASIS
+C     CALL CI1ST(CC(IC1),CC(IC2),NBASIS)
+C
+C##########################
+C###BEGINNING OF STEP 16###
+C##########################
+C
+C   CALCULATE DIPOLE MOMENT DERIVATIVES
+  318 CONTINUE
+      IF(IPOL.EQ.0) GO TO 319
+      IF(ISTEP.GE.16) GO TO 319
+      WRITE(3,39)
+      WRITE(4,39)
+   39 FORMAT(//,2X,' NOW YOU ARE IN DIPMO'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*3
+      ICMAX=IC22+NBASIS*NBASIS*N3N
+      WRITE(3,12) ICMAX,MAXCOR
+C................HCIA     CIA      HF       UA.......
+      CALL DIPMO(CC(IC15),CC(IC18),CC(IC21),CC(IC22))
+C
+      LPARA(101)=16
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 319
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 16###
+C####################
+C
+C##########################
+C###BEGINNING OF STEP 17###
+C##########################
+C
+C   FIND DERIVATIVE ORBITAL ENERGIES
+  319 CONTINUE
+      IF(IORB.EQ.0) GO TO 320
+      IF(ISTEP.GE.17) GO TO 320
+      WRITE(3,40)
+      WRITE(4,40)
+   40 FORMAT(//,2X,' NOW YOU ARE IN ORB1ST'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      ICMAX=IC22+NTRI*N3N
+      WRITE(3,12) ICMAX,MAXCOR
+C.................B0       CC.........
+      CALL ORB1ST(CC(IC21),CC(IC22),1)
+C
+      LPARA(101)=17
+      CALL RMWRIT(LPARA,2)
+C
+      IF(IPOL.EQ.0) GO TO 320
+C.................B0       CC.........
+      CALL ORB1ST(CC(IC21),CC(IC22),2)
+C
+      LPARA(101)=17
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 320
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 17###
+C####################
+C
+C##########################
+C###BEGINNING OF STEP 18###
+C##########################
+C
+C   CALCULATE ELECTRIC POLARIZABILITIES
+  320 CONTINUE
+      IF(IPOL.EQ.0) GO TO 325
+      IF(ISTEP.GE.18) GO TO 325
+      WRITE(3,41)
+      WRITE(4,41)
+   41 FORMAT(//,2X,' NOW YOU ARE IN POLAR'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*3
+      ICMAX=IC22+NBASIS*NBASIS*3
+      WRITE(3,12) ICMAX,MAXCOR
+C................HCIA     CIA      HF       UF.......
+      CALL POLAR(CC(IC15),CC(IC18),CC(IC21),CC(IC22))
+C
+      LPARA(101)=18
+      CALL RMWRIT(LPARA,2)
+C*    IF(IPRNT.LE.2) GO TO 325
+C*    CALL WRBMAT(CC(IC21),N3N)
+C
+C####################
+C###END OF STEP 18###
+C####################
+C
+C   STORE CONTRIBUTION TO THIRD DERIVATIVES
+  325 CONTINUE
+      WRITE(3,42)
+      WRITE(4,42)
+   42 FORMAT(//,2X,' NOW YOU ARE IN THIRD'/)
+C................E1T      HCIA     CIA.............
+      CALL THIRD(CC(IC12),CC(IC15),CC(IC18),NSECMX)
+C
+      GO TO 400
+C
+  399 WRITE(6,13) ICMAX,MAXCOR
+      WRITE(3,13) ICMAX,MAXCOR
+  400 CONTINUE
+      IF(ISTEP.GE.18) THEN
+        WRITE(6,14)
+        WRITE(4,14)
+      END IF
+      DO 109 I=1,2
+  109 WRITE(4,*) ' '
+      WRITE(4,*) '  *******************************'
+      WRITE(4,*) '  ***END OF THE CPHF PROCEDURE***'
+      WRITE(4,*) '  *******************************'
+      DO 110 I=1,2
+  110 WRITE(4,*) ' '
+C
+      CALL TSTOP(6)
+C
+C2-20-89 STOP
+      RETURN
+      END
+      SUBROUTINE REGIST(NIJ,KIJ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION NIJ(NTRI,2),KIJ(NTRI,2)
+      DIMENSION LOTYP(256)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPEX/PEXC(100),INDPEX(20,100),MOPEX(20),ICIMO(20)
+      COMMON/CIPMO/IIMO(5050),JJMO(5050)
+      COMMON/CIPOS/ICITYP(5050),ICPOS(200,100)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/CITYP/IJGRP,IBM(200),JBM(200),IBNUM(200)
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+      DATA A00,ONE,TWO / 0.0D+00 , 1.0D+00 , 2.0D+00 /
+    1 FORMAT(//,2X,' REGISTERED NUMBERS'/
+     1 2X,' KVIR = ',I5/
+     2 2X,' NIND = ',I5/
+     3 2X,' NDEP = ',I5/
+     4 2X,' NDIF = ',I5)
+    2 FORMAT(//,2X,' NIJ MATRIX'/2X,' NO.',5X,' NIJ(1)',5X,' NIJ(2)'/)
+    3 FORMAT(2X,I4,4X,I5,7X,I5)
+    4 FORMAT(//,2X,' KIJ MATRIX'/2X,' NO.',5X,' KIJ(1)',5X,' KIJ(2)'/)
+    5 FORMAT(//,2X,' NO.',8X,' FOCC',6X,' NSORB',7X,' NSTR',7X,' NEND'/)
+    6 FORMAT(2X,I4,3X,F10.5,7X,I5,7X,I5,7X,I5)
+    7 FORMAT(//,2X,' MOPEX VECTOR '//16I5)
+    8 FORMAT(//,2X,' LOTYP VECTOR '//16I5)
+    9 FORMAT(//,2X,' ICIMO VECTOR '//16I5)
+   10 FORMAT(//,2X,' INDPEX VECTOR'/)
+   11 FORMAT(2X,I5,5X,10I5)
+   12 FORMAT(//,2X,' IIUNQ = ',I6,4X,' IJUNQ = ',I6,4X,' ICIUNQ = ',I6)
+   13 FORMAT(//,4X,' IJCI    IEX    JEX    III    JJJ   IIMO   JJMO',
+     1          2X,' ICMO   JCMO  IJGRP'/)
+   14 FORMAT(2X,10I7)
+   15 FORMAT(//,2X,' IJGRP = ',I6)
+   16 FORMAT(//,4X,' IBCI    ICM    JCM    NUM'/)
+C
+      KVIR=NBASIS-JOCC
+C
+      NSTR(1)=1
+      NEND(1)=NSORB(1)
+      DO 101 ITYP=2,NTYPEP
+      NSTR(ITYP)=NEND(ITYP-1)+1
+      NEND(ITYP)=NSTR(ITYP)+NSORB(ITYP)-1
+  101 CONTINUE
+      DO 103 ITYP=1,NTYPEP
+      DO 102 I=NSTR(ITYP),NEND(ITYP)
+  102 MOTYP(I)=ITYP
+  103 CONTINUE
+C
+      II=0
+      DO 105 ITYP=2,NTYPEP
+      DO 105 JTYP=1,ITYP-1
+      DO 104 I=NSTR(ITYP),NEND(ITYP)
+      DO 104 J=NSTR(JTYP),NEND(JTYP)
+      II=II+1
+      NIJ(II,1)=I
+      NIJ(II,2)=J
+  104 CONTINUE
+  105 CONTINUE
+      NIND=II
+C
+      II=0
+      DO 107 ITYP=1,NTYPEP
+C*C   IF(NSORB(ITYP).EQ.1) GO TO 107
+C*C   DO 106 I=NSTR(ITYP)+1,NEND(ITYP)
+C*C   DO 106 J=NSTR(ITYP),I-1
+      DO 106 I=NSTR(ITYP),NEND(ITYP)
+      DO 106 J=NSTR(ITYP),I
+      II=II+1
+      KIJ(II,1)=I
+      KIJ(II,2)=J
+  106 CONTINUE
+  107 CONTINUE
+      NDEP=II
+C
+      NDIF=NTRI-NIND-NDEP
+      IF(IPRNT.LE.2) GO TO 201
+      WRITE(6,1) KVIR,NIND,NDEP,NDIF
+      WRITE(6,2)
+      DO 108 I=1,NIND
+  108 WRITE(6,3) I,NIJ(I,1),NIJ(I,2)
+      WRITE(6,4)
+      DO 109 I=1,NDEP
+  109 WRITE(6,3) I,KIJ(I,1),KIJ(I,2)
+      WRITE(6,5)
+      DO 110 I=1,NTYPEP
+  110 WRITE(6,6) I,FOCC(I),NSORB(I),NSTR(I),NEND(I)
+C
+C   INTERRELATE THE MO'S IN THE ACTIVE SPACE
+  201 CONTINUE
+      CALL RMREAD(LOTYP,20)
+      IF(IPRNT.GT.2)
+     *WRITE(6,7) (MOPEX(I),I=1,NORPEX)
+      IF(IPRNT.GT.2)
+     *WRITE(6,8) (LOTYP(I),I=1,NORPEX)
+      DO 113 I=1,NORPEX
+      MM=MOPEX(I)
+      DO 112 J=1,NBASIS
+      IF(LOTYP(J).NE.MM) GO TO 112
+      MTEMP=J
+  112 CONTINUE
+      ICIMO(I)=MTEMP
+  113 CONTINUE
+      IF(IPRNT.GT.2)
+     *WRITE(6,9) (ICIMO(I),I=1,NORPEX)
+C
+C   GENERATE DIFFERENCE VECTOR
+      IF(IPRNT.LE.2) GO TO 205
+      WRITE(6,10)
+      DO 115 I=1,NCPEX
+      WRITE(6,11) I,(INDPEX(J,I),J=1,NORPEX)
+  115 CONTINUE
+  205 CONTINUE
+      IIUNQ=NCPEX
+      IJUNQ=0
+      DO 117 I=1,NCPEX
+      IPX(I)=I
+      JPX(I)=I
+      ICITYP(I)=I
+      DO 117 J=1,I
+      NN=0
+      DO 116 K=1,NORPEX
+  116 IF(INDPEX(K,I).NE.INDPEX(K,J)) NN=NN+1
+      NN=NN/2
+      IF(NN.NE.1) GO TO 117
+      IJUNQ=IJUNQ+1
+      IPX(IIUNQ+IJUNQ)=I
+      JPX(IIUNQ+IJUNQ)=J
+  117 CONTINUE
+      ICIUNQ=IIUNQ+IJUNQ
+      WRITE(6,12) IIUNQ,IJUNQ,ICIUNQ
+      IF(IPRNT.GT.2)
+     *WRITE(6,13)
+C
+      IJGRP=0
+      CALL IZERO(IBNUM,200)
+      DO 120 IJCI=1,IJUNQ
+      IEX=IPX(IIUNQ+IJCI)
+      JEX=JPX(IIUNQ+IJCI)
+      DO 118 K=1,NORPEX
+      IF(INDPEX(K,IEX).EQ.INDPEX(K,JEX)) GO TO 118
+      IF(INDPEX(K,IEX).NE.0) III=K
+      IF(INDPEX(K,JEX).NE.0) JJJ=K
+  118 CONTINUE
+      IIMO(IJCI)=MOTYP(ICIMO(III))
+      JJMO(IJCI)=MOTYP(ICIMO(JJJ))
+      ICM=ICIMO(III)
+      JCM=ICIMO(JJJ)
+      IF(IJCI.EQ.1) GO TO 206
+      ITEST=0
+      DO 119 IBCI=1,IJGRP
+      IF(ICM.EQ.IBM(IBCI).AND.JCM.EQ.JBM(IBCI)) THEN
+        IBNUM(IBCI)=IBNUM(IBCI)+1
+        INUM=IBNUM(IBCI)
+        ITEST=ITEST+1
+        ICITYP(IIUNQ+IJCI)=IIUNQ+IBCI
+        ICPOS(IBCI,INUM)=IJCI
+      END IF
+  119 CONTINUE
+      IF(ITEST.NE.0) GO TO 207
+  206 CONTINUE
+      IJGRP=IJGRP+1
+      IBM(IJGRP)=ICM
+      JBM(IJGRP)=JCM
+      IBNUM(IJGRP)=1
+      ICITYP(IIUNQ+IJCI)=IIUNQ+IJGRP
+      ICPOS(IJGRP,1)=IJCI
+C
+  207 CONTINUE
+      IF(IPRNT.LE.2) GO TO 120
+      WRITE(6,14) IJCI,IEX,JEX,III,JJJ,IIMO(IJCI),JJMO(IJCI),
+     *            ICIMO(III),ICIMO(JJJ),ICITYP(IIUNQ+IJCI)
+  120 CONTINUE
+C
+      WRITE(6,15) IJGRP
+      IF(IPRNT.LE.2) GO TO 210
+      WRITE(6,16)
+      DO 122 IBCI=1,IJGRP
+      ICM=IBM(IBCI)
+      JCM=JBM(IBCI)
+      NUM=IBNUM(IBCI)
+      WRITE(6,14) IBCI,ICM,JCM,NUM
+      DO 121 INUM=1,NUM
+      WRITE(6,14) ICPOS(IBCI,INUM)
+  121 CONTINUE
+  122 CONTINUE
+C
+  210 CONTINUE
+      RETURN
+      END
+      SUBROUTINE CORSIZ(MAXCOR,N3NXX,NADD,MAXVC,ITEST,IORB,IPOL,ICORE)
+      DIMENSION NADD(10)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/LIMIT/MAXBAS,MAXBUF,MAXBF2,MAXBF4
+      COMMON/SIZES/MAXVEC,MAXVX
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+    1 FORMAT(//,2X,' %%%%%%%%%%%%%%%%%%%%%%%%%%%'/
+     1          2X,' %%%NOW YOU ARE IN CORSIZ%%%'/
+     2          2X,' %%%%%%%%%%%%%%%%%%%%%%%%%%%'/)
+    2 FORMAT(//,2X,' ICMAX = ',I10,5X,' MAXCOR = ',I10/)
+    3 FORMAT(//,2X,' *************************************************'/
+     1          2X,' ***REQUIRED MEMORY EXCEEDS MAXCOR-----STOP !!!***'/
+     2          2X,' *************************************************'/
+     3          2X,' IGMAX = ',I10,5X,' MAXCOR = ',I10/)
+    4 FORMAT(//,2X,' ::::::::::::::::::::::::::::::::::'/
+     1          2X,' :::REQUIRED MEMORY FOR THIS RUN:::'/
+     2          2X,' ::::::::::::::::::::::::::::::::::'/
+     3          2X,' NADD  = ',I10,5X,' MAXVC  = ',I10/
+     4          2X,' IGMAX = ',I10,5X,' MAXCOR = ',I10/)
+    5 FORMAT(//,2X,' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'/
+     1          2X,' %%%NOW YOU ARE LEAVING CORSIZ%%%'/
+     2          2X,' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'/)
+C
+C   THIS SUBROUTINE WILL CHECK THE MAXIMUM CORE MEMORY REQUIRED
+C   FOR THE CALCULATION
+C
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C     IC1  = EIG(NBASIS)
+C     IC2  = OCC(NBASIS)
+C     IC3  = EAO OR ESO(NBFAO,NBASIS)
+C     IC4  = NIJ(NTRI,2)
+C     IC5  = KIJ(NTRI,2)
+C     IC6  = FIJ(NTYPEP,NCTRI)
+C     IC7  = AIJ(NTYTRI,NCTRI)
+C     IC8  = BIJ(NTYTRI,NCTRI)
+C     IC9  = E1A(N3N)
+C     IC10 = E2A(N3N,N3N)
+C     IC11 = D1W(N3N)
+C     IC12 = E1T(N3NXX)
+C     IC13 = EPS(NTRI)
+C     IC14 = ZETA(NTRI,NTYPEP)
+C     IC15 = HCIA(NCTRI,N3NXX)
+C     IC16 = HCI(NCTRI)
+C     IC17 = BAF2(NCPEX,N3NXX)
+C     IC18 = CIA(NCPEX,N3NXX)
+C     IC19 = A22(NCPEX,NCPEX)
+C     IC20 = A12(NIND,NCPEX)
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+      IC1=1
+      IC2=IC1+NBASIS
+      IC3=IC2+NBASIS
+      IC4=IC3+NBFAO*NBASIS
+      IA4=IC4+IC4-1
+      IC5=IC4+NTRI
+      IA5=IC5+IC5-1
+      IC6=IC5+NTRI
+      IC7=IC6+NTYPEP*NCTRI
+      IC8=IC7+NTYTRI*NCTRI
+      IC9=IC8+NTYTRI*NCTRI
+      IC10=IC9+N3N
+      IC11=IC10+N3N*N3N
+      IC12=IC11+N3N
+      IC13=IC12+N3NXX
+      IC14=IC13+NTRI
+      IC15=IC14+NTRI*NTYPEP
+      IC16=IC15+NCTRI*N3NXX
+      IC17=IC16+NCTRI
+      IC18=IC17+NCPEX*N3NXX
+      IC19=IC18+NCPEX*N3NXX
+      IC20=IC19+NCPEX*NCPEX
+      ICKEEP=IC20+NIND*NCPEX
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C
+C
+      WRITE(3,1)
+      NADD(1)=N3N*2
+      NADD(2)=N3N*2
+      NADD(3)=N3NXX*2
+      NADD(4)=N3NXX*2
+      NADD(5)=N3N*2
+C
+C   READ IN AO-MO EIGENVECTORS
+C
+C   FORM REGISTER MATRICES
+      WRITE(3,20)
+   20 FORMAT(//,2X,' NOW YOU ARE IN REGIST'/)
+C.................NIJ     KIJ.....
+C***  CALL REGIST(IA(IA4),IA(IA5))
+C
+C   READ IN FIRST AND SECOND DERIVATIVE INFORMATION
+      WRITE(3,21)
+   21 FORMAT(//,2X,' NOW YOU ARE IN DERMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NBATRI
+      IC23=IC22+NBFAO*NBFAO
+      ICMAX=IC23+NBFAO*NBFAO
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=ICMAX
+C.................EAO     E1A     E2A      SS       U        T........
+C***  CALL DERMAT(CC(IC3),CC(IC9),CC(IC10),CC(IC21),CC(IC22),CC(IC23),
+C..............................
+C*** 1            NSECMX,ISTEP)
+C
+      IF(ITEST.EQ.0) GO TO 307
+C
+C   CALCULATE SCF ENERGY FOR A TEST
+      WRITE(3,22)
+   22 FORMAT(//,2X,' NOW YOU ARE IN E0CAL'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NTRI
+      IC24=IC23+NTRI
+      IC25=IC24+NBFAO*NBFAO
+      IC26=IC25+NBFAO*NBFAO
+      IC27=IC26+NTRI*NTYPES
+      IC28=IC27+NTRI*NTYPES
+      IC29=IC28+NTRI*NTYPES
+      IA29=IC29+IC29-1
+      ICMAX=IC29+MAXBF2
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................ESO     HSO      HMO      TM       U        T........
+C***  CALL E0CAL(CC(IC3),CC(IC21),CC(IC22),CC(IC23),CC(IC24),CC(IC25),
+C................DP       DQ       DM       MIJ      PQ.............
+C*** 1           CC(IC26),CC(IC27),CC(IC28),IA(IA29),IA(IA29+MAXIJ))
+C
+C   CALCULATE SCF FIRST ENERGY DERIVATIVES
+      WRITE(3,23)
+   23 FORMAT(//,2X,' NOW YOU ARE IN EADER'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N
+      IC23=IC22+N3N
+      IC24=IC23+NTRI
+      IC25=IC24+NTRI
+      ICMAX=IC25+NTRI*N3N*NTREAD
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................D1W      E1T      EPS      D1O      D1T......
+C***  CALL EADER(CC(IC11),CC(IC12),CC(IC13),CC(IC21),CC(IC22),
+C................SM       HM       TM..................
+C*** 1           CC(IC23),CC(IC24),CC(IC25),N3N*NTREAD)
+C
+C   FORM HA MATRICES
+  307 CONTINUE
+      WRITE(3,24)
+   24 FORMAT(//,2X,' NOW YOU ARE IN HAMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N
+      IC23=IC22+NTRI*N3N
+      ICMAX=IC23+NTRI*N3N*NTREAD
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................FIJ     AIJ     BIJ     D1W      E1T      HCIA.....
+C***  CALL HAMAT(CC(IC6),CC(IC7),CC(IC8),CC(IC11),CC(IC12),CC(IC15),
+C................D1E      HM       TM........................
+C*** 1           CC(IC21),CC(IC22),CC(IC23),N3N*NTREAD,N3NXX)
+C
+C   FORM DERIVATIVE LAGRANGIAN MATRICES
+      WRITE(3,25)
+   25 FORMAT(//,2X,' NOW YOU ARE IN FAMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NBASIS*NBASIS
+      IC24=IC23+NTRI*N3N
+      ICMAX=IC24+NTRI*N3N*NTREAD
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................FF       EPA      HM       TM...................
+C***  CALL FAMAT(CC(IC21),CC(IC22),CC(IC23),CC(IC24),N3N*NTREAD))
+C
+C   CALCULATE BA MATRICES
+C   FOR INDEPENDENT PAIRS
+      WRITE(3,26)
+   26 FORMAT(//,2X,' NOW YOU ARE IN BAIND'/)
+  210 CONTINUE
+      NADD(1)=NADD(1)/2
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NTRI
+      IC25=IC24+NBASIS*NBASIS
+      IC26=IC25+NTRI*NTYPEP*NADD(1)
+      IC27=IC26+NTRI*NTYPEP*NADD(1)
+      IC28=IC27+NTRI*NTYPEP*NADD(1)
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,27) N3N,NADD(1),ICMAX
+   27 FORMAT(2X,' N3N   = ',I8,4X,' NADD  = ',I8,4X,' ICMAX = ',I8/)
+      IF(NADD(1).EQ.1) GO TO 211
+      IF(ICMAX.LT.MAXCOR) GO TO 211
+      GO TO 210
+  211 CONTINUE
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................ESO     NIJ     ZETA     U        T        B0.......
+C***  CALL BAIND(CC(IC3),IA(IA4),CC(IC14),CC(IC21),CC(IC22),CC(IC23),
+C................EPA      DP       DQ       DM       SM.......
+C*** 1           CC(IC24),CC(IC25),CC(IC26),CC(IC27),CC(IC26),
+C................MIJ      PQ.....................
+C*** 2           IA(IA28),IA(IA28+MAXIJ),NADD(1))
+C
+C   FOR DEPENDENT PAIRS
+      WRITE(3,28)
+   28 FORMAT(//,2X,' NOW YOU ARE IN BADEP'/)
+  220 CONTINUE
+      NADD(2)=NADD(2)/2
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NTRI
+      IC25=IC24+NTRI
+      IC26=IC25+NTRI*NADD(2)
+      IC27=IC26+NTRI*NADD(2)
+      IC28=IC27+NTRI*NADD(2)
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,29) N3N,NADD(2),ICMAX
+   29 FORMAT(2X,' N3N   = ',I8,4X,' NADD  = ',I8,4X,' ICMAX = ',I8/)
+      IF(NADD(2).EQ.1) GO TO 221
+      IF(ICMAX.LT.MAXCOR) GO TO 221
+      GO TO 220
+  221 CONTINUE
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................EIG     ESO     KIJ     U        T.......
+C***  CALL BADEP(CC(IC1),CC(IC3),IA(IA5),CC(IC21),CC(IC22),
+C................B0       FF       DP       DQ       DM.......
+C*** 1           CC(IC23),CC(IC24),CC(IC25),CC(IC26),CC(IC27),
+C................MIJ      PQ.....................
+C*** 2           IA(IA28),IA(IA28+MAXIJ),NADD(2))
+C
+C   CALCULATE H AND E MATRICES
+  309 CONTINUE
+      WRITE(3,30)
+   30 FORMAT(//,2X,' NOW YOU ARE IN HEMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      IC23=IC22+NTRI
+      IC24=IC23+NTRI*NTYPEP
+      IC25=IC24+NTRI*NTYPEP
+      IC26=IC25+NTRI*NTYPEP
+      IC27=IC26+NBASIS*NBASIS
+      IC28=IC27+NTRI
+      IC29=IC28+NBASIS*NBASIS
+      IC30=IC29+NBASIS*NBASIS
+      IC31=IC30+NBASIS*NBASIS
+      IA31=IC31+IC31-1
+      ICMAX=IC31+MAXBF2
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................ESO     FIJ     AIJ     BIJ     HCI......
+C***  CALL HEMAT(CC(IC3),CC(IC6),CC(IC7),CC(IC8),CC(IC16),
+C................HSO      HMO      DP       DQ       DM       EIJ......
+C*** 1           CC(IC21),CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),
+C................ZIJ      EE       U        T........
+C*** 2           CC(IC27),CC(IC28),CC(IC29),CC(IC30),
+C................MIJ      PQ.............
+C*** 3           IA(IA31),IA(IA30+MAXIJ))
+C
+C   FORM BF MATRICES
+      WRITE(3,31)
+   31 FORMAT(//,2X,' NOW YOU ARE IN BFMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*3
+      IC23=IC22+NTRI*NTYPES*3
+      IC24=IC23+NBASIS*NBASIS
+      ICMAX=IC24+NTRI
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................NIJ     KIJ     FIJ     E1T      HCIA     HF.......
+C***  CALL BFMAT(IA(IA4),IA(IA5),CC(IC6),CC(IC12),CC(IC15),CC(IC21),
+C................HM       EPF      BF...................
+C*** 1           CC(IC22),CC(IC23),CC(IC24),N3NXX,ISTEP)
+C
+C   FORM BAF MATRICES
+  310 CONTINUE
+      WRITE(3,32)
+   32 FORMAT(//,2X,' NOW YOU ARE IN AB2CI'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*N3N
+      ICMAX=IC22+NBASIS*NBASIS
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................NIJ     E1T      HCIA     HCI      BAF2     A22......
+C***  CALL AB2CI(IA(IA4),CC(IC12),CC(IC15),CC(IC16),CC(IC17),CC(IC19),
+C................A12      SA       EIJ............
+C*** 1           CC(IC20),CC(IC21),CC(IC22),N3NXX)
+C
+C   SOLVE SIMULTANEOUS EQUATIONS ITERATIVELY
+      WRITE(3,33)
+   33 FORMAT(//,2X,' NOW YOU ARE IN CPHF'/)
+  230 CONTINUE
+      NADD(3)=NADD(3)/2
+      MAXVC=MIN0(MAXVEC,NADD(3)*MAXVX)
+      NINDPX=NIND+NCPEX
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NBFAO*NBFAO
+      IC25=IC24+NTRI
+      IC26=IC25+NINDPX
+      IC27=IC26+NINDPX
+      IC28=IC27+NTYPEP*(NTRI*NADD(3))
+      IC29=IC28+NTYPEP*(NTRI*NADD(3))
+      IC30=IC29+NTYPEP*(NTRI*NADD(3))
+      IC31=IC30+MAXVC*(MAXVC+NADD(3))
+      IC32=IC31+NINDPX*MAXVC*2
+      IA32=IC32+IC32-1
+      ICMAX=IC32+MAXBF2
+      WRITE(3,34) NIND,N3NXX,NADD(3),MAXVC,ICMAX
+   34 FORMAT(2X,' NIND  = ',I8,4X,' N3NXX = ',I8,4X,' NADD = ',I8/
+     1       2X,' MAXVC = ',I8,4X,' ICMAX = ',I8/)
+      IF(NADD(3).EQ.1) GO TO 231
+      IF(ICMAX.LT.MAXCOR) GO TO 231
+      GO TO 230
+  231 CONTINUE
+      IGMAX=MAX0(ICMAX,IGMAX)
+C...............ESO     NIJ     KIJ     ZETA     BAF2     CIA......
+C***  CALL CPHF(CC(IC3),IA(IA4),IA(IA5),CC(IC14),CC(IC17),CC(IC18),
+C...............A22      A12      A........
+C*** 1          CC(IC19),CC(IC20),CC(IC21),
+C...............U        T        B0       AA       TT       DP.......
+C*** 2          CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),CC(IC27),
+C...............DQ       DM       W        BB       MIJ......
+C*** 3          CC(IC28),CC(IC29),CC(IC30),CC(IC31),IA(IA32),
+C...............PQ........................................
+C*** 4          IA(IA32+MAXIJ),NINDPX,MAXVC,NADD(3),N3NXX)
+C
+C   CALCULATE DEPENDENT PAIRS OF U MATRICES
+      WRITE(3,35)
+   35 FORMAT(//,2X,' NOW YOU ARE IN UCMAT'/)
+  240 CONTINUE
+      NADD(4)=NADD(4)/2
+      IC21=ICKEEP
+      IC22=IC21+NBFAO*NBFAO
+      IC23=IC22+NBFAO*NBFAO
+      IC24=IC23+NTRI
+      IC25=IC24+NTRI*NADD(4)
+      IC26=IC25+NTRI*NADD(4)
+      IC27=IC26+NTRI*NADD(4)
+      IC28=IC27+NTRI
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,36) N3NXX,NADD(4),ICMAX
+   36 FORMAT(2X,' N3NXX  = ',I8,4X,' NADD = ',I8,4X,' ICMAX = ',I8/)
+      IF(NADD(4).EQ.1) GO TO 241
+      IF(ICMAX.LT.MAXCOR) GO TO 241
+      GO TO 240
+  241 CONTINUE
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................EIG     ESO     NIJ     KIJ     U........
+C***  CALL UCMAT(CC(IC1),CC(IC3),IA(IA4),IA(IA5),CC(IC21),
+C................T        B        DP       DQ       DM       DEL......
+C*** 1           CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),CC(IC27),
+C................MIJ      PQ...........................
+C*** 2           IA(IA28),IA(IA28+MAXIJ),NADD(4),N3NXX)
+C
+C   COMPLETE U MATRICES
+      WRITE(3,37)
+   37 FORMAT(//,2X,' NOW YOU ARE IN UXMAT'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*N3NXX
+      IC23=IC22+NTRI*N3NXX
+      ICMAX=IC23+NBASIS*NBASIS
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................KIJ     B        SM       U..............
+C***  CALL UXMAT(IA(IA5),CC(IC21),CC(IC22),CC(IC23),N3NXX)
+C
+C   CALCULATE WA MATRICES
+      WRITE(3,38)
+   38 FORMAT(//,2X,' NOW YOU ARE IN WAMAT'/)
+  250 CONTINUE
+      NADD(5)=NADD(5)/2
+      IC21=ICKEEP
+      IC22=IC21+NBASIS*NBASIS
+      IC23=IC22+NBASIS*NBASIS
+      IC24=IC23+NBASIS*NBASIS
+      IC25=IC24+NBASIS*NBASIS
+      IC26=IC25+NTRI*NTYPEP*NADD(5)
+      IC27=IC26+NTRI*NTYPEP*NADD(5)
+      IC28=IC27+NTRI*NTYPEP*NADD(5)
+      IA28=IC28+IC28-1
+      ICMAX=IC28+MAXBF2
+      WRITE(3,39) N3N,NADD(5),ICMAX
+   39 FORMAT(2X,' N3N   = ',I8,4X,' NADD  = ',I8,4X,' ICMAX = ',I8/)
+      IF(NADD(5).EQ.1) GO TO 251
+      IF(ICMAX.LT.MAXCOR) GO TO 251
+      GO TO 250
+  251 CONTINUE
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................ESO     ZETA     U        T        EPA      WA.......
+C***  CALL WAMAT(CC(IC3),CC(IC14),CC(IC21),CC(IC22),CC(IC23),CC(IC24),
+C................SA       DP       DQ       DM       MIJ......
+C*** 1           CC(IC25),CC(IC26),CC(IC27),CC(IC25),IA(IA28),
+C................PQ.....................
+C    2           IA(IA28+MAXIJ),NADD(5))
+C
+C   CALCULATE SCF SECOND DERIVATIVES
+      WRITE(3,40)
+   40 FORMAT(//,2X,' NOW YOU ARE IN SCF2W'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N*N3N
+      IC23=IC22+N3N*N3N
+      IC24=IC23+N3N*N3N
+      IC25=IC24+NBASIS*NBASIS
+      IC26=IC25+NBASIS*NBASIS
+      IC27=IC26+NTRI*N3N
+      ICMAX=IC27+NBASIS*NBASIS*N3N
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................E2M      E2P      E2Q      EPA      UA       SA.......
+C***  CALL SCF2W(CC(IC21),CC(IC22),CC(IC23),CC(IC24),CC(IC25),CC(IC26),
+C................WA.......
+C*** 1           CC(IC27))
+C
+      WRITE(3,41)
+   41 FORMAT(//,2X,' NOW YOU ARE IN SCF2ND'/)
+      IC21=ICKEEP
+      IC22=IC21+N3N*N3N
+      IC23=IC22+N3N*N3N
+      IC24=IC23+N3N*N3N
+      IC25=IC24+NTRI*N3N
+      ICMAX=IC25+NBASIS*NBASIS
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C.................E2A      HCIA     CIA      E2M      E2C      E2T......
+C***  CALL SCF2ND(CC(IC10),CC(IC15),CC(IC18),CC(IC21),CC(IC22),CC(IC23),
+C.................SA       EIJ......
+C*** 1            CC(IC24),CC(IC25))
+C
+C   CALCULATE CI FIRST DERIVATIVES
+C 313 CONTINUE
+C     WRITE(3,41)
+C  41 FORMAT(//,2X,' NOW YOU ARE IN CI1ST'/)
+C     IC1=1
+C     IC2=IC1+NBASIS*NBASIS
+C     CALL CI1ST(CC(IC1),CC(IC2),NBASIS)
+C
+C   CALCULATE DIPOLE MOMENT DERIVATIVES
+      WRITE(3,42)
+   42 FORMAT(//,2X,' NOW YOU ARE IN DIPMO'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*3
+      ICMAX=IC22+NBASIS*NBASIS*N3N
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................HCIA     CIA      HF       UA.......
+C***  CALL DIPMO(CC(IC15),CC(IC18),CC(IC21),CC(IC22))
+C
+C   FIND DERIVATIVE ORBITAL ENERGIES
+  314 CONTINUE
+      IF(IORB.EQ.0) GO TO 315
+      WRITE(3,43)
+   43 FORMAT(//,2X,' NOW YOU ARE IN ORB1ST'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI
+      ICMAX=IC22+NTRI*N3N
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C.................B0       CC.........
+C***  CALL ORB1ST(CC(IC21),CC(IC22),1)
+      IF(IPOL.EQ.0) GO TO 315
+C.................B0       CC.........
+C***  CALL ORB1ST(CC(IC21),CC(IC22),2)
+C
+C   CALCULATE ELECTRIC POLARIZABILITIES
+  315 CONTINUE
+      IF(IPOL.EQ.0) GO TO 320
+      WRITE(3,44)
+   44 FORMAT(//,2X,' NOW YOU ARE IN POLAR'/)
+      IC21=ICKEEP
+      IC22=IC21+NTRI*3
+      ICMAX=IC22+NBASIS*NBASIS*3
+      WRITE(3,2) ICMAX,MAXCOR
+      IGMAX=MAX0(ICMAX,IGMAX)
+C................HCIA     CIA      HF       UF.......
+C***  CALL POLAR(CC(IC15),CC(IC18),CC(IC21),CC(IC22))
+  320 CONTINUE
+C
+      IF(IGMAX.LT.MAXCOR) GO TO 400
+C
+C   REQUIRED MEMORY EXCEEDS MAXCOR-----STOP !!!
+      WRITE(6,3) ICMAX,MAXCOR
+      WRITE(3,3) ICMAX,MAXCOR
+      STOP
+C
+  400 CONTINUE
+      WRITE(3,4) NADD(3),MAXVC,IGMAX,MAXCOR
+      WRITE(6,4) NADD(3),MAXVC,IGMAX,MAXCOR
+C
+      WRITE(3,5)
+      RETURN
+      END
+      SUBROUTINE BARES(FIJ,AIJ,BIJ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION FIJ(NTYPEP,ICIUNQ),AIJ(NTYTRI,ICIUNQ),BIJ(NTYTRI,ICIUNQ)
+      DIMENSION F(20),A(20,20),B(20,20)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPEX/PEXC(100),INDPEX(20,100),MOPEX(20),ICIMO(20)
+      COMMON/CIPMO/IIMO(5050),JJMO(5050)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/DENST/ALPC(465),BETC(465)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI103/CI(100)
+      DATA A00,HALF,ONE,TWO / 0.0D+00 , 0.5D+00 , 1.0D+00 , 2.0D+00 /
+    1 FORMAT(//,2X,' THE CI COEFFICIENTS'/)
+    2 FORMAT(2X,I5,F15.8)
+    3 FORMAT(//,2X,' THE NORMALIZATION OF CI COEFFICIENTS',5X,F15.8/)
+    4 FORMAT(//,2X,' FIJ VECTOR, ICI = ',I5/)
+    5 FORMAT(8F10.5)
+    6 FORMAT(//,2X,' AIJ MATRIX, ICI = ',I5/)
+    7 FORMAT(//,2X,' BIJ MATRIX, ICI = ',I5/)
+    8 FORMAT(//,2X,' FOCC VECTOR FROM FIJ (NON-ZERO CI''S)'/5X,10F10.5/)
+    9 FORMAT(//,2X,' ALPA MATRIX FROM AIJ (NON-ZERO CI''S)'/)
+   10 FORMAT(//,2X,' BETA MATRIX FROM BIJ (NON-ZERO CI''S)'/)
+C
+C   TRANSFER THE CI COEFFICEINTS
+C
+      IF(IPRNT.GT.2)
+     *WRITE(6,1)
+      CTOT=A00
+      DO 101 I=1,NCPEX
+      CI(I)=PEXC(I)
+      CTOT=CTOT+CI(I)*CI(I)
+      IF(IPRNT.LT.2) GO TO 101
+      WRITE(6,2) I,CI(I)
+  101 CONTINUE
+      IF(IPRNT.GT.2)
+     *WRITE(6,3) CTOT
+C
+C   FORM THE "BARE" COUPLING CONSTANT MATRICES
+      CALL ZERO(FIJ,NTYPEP*ICIUNQ)
+      CALL ZERO(AIJ,NTYTRI*ICIUNQ)
+      CALL ZERO(BIJ,NTYTRI*ICIUNQ)
+C
+C   ONE-ELECTRON COUPLING CONSTANTS
+      DO 105 ICI=1,NCPEX
+      DO 102 ITYP=1,NTYPES
+      IF(FOCC(ITYP).NE.TWO.AND.FOCC(ITYP).NE.ONE) GO TO 102
+      FIJ(ITYP,ICI)=FOCC(ITYP)*HALF
+  102 CONTINUE
+      DO 103 I=1,NORPEX
+      IF(INDPEX(I,ICI).EQ.0) GO TO 103
+      MTYP=MOTYP(ICIMO(I))
+      FIJ(MTYP,ICI)=ONE
+  103 CONTINUE
+      IF(IPRNT.LE.2) GO TO 105
+      WRITE(6,4) ICI
+      WRITE(6,5) (FIJ(ITYP,ICI),ITYP=1,NTYPEP)
+  105 CONTINUE
+C
+C   TWO-ELECTRON COUPLING CONSTANTS
+C   FOR THE CI DIAGONAL ELEMENTS
+      DO 115 ICI=1,NCPEX
+C   FOR CLOSED---OPEN-SHELL
+      DO 106 ITYP=1,NTYPES
+      DO 106 JTYP=1,ITYP
+      IJTYP=IOFF(MAX0(ITYP,JTYP))+MIN0(ITYP,JTYP)
+      IF(FOCC(ITYP).NE.TWO.AND.FOCC(ITYP).NE.ONE) GO TO 106
+      IF(FOCC(JTYP).NE.TWO.AND.FOCC(JTYP).NE.ONE) GO TO 106
+      AIJ(IJTYP,ICI)=ALPC(IJTYP)
+      BIJ(IJTYP,ICI)=BETC(IJTYP)
+  106 CONTINUE
+C   FOR CLOSED AND OPEN-SHELLS---PEX SHELLS
+      DO 108 ITYP=1,NTYPES
+      IF(FOCC(ITYP).NE.TWO.AND.FOCC(ITYP).NE.ONE) GO TO 108
+      DO 107 I=1,NORPEX
+      IF(INDPEX(I,ICI).EQ.0) GO TO 107
+      MTYP=MOTYP(ICIMO(I))
+      IMTYP=IOFF(MAX0(ITYP,MTYP))+MIN0(ITYP,MTYP)
+      AIJ(IMTYP,ICI)=FOCC(ITYP)
+      BIJ(IMTYP,ICI)=-FOCC(ITYP)*HALF
+  107 CONTINUE
+  108 CONTINUE
+C   FOR PEX-PEX SHELLS
+      DO 110 I=1,NORPEX
+      IF(INDPEX(I,ICI).EQ.0) GO TO 110
+      MTYP=MOTYP(ICIMO(I))
+      DO 109 J=1,I
+      IF(INDPEX(J,ICI).EQ.0) GO TO 109
+      NTYP=MOTYP(ICIMO(J))
+      MNTYP=IOFF(MAX0(MTYP,NTYP))+MIN0(MTYP,NTYP)
+      AIJ(MNTYP,ICI)=TWO
+      BIJ(MNTYP,ICI)=-ONE
+  109 CONTINUE
+  110 CONTINUE
+      IF(IPRNT.LE.2) GO TO 115
+      WRITE(6,6) ICI
+      CALL PRINT(AIJ(1,ICI),NCTRI,NTYPEP,6)
+      WRITE(6,7) ICI
+      CALL PRINT(BIJ(1,ICI),NCTRI,NTYPEP,6)
+  115 CONTINUE
+C
+C   TWO-ELECTRON COUPLING CONSTANTS
+C   FOR THE CI OFF-DIAGONAL ELEMENTS (BIJ ONLY)
+      DO 116 IJCI=1,IJUNQ
+      II=IIMO(IJCI)
+      JJ=JJMO(IJCI)
+      IIJJ=IOFF(MAX0(II,JJ))+MIN0(II,JJ)
+      IJEX=IIUNQ+IJCI
+      BIJ(IIJJ,IJEX)=HALF
+      IF(IPRNT.LE.2) GO TO 116
+      WRITE(6,7) IJCI
+      CALL PRINT(BIJ(1,IJEX),NCTRI,NTYPEP,6)
+  116 CONTINUE
+C
+C   TEST THE "BARE" COUPLING CONSTANTS USING NON-ZERO CI'S
+      CALL ZERO(F,20)
+      CALL ZERO(A,400)
+      CALL ZERO(B,400)
+      IJCI=0
+      DO 120 IJCI=1,ICIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      FAC=TWO
+      IF(IEX.EQ.JEX) FAC=ONE
+      DO 117 ITYP=1,NTYPES
+      F(ITYP)=F(ITYP)+CI(IEX)*CI(JEX)*FIJ(ITYP,IJCI)*FAC
+  117 CONTINUE
+      DO 118 ITYP=1,NTYPES
+      DO 118 JTYP=1,NTYPES
+      IJTYP=IOFF(MAX0(ITYP,JTYP))+MIN0(ITYP,JTYP)
+      A(ITYP,JTYP)=A(ITYP,JTYP)+CI(IEX)*CI(JEX)*AIJ(IJTYP,IJCI)*FAC
+      B(ITYP,JTYP)=B(ITYP,JTYP)+CI(IEX)*CI(JEX)*BIJ(IJTYP,IJCI)*FAC
+  118 CONTINUE
+  120 CONTINUE
+      WRITE(6,8) (F(I),I=1,NTYPEP)
+      WRITE(6,9)
+      CALL MATOUT(A,20,20,NTYPEP,NTYPEP,6)
+      WRITE(6,10)
+      CALL MATOUT(B,20,20,NTYPEP,NTYPEP,6)
+C
+      RETURN
+      END
+      SUBROUTINE DERMAT(EAO,E1A,E2A,SS,U,T,NSECMX,ISTEP)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION E1A(N3N),E2A(N3N,N3N),SS(NBATRI)
+      DIMENSION EAO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+    1 FORMAT(//,2X,' SCF FIRST DERIVATIVE MATRIX'/)
+    2 FORMAT(//,2X,' SCF SECOND DERIVATIVE MATRIX'/)
+    3 FORMAT(//,2X,' SA (AO BASIS) MATRIX, IABC = ',I5/)
+    4 FORMAT(//,2X,' SA (MO BASIS) MATRIX, IABC = ',I5/)
+    5 FORMAT(//,2X,' HA (AO BASIS) MATRIX, IABC = ',I5/)
+    6 FORMAT(//,2X,' HA (MO BASIS) MATRIX, IABC = ',I5/)
+    7 FORMAT(//,2X,' TA (AO BASIS) MATRIX, IABC = ',I5,' ITYP = ',I5/)
+    8 FORMAT(//,2X,' TA (MO BASIS) MATRIX, IABC = ',I5,' ITYP = ',I5/)
+C
+      CALL RFILE(ITAP42)
+      NBSET=NTREAD
+C
+C   READ IN SCF FIRST DERIVATIVES
+      CALL SREAD(ITAP42,E1A,N3N*2)
+      WRITE(6,1)
+      CALL MATOUT(E1A,3,NATOMS,3,NATOMS,6)
+C
+C   READ IN SCF SECOND DERIVATIVES
+      CALL SREAD(ITAP42,E2A,N3N*N3N*2)
+      WRITE(6,2)
+      CALL MATOUT(E2A,N3N,N3N,N3N,N3N,6)
+      IF(ISTEP.GE.5) GO TO 205
+C
+C   READ IN S FIRST DERIVATIVE INTEGRALS
+C   AND TRANSFORM THEM FROM AO TO MO BASIS
+      CALL RFILE(ITAP44)
+      CALL RFILE(JTAPE1)
+      CALL ZFILE(ITAP44,NSECMX)
+      DO 101 IABC=1,N3N
+      IS=ISA(IABC)
+      CALL SREAD(ITAP42,SS,NTRI2)
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,3) IABC
+      CALL PRINT(SS,NBATRI,NBASIS,6)
+  201 CONTINUE
+      CALL MOCONV(SS,NBATRI,SS,NBATRI,EAO,U,T)
+      CALL RWRIT(ITAP44,SS,NTRI2,IS)
+      IF(IPRNT.LE.4) GO TO 101
+      WRITE(6,4) IABC
+      CALL PRINT(SS,NBATRI,NBASIS,6)
+  101 CONTINUE
+C
+C   READ IN ONE ELECTRON FIRST DERIVATIVE INTEGRALS
+C   AND TRANSFORM THEM FROM AO TO MO BASIS
+      DO 102 IABC=1,N3N
+      IH=IHA(IABC)
+      CALL SREAD(ITAP42,SS,NTRI2)
+      IF(IPRNT.LE.4) GO TO 202
+      WRITE(6,5) IABC
+      CALL PRINT(SS,NBATRI,NBFAO,6)
+  202 CONTINUE
+      CALL MOCONV(SS,NBATRI,SS,NBATRI,EAO,U,T)
+      CALL RWRIT(ITAP44,SS,NTRI2,IH)
+      IF(IPRNT.LE.4) GO TO 102
+      WRITE(6,6) IABC
+      CALL PRINT(SS,NBATRI,NBASIS,6)
+  102 CONTINUE
+C
+C   READ IN TWO ELECTRON FIRST DERIVATIVE INTEGRALS
+C   AND TRANSFORM THEM FROM AO TO MO BASIS
+      DO 104 ITYP=1,NBSET
+      DO 103 IABC=1,N3N
+      CALL SREAD(ITAP42,SS,NTRI2)
+      IF(IPRNT.LE.4) GO TO 203
+      WRITE(6,7) ITYP,IABC
+      CALL PRINT(SS,NBATRI,NBFAO,6)
+  203 CALL MOCONV(SS,NBATRI,SS,NBATRI,EAO,U,T)
+      CALL SWRIT(JTAPE1,SS,NTRI2)
+      IF(IPRNT.LE.4) GO TO 103
+      WRITE(6,8) ITYP,IABC
+      CALL PRINT(SS,NBATRI,NBASIS,6)
+  103 CONTINUE
+  104 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+C
+  205 CONTINUE
+      CALL RCLOSE(ITAP42,3)
+      RETURN
+      END
+      SUBROUTINE MOCONV(SA,NNA,SM,NNM,EAO,U,T)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION SA(NNA),SM(NNM)
+      DIMENSION EAO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+C
+C   TRANSFORM INTEGRALS FROM AO TO MO BASIS
+      NBFASQ=NBFAO*NBFAO
+      IIJJ=0
+      DO 101 II=1,NBFAO
+      DO 101 JJ=1,II
+      IIJJ=IIJJ+1
+      T(II,JJ)=SA(IIJJ)
+      T(JJ,II)=SA(IIJJ)
+  101 CONTINUE
+      CALL ZERO(U,NBFASQ)
+      CALL MXMB(EAO,NBFAO,1,T,1,NBFAO,U,1,NBFAO,NBFAO,NBFAO,NBFAO)
+      CALL ZERO(T,NBFASQ)
+      CALL MXMB(U,1,NBFAO,EAO,1,NBFAO,T,1,NBFAO,NBFAO,NBFAO,NBFAO)
+      IJ=0
+      DO 102 I=1,NBASIS
+      DO 102 J=1,I
+      IJ=IJ+1
+      SM(IJ)=T(I,J)
+  102 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE MOCONS(SA,NNA,SM,NNM,ESO,U,T)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION SA(NNA),SM(NNM)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+C
+C   TRANSFORM INTEGRALS FROM SO TO MO BASIS
+      NBFSSQ=NBASIS*NBASIS
+      IIJJ=0
+      DO 101 II=1,NBASIS
+      DO 101 JJ=1,II
+      IIJJ=IIJJ+1
+      T(II,JJ)=SA(IIJJ)
+      IF(II.EQ.JJ) GO TO 101
+      T(JJ,II)=SA(IIJJ)
+  101 CONTINUE
+      CALL ZERO(U,NBFSSQ)
+      CALL MXMB(ESO,NBFAO,1,T,1,NBFAO,U,1,NBFAO,NBFAO,NBFAO,NBFAO)
+      CALL ZERO(T,NBFSSQ)
+      CALL MXMB(U,1,NBFAO,ESO,1,NBFAO,T,1,NBFAO,NBFAO,NBFAO,NBFAO)
+      IJ=0
+      DO 102 I=1,NBASIS
+      DO 102 J=1,I
+      IJ=IJ+1
+      SM(IJ)=T(I,J)
+  102 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE E0CAL(ESO,HSO,HMO,TM,U,T,DP,DQ,DM,MIJ,PQ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION HSO(NTRI),HMO(NTRI),TM(NTRI)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION DP(NTRI,NTYPES),DQ(NTRI,NTYPES),DM(NTRI,NTYPES)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/ENRGY/ESCF,ENUC,ELEC
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA A00 / 0.0D+00 /
+    1 FORMAT(//,2X,' H (SO BASIS) MATRIX'/)
+    2 FORMAT(//,2X,' H (MO BASIS) MATRIX'/)
+    3 FORMAT(//,2X,' SCF ENERGIES'/
+     * 2X,' ESCF       = ',F20.10/
+     * 2X,' ENUC       = ',F20.10/
+     * 2X,' ELEC-ONE   = ',F20.10/
+     * 2X,' ELEC-TWO   = ',F20.10/
+     * 2X,' ELEC-TOTAL = ',F20.10/
+     * 2X,' ETOT       = ',F20.10)
+C
+C   CALCULATE SCF ENERGY FOR A TEST
+C   SEE EQ.(4)
+C
+C   READ IN ONE ELECTRON INTEGRALS (SO BASIS)
+      CALL RMREAD(HSO,16)
+      CALL MOCONS(HSO,NTRI,HMO,NTRI,ESO,U,T)
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(6,1)
+      CALL PRINT(HSO,NTRI,NBASIS,6)
+      WRITE(6,2)
+      CALL PRINT(HMO,NTRI,NBASIS,6)
+C
+C   CALCULATE ONE-ELCTRON ENERGY
+  201 CONTINUE
+      ELEC1=A00
+      DO 101 I=1,JOCC
+      II=IOFF(I+1)
+      ITYP=MOTYP(I)
+      ELEC1=ELEC1+HMO(II)*FOCC(ITYP)
+  101 CONTINUE
+C
+C   FORM DENSITY MATRIX IN SO BASIS
+      CALL PQAMAT(DP,DQ,ESO,NTYPES)
+C
+C   FORM HALF-TRANSFORMED TWO ELECTRON MATRIX
+      CALL PQMAT(DP,DQ,DM,NTYPES,MIJ,PQ)
+C
+C   CALCULATE TWO-ELECTRON ENERGY
+      ELEC2=A00
+      DO 103 ITYP=1,NTYPES
+      CALL MOCONS(DM(1,ITYP),NTRI,TM,NTRI,ESO,U,T)
+      DO 102 I=NSTR(ITYP),NEND(ITYP)
+      II=IOFF(I+1)
+      ELEC2=ELEC2+TM(II)
+  102 CONTINUE
+  103 CONTINUE
+C
+      ELECT=ELEC1+ELEC2
+      ETOT=ENUC+ELECT
+      WRITE(6,3) ESCF,ENUC,ELEC1,ELEC2,ELECT,ETOT
+C
+      RETURN
+      END
+      SUBROUTINE PQAMAT(DP,DQ,ESO,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION DP(NTRI,NABC),DQ(NTRI,NABC),ESO(NBFAO,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/A(30,30),B(30,30)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      DATA A00,TWO / 0.0D+00 , 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX'/)
+    2 FORMAT(//,2X,' DQ MATRIX'/)
+C
+      IJ=0
+      DO 105 I=1,NBASIS
+      DO 105 J=1,I
+      IJ=IJ+1
+      DO 104 ITYP=1,NTYPES
+      SUMP=A00
+      SUMQ=A00
+      DO 103 JTYP=1,NTYPES
+      DO 102 K=NSTR(JTYP),NEND(JTYP)
+      FAC=ESO(I,K)*ESO(J,K)
+      IF(DABS(FAC).LT.TOL) GO TO 102
+      SUMP=SUMP+A(ITYP,JTYP)*FAC
+      SUMQ=SUMQ+B(ITYP,JTYP)*FAC
+  102 CONTINUE
+  103 CONTINUE
+      DP(IJ,ITYP)=SUMP
+      DQ(IJ,ITYP)=SUMQ
+  104 CONTINUE
+  105 CONTINUE
+C
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NTYPES,NTRI,NTYPES,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NTYPES,NTRI,NTYPES,6)
+C
+  201 CONTINUE
+      DO 107 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 106 ITYP=1,NTYPES
+      DP(II,ITYP)=DP(II,ITYP)/TWO
+      DQ(II,ITYP)=DQ(II,ITYP)/TWO
+  106 CONTINUE
+  107 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NTYPES)
+      CALL ESCVEC(TWO,DQ,NTRI*NTYPES)
+C
+      RETURN
+      END
+      SUBROUTINE PQMAT(DP,DQ,DM,NABC,MIJ,PQ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION DP(NTRI,NABC),DQ(NTRI,NABC),DM(NTRI,NABC)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/LIMIT/MAXBAS,MAXBUF,MAXBF2,MAXBF4
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SUPER/MAXIJ
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+    1 FORMAT(2X,3I5,4F15.8)
+    2 FORMAT(//,2X,' DM MATRIX'/)
+C
+C   DP :  COULOMB DENSITY TYPE SO MATRIX
+C   DQ :  EXCHANGE DENSITY TYPE SO MATRIX
+C   DM :  HALF TRANSFORMED SO MATRIX
+C
+C   FORM DM MATRICES
+      CALL ZERO(DM,NTRI*NABC)
+C
+      CALL RFILE(ITAP37)
+  200 CALL SREAD(ITAP37,MIJ,MAXBF4)
+      LIMINT=MIJ(10*MAXIJ+1)
+      DO 102 M=1,LIMINT
+      IJ=MIJ(M)
+      KL=MIJ(M+MAXIJ)
+      P=PQ(M)
+      Q=PQ(M+MAXIJ)
+      CJ=P+Q
+      EK=Q+Q
+C     IF(IPRNT.LE.5) GO TO 201
+C     WRITE(6,1) M,IJ,KL,P,Q,CJ,EK
+  201 CONTINUE
+      DO 101 IABC=1,NABC
+      DM(IJ,IABC)=DM(IJ,IABC)+DP(KL,IABC)*CJ+DQ(KL,IABC)*EK
+      DM(KL,IABC)=DM(KL,IABC)+DP(IJ,IABC)*CJ+DQ(IJ,IABC)*EK
+  101 CONTINUE
+  102 CONTINUE
+      IF(LIMINT.NE.MAXIJ) GO TO 202
+      GO TO 200
+C
+  202 CONTINUE
+      CALL SREW(ITAP37)
+      IF (IPRNT.LE.4) GO TO 203
+      WRITE(6,2)
+      CALL MATOUT(DM,NTRI,NABC,NTRI,NABC,6)
+C
+  203 CONTINUE
+      CALL RCLOSE(ITAP37,3)
+      RETURN
+      END
+      SUBROUTINE PQQMAT(DQ,DM,NABC,MIJ,PQ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION DQ(NTRI,NABC),DM(NTRI,NABC)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/LIMIT/MAXBAS,MAXBUF,MAXBF2,MAXBF4
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SUPER/MAXIJ
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+    1 FORMAT(2X,3I5,4F15.8)
+    2 FORMAT(//,2X,' DM MATRIX'/)
+C
+C   DQ :  EXCHANGE DENSITY TYPE SO MATRIX
+C   DM :  HALF TRANSFORMED SO MATRIX
+C
+C   FORM DM MATRICES
+      CALL ZERO(DM,NTRI*NABC)
+C
+      CALL RFILE(ITAP37)
+  200 CALL SREAD(ITAP37,MIJ,MAXBF4)
+      LIMINT=MIJ(10*MAXIJ+1)
+      DO 102 M=1,LIMINT
+      IJ=MIJ(M)
+      KL=MIJ(M+MAXIJ)
+C*    P=PQ(M)
+      Q=PQ(M+MAXIJ)
+C*    CJ=P+Q
+      EK=Q+Q
+C     IF(IPRNT.LE.5) GO TO 201
+C     WRITE(6,1) M,IJ,KL,P,Q,CJ,EK
+  201 CONTINUE
+      DO 101 IABC=1,NABC
+      DM(IJ,IABC)=DM(IJ,IABC)+DQ(KL,IABC)*EK
+      DM(KL,IABC)=DM(KL,IABC)+DQ(IJ,IABC)*EK
+  101 CONTINUE
+  102 CONTINUE
+      IF(LIMINT.NE.MAXIJ) GO TO 202
+      GO TO 200
+C
+  202 CONTINUE
+      CALL SREW(ITAP37)
+      IF (IPRNT.LE.4) GO TO 203
+      WRITE(6,2)
+      CALL MATOUT(DM,NTRI,NABC,NTRI,NABC,6)
+C
+  203 CONTINUE
+      CALL RCLOSE(ITAP37,3)
+      RETURN
+      END
+      SUBROUTINE EADER(D1W,E1T,EPS,D1O,D1T,SM,HM,TM,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION D1W(N3N),E1T(N3N),EPS(NTRI)
+      DIMENSION D1O(N3N),D1T(N3N)
+      DIMENSION SM(NTRI),HM(NTRI),TM(NTRI,NABC)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/ALPA(30,30),BETA(30,30)
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA A00,ONE,TWO / 0.0D+00 , 1.0D+00 , 2.0D+00 /
+    1 FORMAT(//,2X,' LAGRANGIAN MATRIX'/)
+    2 FORMAT(//,2X,' D1O MATRIX IN EADER'/)
+    3 FORMAT(//,2X,' D1T MATRIX IN EADER'/)
+    4 FORMAT(//,2X,' D1W MATRIX IN EADER'/)
+    5 FORMAT(//,2X,' EGRAD MATRIX IN EADER'/)
+C
+C   CALCULATE SCF FIRST DERIVATIVES FOR A TEST
+C   SEE EQ.(9)
+C
+      CALL RMREAD(EPS,27)
+      IF(IPRNT.LE.2) GO TO 201
+      WRITE(6,1)
+      CALL PRINT(EPS,NTRI,NBASIS,6)
+C
+C   CALL BACK DERIVATIVE TM MATRICES
+  201 CONTINUE
+      CALL RFILE(JTAPE1)
+      DO 101 ITYPX=1,NABC
+      CALL SREAD(JTAPE1,TM(1,ITYPX),NTRI2)
+  101 CONTINUE
+C
+      CALL RFILE(ITAP44)
+      DO 110 IABC=1,N3N
+      IS=ISA(IABC)
+      IH=IHA(IABC)
+      CALL RREAD(ITAP44,SM,NTRI2,IS)
+      CALL RREAD(ITAP44,HM,NTRI2,IH)
+C  ONE-ELECTRON CONTRIBUTION
+      VALU=A00
+      DO 106 I=1,JOCC
+      II=IOFF(I+1)
+      ITYP=MOTYP(I)
+      VALU=VALU+HM(II)*FOCC(ITYP)
+  106 CONTINUE
+      D1O(IABC)=VALU
+C  TWO-ELECTRON CONTRIBUTION
+      VALU=A00
+      DO 108 ITYP=1,NTYPES
+      JAPT=(ITYP*2-2)*N3N+IABC
+      KAPT=(ITYP*2-1)*N3N+IABC
+      DO 108 JTYP=1,NTYPES
+      DO 107 J=NSTR(JTYP),NEND(JTYP)
+      JJ=IOFF(J+1)
+      VALU=VALU+ALPA(ITYP,JTYP)*TM(JJ,JAPT)
+     1         +BETA(ITYP,JTYP)*TM(JJ,KAPT)
+  107 CONTINUE
+  108 CONTINUE
+      D1T(IABC)=VALU
+C   OVERLAP CONTRIBUTION
+      VALU=A00
+      IJ=0
+      DO 109 I=1,JOCC
+      DO 109 J=1,I
+      IJ=IJ+1
+      FAC=TWO
+      IF(I.EQ.J) FAC=ONE
+      VALU=VALU-SM(IJ)*EPS(IJ)*FAC
+  109 CONTINUE
+      D1W(IABC)=VALU*TWO
+C
+C   SUM UP ALL CONTRIBUTIONS
+      E1T(IABC)=D1O(IABC)+D1T(IABC)+D1W(IABC)
+C
+  110 CONTINUE
+C
+      WRITE(6,2)
+      CALL MATOUT(D1O,3,NATOMS,3,NATOMS,6)
+      WRITE(6,3)
+      CALL MATOUT(D1T,3,NATOMS,3,NATOMS,6)
+      WRITE(6,4)
+      CALL MATOUT(D1W,3,NATOMS,3,NATOMS,6)
+      WRITE(6,5)
+      CALL MATOUT(E1T,3,NATOMS,3,NATOMS,6)
+C
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+      RETURN
+      END
+      SUBROUTINE HAMAT(FIJ,AIJ,BIJ,D1W,E1T,HCIA,D1E,HM,TM,NABC,N3NXX)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION FIJ(NTYPEP,ICIUNQ),AIJ(NTYTRI,ICIUNQ),BIJ(NTYTRI,ICIUNQ)
+      DIMENSION HCIA(NCTRI,N3NXX)
+      DIMENSION D1W(N3N),E1T(N3N),D1E(N3N)
+      DIMENSION HM(NTRI,N3N),TM(NTRI,NABC)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPOS/ICITYP(5050),ICPOS(200,100)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/CITYP/IJGRP,IBM(200),JBM(200),IBNUM(200)
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI103/CI(100)
+      DATA A00,HALF,ONE,TWO,FOUR / 0.0D+00 , 0.5D+00 , 1.0D+00 ,
+     1                             2.0D+00 , 4.0D+00 /
+    1 FORMAT(//,2X,' HA MATRIX'/)
+    2 FORMAT(2X,' IJCI,IABC,ELEC1,ELEC2 = ',2I5,2F15.8)
+    3 FORMAT(//,2X,' HCIA MATRIX'/)
+    4 FORMAT(//,2X,' D1E MATRIX IN HAMAT'/)
+    5 FORMAT(//,2X,' D1W MATRIX IN HAMAT'/)
+    6 FORMAT(//,2X,' EGRAD MATRIX IN HAMAT'/)
+C
+C   CALL BACK HM AND TM MATRICES AND FORM HA MATRICES
+C   SEE EQS.(33)-(35)
+C
+      CALL RFILE(ITAP44)
+      DO 101 IABC=1,N3N
+      IH=IHA(IABC)
+      CALL RREAD(ITAP44,HM(1,IABC),NTRI2,IH)
+  101 CONTINUE
+C
+      CALL RFILE(JTAPE1)
+      DO 102 ITYPX=1,NABC
+      CALL SREAD(JTAPE1,TM(1,ITYPX),NTRI2)
+  102 CONTINUE
+C
+      CALL ZERO(HCIA,NCTRI*N3NXX)
+C
+C     IF(IPRNT.GT.2)
+C     WRITE(6,1)
+C   FOR CI DIAGONAL ELEMENTS
+      DO 110 IJCI=1,IIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      DO 109 IABC=1,N3N
+C   ONE-ELECTRON CONTRIBUTION
+      ELEC1=A00
+      DO 103 I=1,JOCC
+      II=IOFF(I+1)
+      ITYP=MOTYP(I)
+      ELEC1=ELEC1+FIJ(ITYP,IJCI)*HM(II,IABC)*TWO
+  103 CONTINUE
+C   TWO-ELECTRON CONTRIBUTION
+      ELEC2=A00
+      DO 105 ITYP=1,NTYPES
+      JAPT=(ITYP*2-2)*N3N+IABC
+      KAPT=(ITYP*2-1)*N3N+IABC
+      DO 105 JTYP=1,NTYPES
+      IJTYP=IOFF(MAX0(ITYP,JTYP))+MIN0(ITYP,JTYP)
+      DO 104 J=NSTR(JTYP),NEND(JTYP)
+      JJ=IOFF(J+1)
+      ELEC2=ELEC2+AIJ(IJTYP,IJCI)*TM(JJ,JAPT)
+     1           +BIJ(IJTYP,IJCI)*TM(JJ,KAPT)
+  104 CONTINUE
+  105 CONTINUE
+C
+      HCIA(IJEX,IABC)=ELEC1+ELEC2
+      IF(IPRNT.GT.2)
+     *WRITE(6,2) IJCI,IABC,ELEC1,ELEC2
+  109 CONTINUE
+  110 CONTINUE
+C
+C   FOR CI OFF-DIAGONAL ELEMENTS
+      DO 115 IBCI=1,IJGRP
+      ICM=IBM(IBCI)
+      JCM=JBM(IBCI)
+      NUM=IBNUM(IBCI)
+      ITYP=MOTYP(ICM)
+      JJ=IOFF(JCM+1)
+      DO 112 IABC=1,N3N
+      KAPT=(ITYP*2-1)*N3N+IABC
+      ELEC2=TM(JJ,KAPT)
+      DO 111 INUM=1,NUM
+      IJCI=ICPOS(IBCI,INUM)
+      IEX=IPX(IIUNQ+IJCI)
+      JEX=JPX(IIUNQ+IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      HCIA(IJEX,IABC)=ELEC2
+  111 CONTINUE
+  112 CONTINUE
+  115 CONTINUE
+      IF(IPRNT.LE.2) GO TO 201
+      WRITE(6,3)
+      CALL MATOUT(HCIA,NCTRI,N3NXX,NCTRI,N3N,6)
+C
+C   CALCULATE SCF DERIVATIVES FOR A TEST
+  201 CONTINUE
+      CALL ZERO(D1E,N3N)
+      DO 120 IABC=1,N3N
+      DO 119 IJCI=1,ICIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      FAC=TWO
+      IF(IEX.EQ.JEX) FAC=ONE
+      CIFAC=CI(IEX)*CI(JEX)*FAC
+      D1E(IABC)=D1E(IABC)+HCIA(IJEX,IABC)*CIFAC
+  119 CONTINUE
+      E1T(IABC)=D1E(IABC)+D1W(IABC)
+  120 CONTINUE
+C***  IF(IPRNT.LE.2) GO TO 202
+      WRITE(6,4)
+      CALL MATOUT(D1E,3,NATOMS,3,NATOMS,6)
+      WRITE(6,5)
+      CALL MATOUT(D1W,3,NATOMS,3,NATOMS,6)
+      WRITE(6,6)
+      CALL MATOUT(E1T,3,NATOMS,3,NATOMS,6)
+C
+  202 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+      RETURN
+      END
+      SUBROUTINE FAMAT(FF,EPA,HM,TM,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION FF(NTRI),HM(NTRI,N3N),TM(NTRI,NABC)
+      DIMENSION EPA(NBASIS,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/ALPA(30,30),BETA(30,30)
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA HALF,TWO / 0.5D+00  , 2.0D+00 /
+    1 FORMAT(//,2X,' EPA MATRIX, IABC = ',I5/)
+C
+C   CALL BACK HM AND TM MATRICES AND FORM FA MATRICES
+C   SEE EQS.(15) AND (32)
+C
+      CALL RFILE(ITAP44)
+      CALL RFILE(JTAPE1)
+C
+      DO 101 IABC=1,N3N
+      IH=IHA(IABC)
+      CALL RREAD(ITAP44,HM(1,IABC),NTRI2,IH)
+  101 CONTINUE
+C
+      DO 102 ITYPX=1,NABC
+      CALL SREAD(JTAPE1,TM(1,ITYPX),NTRI2)
+  102 CONTINUE
+C
+C   STORE DERIVATIVE LAGRANGIAN MATRICES
+      DO 110 IABC=1,N3N
+      CALL ZERO(EPA,NBASIS*NBASIS)
+      IE=IEA(IABC)
+      DO 105 I=1,JOCC
+      ITYP=MOTYP(I)
+      FAC=FOCC(ITYP)*HALF
+      DO 105 J=1,NBASIS
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      VALU=HM(IJ,IABC)*FAC
+      DO 104 KTYP=1,NTYPES
+      JAPT=(KTYP*2-2)*N3N+IABC
+      KAPT=(KTYP*2-1)*N3N+IABC
+      VALU=VALU+ALPA(ITYP,KTYP)*TM(IJ,JAPT)
+     1         +BETA(ITYP,KTYP)*TM(IJ,KAPT)
+  104 CONTINUE
+      EPA(I,J)=VALU
+  105 CONTINUE
+C
+      CALL RWRIT(ITAP44,EPA,NBASQ,IE)
+      IF(IPRNT.LE.4) GO TO 110
+      WRITE(6,1) IABC
+      CALL MATOUT(EPA,NBASIS,NBASIS,NBASIS,NBASIS,6)
+  110 CONTINUE
+C
+C   STORE DERIVATIVE AVERAGED FOCKS
+      DO 115 IABC=1,N3N
+      IT=IFA(IABC)
+      DO 114 I=1,NTRI
+  114 FF(I)=HM(I,IABC)+TM(I,IABC)
+      CALL RWRIT(ITAP44,FF,NTRI2,IT)
+  115 CONTINUE
+C
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+      RETURN
+      END
+      SUBROUTINE BAIND(ESO,NIJ,ZETA,U,T,B0,EPA,DP,DQ,DM,SM,MIJ,PQ,
+     1                 NADD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION NIJ(NTRI,2),ZETA(NTRI,NTYPEP)
+      DIMENSION B0(NTRI),EPA(NBASIS,NBASIS)
+      DIMENSION DP(NTRI,NADD*NTYPEP),DQ(NTRI,NADD*NTYPEP)
+      DIMENSION DM(NTRI,NADD*NTYPEP),SM(NTRI,NADD*NTYPEP)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+      DATA A00 / 0.0D+00 /
+    1 FORMAT(//,2X,' ZETA MATRIX, ITYP = ',I5/)
+    2 FORMAT(//,2X,' IGROUP = ',I5,5X,' IFIRST = ',I5,5X,
+     1             ' NABC   = ',I5/)
+    3 FORMAT(//,2X,' FM MATRIX, IABC = ',I5/)
+    4 FORMAT(2X,3I5,4F15.8)
+    5 FORMAT(//,2X,' B0 MATRIX IN BAIND'/)
+    6 FORMAT(//,2X,' DP MATRIX IN BAIND'/)
+C
+C   FORM B0 MATRICES
+C   SEE EQ.(26)
+C
+      DO 101 ITYP=1,NTYPES
+      CALL RMREAD(ZETA(1,ITYP),35+ITYP)
+      IF(IPRNT.LE.2) GO TO 101
+      WRITE(6,1) ITYP
+      CALL PRINT(ZETA(1,ITYP),NTRI,NBASIS,6)
+  101 CONTINUE
+      CALL ZERO(ZETA(1,NTYPEP),NTRI)
+C
+      CALL RFILE(ITAP44)
+C
+C   START GROUPING THE BA MATRICES
+      IGROUP=0
+      ILAST=0
+  500 CONTINUE
+      IGROUP=IGROUP+1
+      IFIRST=ILAST+1
+      ILAST=IFIRST+NADD-1
+      NABC=ILAST-IFIRST+1
+      WRITE(3,2) IGROUP,IFIRST,NABC
+      WRITE(4,2) IGROUP,IFIRST,NABC
+C
+      DO 120 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IS=ISA(III)
+      IE=IEA(III)
+      IB=IBA(III)
+      CALL RREAD(ITAP44,SM(1,IABC),NTRI2,IS)
+      CALL RREAD(ITAP44,EPA,NBASQ,IE)
+      CALL ZERO(B0,NTRI)
+C
+C   ELEMENTS FOR INDEPENDENT PAIRS
+C     IF(IPRNT.LE.4) GO TO 301
+C     WRITE(6,3) IABC
+C     CALL MATOUT(EPA,NBASIS,NBASIS,NBASIS,NBASIS,6)
+  301 DO 110 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      ITYP=MOTYP(I)
+      JTYP=MOTYP(J)
+      IJ=IOFF(I)+J
+      VALU1=EPA(I,J)-EPA(J,I)
+      VALU2=A00
+C
+      DO 107 K=2,NBASIS
+      LIM=MIN0(JOCC,K-1)
+      DO 107 L=1,LIM
+      KL=IOFF(K)+L
+      FAC2=A00
+      IF(K.NE.J) GO TO 205
+      IL=IOFF(MAX0(I,L))+MIN0(I,L)
+      FAC2=FAC2+ZETA(IL,ITYP)-ZETA(IL,JTYP)
+  205 IF(K.NE.I) GO TO 206
+      JL=IOFF(MAX0(J,L))+MIN0(J,L)
+      FAC2=FAC2-ZETA(JL,JTYP)+ZETA(JL,ITYP)
+  206 VALU2=VALU2-SM(KL,IABC)*FAC2
+  107 CONTINUE
+      VALUT=VALU1+VALU2
+      B0(IJ)=VALUT
+C     IF(IPRNT.LE.4) GO TO 110
+C     WRITE(6,4) II,I,J,VALU1,VALU2,VALUT
+  110 CONTINUE
+      CALL RWRIT(ITAP44,B0,NTRI2,IB)
+      IF(IPRNT.LE.4) GO TO 120
+      WRITE(6,5)
+      CALL PRINT(B0,NTRI,NBASIS,6)
+  120 CONTINUE
+C
+C   FORM DENSITY LIKE MATRIX IN SO BASIS
+  302 CONTINUE
+      CALL PQBMAT(DP,DQ,SM,ESO,NABC)
+C
+C   FORM HALF-TRANSFORMED DENSITY MATRIX
+      NTYABC=NTYPES*NABC
+      CALL PQMAT(DP,DQ,DM,NTYABC,MIJ,PQ)
+C
+C   FORM DENSITY LIKE MATRIX IN MO BASIS
+      DO 125 ITYPX=1,NTYABC
+      CALL MOCONS(DM(1,ITYPX),NTRI,DP(1,ITYPX),NTRI,ESO,U,T)
+  125 CONTINUE
+      IF(IPRNT.LE.4) GO TO 303
+      WRITE(6,6)
+      CALL MATOUT(DP,NTRI,NTYABC,NTRI,NTYABC,6)
+C
+C   COMPLETE B0 MATRICES
+  303 CONTINUE
+      DO 130 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IB=IBA(III)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      DO 129 II=1,NIND
+      I=NIJ(II,1)
+      ITYP=MOTYP(I)
+      IAPT=(ITYP-1)*NABC+IABC
+      J=NIJ(II,2)
+      JTYP=MOTYP(J)
+      JAPT=(JTYP-1)*NABC+IABC
+      IJ=IOFF(I)+J
+      B0(IJ)=B0(IJ)+DP(IJ,IAPT)-DP(IJ,JAPT)
+  129 CONTINUE
+      CALL RWRIT(ITAP44,B0,NTRI2,IB)
+  130 CONTINUE
+      IF(ILAST.GE.N3N) GO TO 501
+      GO TO 500
+C
+  501 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE PQBMAT(DP,DQ,SM,ESO,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION DP(NTRI,NABC*NTYPEP),DQ(NTRI,NABC*NTYPEP)
+      DIMENSION SM(NTRI,NABC*NTYPEP)
+      DIMENSION ESO(NBFAO,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/A(30,30),B(30,30)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA TWO / 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX'/)
+    2 FORMAT(//,2X,' DQ MATRIX'/)
+C
+C   FORM DENSITY LIKE MATRIX
+C   SEE EQ.(A-2)
+C
+      CALL ZERO(DP,NTRI*NTYPEP*NABC)
+      CALL ZERO(DQ,NTRI*NTYPEP*NABC)
+      IJ=0
+      DO 105 I=1,NBASIS
+      DO 105 J=1,I
+      IJ=IJ+1
+      DO 103 K=1,JOCC
+      KTYP=MOTYP(K)
+      DO 103 L=1,K
+      KL=IOFF(K)+L
+      FAC=ESO(I,K)*ESO(J,L)+ESO(J,K)*ESO(I,L)
+      IF(K.EQ.L) FAC=ESO(I,K)*ESO(J,K)
+      IF(DABS(FAC).LT.TOL) GO TO 103
+      DO 102 ITYP=1,NTYPES
+      AVAL=A(ITYP,KTYP)
+      BVAL=B(ITYP,KTYP)
+      FACA=AVAL*FAC
+      FACB=BVAL*FAC
+      IADD=(ITYP-1)*NABC
+      DO 101 IABC=1,NABC
+      IAPT=IADD+IABC
+      DP(IJ,IAPT)=DP(IJ,IAPT)-SM(KL,IABC)*FACA
+      DQ(IJ,IAPT)=DQ(IJ,IAPT)-SM(KL,IABC)*FACB
+  101 CONTINUE
+  102 CONTINUE
+  103 CONTINUE
+  105 CONTINUE
+C
+      NTYABC=NTYPES*NABC
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NTYABC,NTRI,NTYABC,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NTYABC,NTRI,NTYABC,6)
+C
+  201 CONTINUE
+      DO 107 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 106 ITYPX=1,NTYABC
+      DP(II,ITYPX)=DP(II,ITYPX)/TWO
+      DQ(II,ITYPX)=DQ(II,ITYPX)/TWO
+  106 CONTINUE
+  107 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NTYABC)
+      CALL ESCVEC(TWO,DQ,NTRI*NTYABC)
+C
+      RETURN
+      END
+      SUBROUTINE BADEP(EIG,ESO,KIJ,U,T,B0,FF,DP,DQ,DM,MIJ,PQ,
+     1                 NADD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION EIG(NBASIS),KIJ(NTRI,2)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION B0(NTRI),FF(NTRI)
+      DIMENSION DP(NTRI,NADD),DQ(NTRI,NADD),DM(NTRI,NADD)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/LIMIT/MAXBAS,MAXBUF,MAXBF2,MAXBF4
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI102/NIND,NDEP
+    1 FORMAT(//,2X,' IGROUP = ',I5,5X,' IFIRST = ',I5,5X,
+     1             ' NABC   = ',I5/)
+    2 FORMAT(//,2X,' B0 MATRIX IN BADEP'/)
+    3 FORMAT(//,2X,' DM MATRIX IN BADEP'/)
+C
+      CALL RFILE(ITAP44)
+C
+C   START GROUPING BA MATRICES
+      IGROUP=0
+      ILAST=0
+  500 CONTINUE
+      IGROUP=IGROUP+1
+      IFIRST=ILAST+1
+      ILAST=IFIRST+NADD-1
+      IF(ILAST.GT.N3N) ILAST=N3N
+      NABC=ILAST-IFIRST+1
+      WRITE(3,1) IGROUP,IFIRST,NABC
+      WRITE(4,1) IGROUP,IFIRST,NABC
+C
+C   DM ARRAY STORES DERIVATIVE OVERLAP MATRIX
+      DO 102 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IS=ISA(III)
+      IT=IFA(III)
+      IB=IBA(III)
+      CALL RREAD(ITAP44,DM(1,IABC),NTRI2,IS)
+      CALL RREAD(ITAP44,FF,NTRI2,IT)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      IJ=0
+      DO 101 II=1,NDEP
+      I=KIJ(II,1)
+      J=KIJ(II,2)
+      IJ=IOFF(I)+J
+      B0(IJ)=FF(IJ)-EIG(J)*DM(IJ,IABC)
+  101 CONTINUE
+      CALL RWRIT(ITAP44,B0,NTRI2,IB)
+      IF(IPRNT.LE.4) GO TO 102
+      WRITE(6,2)
+      CALL PRINT(B0,NTRI,NBASIS,6)
+  102 CONTINUE
+C
+C   FORM DENSITY LIKE MATRIX
+C   DM ARRAY CONTAINES DERIVATIVE OVERLAP MATRIX
+C   DP ARRAY STORES DENSITY LIKE MATRIX IN SO BASIS
+      CALL PQCMAT(DP,DQ,DM,ESO,NABC)
+C
+C   FORM HALF-TRANSFORMED DENSITY LIKE MATRIX
+C   AND TRANSFORM THEM INTO MO BASIS
+C   DP ARRAY CONTAINS DENSITY LIKE MATRIX IN SO BASIS
+C   DM ARRAY STORES HALF-TRANSFORMED DENSITY LIKE MATRIX
+      CALL PQMAT(DP,DQ,DM,NABC,MIJ,PQ)
+      IF(IPRNT.LE.4) GO TO 302
+      WRITE(6,3)
+      CALL MATOUT(DM,NTRI,NABC,NTRI,NABC,6)
+C
+C   COMPLETE B0 MATRICES
+  302 CONTINUE
+      CALL SREW(ITAP44)
+      DO 105 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IB=IBA(III)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      CALL MOCONS(DM(1,IABC),NTRI,DP(1,IABC),NTRI,ESO,U,T)
+      DO 104 II=1,NDEP
+      I=KIJ(II,1)
+      J=KIJ(II,2)
+      IJ=IOFF(I)+J
+      B0(IJ)=B0(IJ)+DP(IJ,IABC)
+  104 CONTINUE
+      CALL RWRIT(ITAP44,B0,NTRI2,IB)
+  105 CONTINUE
+      IF(ILAST.GE.N3N) GO TO 501
+      GO TO 500
+C
+  501 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE PQCMAT(DP,DQ,SM,ESO,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION DP(NTRI,NABC),DQ(NTRI,NABC),SM(NTRI,NABC)
+      DIMENSION ESO(NBFAO,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA HALF,TWO / 0.5D+00 , 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX IN PQCMAT'/)
+    2 FORMAT(//,2X,' DQ MATRIX IN PQCMAT'/)
+C
+C   FORM DENSITY LIKE MATRICES
+C
+      CALL ZERO(DP,NTRI*NABC)
+      CALL ZERO(DQ,NTRI*NABC)
+C
+      IJ=0
+      DO 103 I=1,NBASIS
+      DO 103 J=1,I
+      IJ=IJ+1
+      DO 102 K=1,JOCC
+      KTYP=MOTYP(K)
+      FACO=FOCC(KTYP)*HALF
+      DO 102 L=1,K
+      KL=IOFF(MAX0(K,L))+MIN0(K,L)
+      FACV=ESO(I,K)*ESO(J,L)+ESO(J,K)*ESO(I,L)
+      IF(K.EQ.L) FACV=ESO(I,K)*ESO(J,K)
+      FAC=FACO*FACV
+      IF(DABS(FAC).LT.TOL) GO TO 102
+      DO 101 IABC=1,NABC
+      FACT=-SM(KL,IABC)*FAC
+      DP(IJ,IABC)=DP(IJ,IABC)+FACT*TWO
+      DQ(IJ,IABC)=DQ(IJ,IABC)-FACT
+  101 CONTINUE
+  102 CONTINUE
+  103 CONTINUE
+C
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NABC,NTRI,NABC,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NABC,NTRI,NABC,6)
+  201 CONTINUE
+      DO 105 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 104 IABC=1,NABC
+      DP(II,IABC)=DP(II,IABC)/TWO
+      DQ(II,IABC)=DQ(II,IABC)/TWO
+  104 CONTINUE
+  105 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NABC)
+      CALL ESCVEC(TWO,DQ,NTRI*NABC)
+C
+      RETURN
+      END
+      SUBROUTINE HEMAT(ESO,FIJ,AIJ,BIJ,HCI,HSO,HMO,DP,DQ,DM,EIJ,ZIJ,EE,
+     1                 U,T,MIJ,PQ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION FIJ(NTYPEP,ICIUNQ),AIJ(NTYTRI,ICIUNQ),BIJ(NTYTRI,ICIUNQ)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION HSO(NTRI),HMO(NTRI),HCI(NCTRI),ZIJ(NTRI)
+      DIMENSION EIJ(NBASIS,NBASIS),EE(NBASIS,NBASIS)
+      DIMENSION DP(NTRI,NTYPEP),DQ(NTRI,NTYPEP),DM(NTRI,NTYPEP)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPOS/ICITYP(5050),ICPOS(200,100)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/CITYP/IJGRP,IBM(200),JBM(200),IBNUM(200)
+      COMMON/ENRGY/ESCF,ENUC,ELEC
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI103/CI(100)
+      COMMON/CI104/IEIJ(5050)
+      DATA A00,HALF,TWO / 0.0D+00 , 0.5D+00 , 2.0D+00 /
+    1 FORMAT(//,2X,' H (SO BASIS) MATRIX'/)
+    2 FORMAT(//,2X,' H (MO BASIS) MATRIX'/)
+    3 FORMAT(//,2X,' DM MATRIX'/)
+    4 FORMAT(//,2X,' DP MATRIX'/)
+    5 FORMAT(2X,' ICI , JCI , IJCI , ELEC1 , ELEC2 ',3I5,2F15.8)
+    6 FORMAT(//,2X,' EIJ MATRIX, IJCI = ',I5,' IJEX = ',I5/)
+    7 FORMAT(//,2X,' ZIJ MATRIX, IJCI = ',I5,' IJEX = ',I5,' ITYP = ',
+     * I5/)
+    8 FORMAT(//,2X,' EIJ MATRIX, IBCI = ',I5/)
+    9 FORMAT(//,2X,' ZIJ MATRIX, IBCI = ',I5,' ITYP = ',I5/)
+   10 FORMAT(//,2X,' CI MATRIX'/)
+   11 FORMAT(//,2X,' CI ENERGIES'/
+     * 2X,' ESCF       = ',F20.10/
+     * 2X,' ENUC       = ',F20.10/
+     * 2X,' ELEC       = ',F20.10/
+     * 2X,' ECITOT     = ',F20.10/)
+   12 FORMAT(//,2X,' THE LAGRANGIAN MATRIX'/)
+C
+C   CALCULATE H MATRIX
+C   SEE EQS.(5)-(7)
+C
+C   READ IN ONE ELECTRON INTEGRALS (SO BASIS)
+      CALL RMREAD(HSO,16)
+      CALL MOCONS(HSO,NTRI,HMO,NTRI,ESO,U,T)
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL PRINT(HSO,NTRI,NBASIS,6)
+      WRITE(6,2)
+      CALL PRINT(HMO,NTRI,NBASIS,6)
+C
+C   FORM HIJ AND EIJ MATRICES
+  201 CONTINUE
+      CALL RFILE(ITAP47)
+      CALL RFILE(JTAPE2)
+      CALL ZERO(HCI,NCTRI)
+C
+C   FOR CI DIAGONAL ELEMENTS
+      DO 110 IJCI=1,IIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+C
+C   FORM DENSITY MATRIX IN SO BASIS
+C   AND FORM HALF-TRANSFORMED TWO ELECTRON MATRIX
+      CALL PQDMAT(DP,DQ,ESO,AIJ,BIJ,IJCI)
+      CALL PQMAT(DP,DQ,DM,NTYPES,MIJ,PQ)
+C
+C   FINAL HALF TRANSFORMATION
+      DO 102 ITYP=1,NTYPES
+      CALL MOCONS(DM(1,ITYP),NTRI,DP(1,ITYP),NTRI,ESO,U,T)
+  102 CONTINUE
+      IF(IPRNT.LE.4) GO TO 202
+      WRITE(6,3)
+      CALL MATOUT(DM,NTRI,NTYPEP,NTRI,NTYPEP,6)
+      WRITE(6,4)
+      CALL MATOUT(DP,NTRI,NTYPEP,NTRI,NTYPEP,6)
+C
+C   FORM THE CI HAMILTONIAN MATRIX
+  202 CONTINUE
+      ELEC1=A00
+      ELEC2=A00
+      DO 103 I=1,JOCC
+      II=IOFF(I+1)
+      ITYP=MOTYP(I)
+      ELEC1=ELEC1+HMO(II)*FIJ(ITYP,IJCI)*TWO
+      ELEC2=ELEC2+DP(II,ITYP)
+  103 CONTINUE
+      HCI(IJEX)=ELEC1+ELEC2
+      IF(IPRNT.LE.2) GO TO 203
+      WRITE(6,5) IEX,JEX,IJEX,ELEC1,ELEC2
+C
+C   FORM THE "BARE" LAGRANGIAN MATRICES
+  203 CONTINUE
+      CALL ZERO(EIJ,NBASIS*NBASIS)
+      DO 104 I=1,JOCC
+      ITYP=MOTYP(I)
+      FAC=FIJ(ITYP,IJCI)
+      DO 104 J=1,NBASIS
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      ELEC1=HMO(IJ)*FAC
+      EIJ(I,J)=HMO(IJ)*FAC+DP(IJ,ITYP)
+  104 CONTINUE
+      IPT=IEIJ(IJCI)
+      CALL RWRIT(JTAPE2,EIJ,NBASQ,IPT)
+      IF(IPRNT.LE.2) GO TO 204
+      WRITE(6,6) IJCI,IJEX
+      CALL MATOUT(EIJ,NBASIS,NBASIS,NBASIS,NBASIS,6)
+C
+  204 CONTINUE
+C   FORM THE "BARE" GENERALIZED LAGRANGIAN MATRICES
+      DO 106 ITYP=1,NTYPES
+      CALL ZERO(ZIJ,NTRI)
+      FAC=FIJ(ITYP,IJCI)
+      IJ=0
+      DO 105 I=1,NBASIS
+      DO 105 J=1,I
+      IJ=IJ+1
+      ELEC1=HMO(IJ)*FAC
+      ZIJ(IJ)=HMO(IJ)*FAC+DP(IJ,ITYP)
+  105 CONTINUE
+      CALL SWRIT(ITAP47,ZIJ,NTRI2)
+      IF(IPRNT.LE.2) GO TO 106
+      WRITE(6,7) IJCI,IJEX,ITYP
+      CALL PRINT(ZIJ,NTRI,NBASIS,6)
+  106 CONTINUE
+C
+  110 CONTINUE
+C
+C::::::::::::::::::::::::::::::::::
+C:::FOR CI OFF-DIAGONAL ELEMENTS:::
+C::::::::::::::::::::::::::::::::::
+      DO 120 IBCI=1,IJGRP
+      IP=IBM(IBCI)
+      IQ=JBM(IBCI)
+      NUM=IBNUM(IBCI)
+C
+C   FORM DENSITY MATRIX IN SO BASIS
+C   AND FORM HALF-TRANSFORMED TWO ELECTRON MATRIX
+      CALL PQDMTB(DQ,ESO,IP,IQ)
+      CALL PQQMAT(DQ,DM,NTYPES,MIJ,PQ)
+C
+C   FINAL HALF TRANSFORMATION
+      DO 111 ITYP=1,NTYPES
+      CALL MOCONS(DM(1,ITYP),NTRI,DP(1,ITYP),NTRI,ESO,U,T)
+  111 CONTINUE
+      IF(IPRNT.LE.4) GO TO 205
+      WRITE(6,3) IBCI
+      CALL MATOUT(DM,NTRI,NTYPEP,NTRI,NTYPEP,6)
+      WRITE(6,4)
+      CALL MATOUT(DP,NTRI,NTYPEP,NTRI,NTYPEP,6)
+C
+C   FORM THE CI HAMILTONIAN MATRIX
+  205 CONTINUE
+      ITYP=MOTYP(IP)
+      II=IOFF(IP+1)
+      ELEC2=DP(II,ITYP)
+C***********************************************************************
+C*  FOLLOWING CODES GIVE THE SAME RESULT                               *
+C*    ELEC2=A00                                                        *
+C*    DO 112 I=1,JOCC                                                  *
+C*    II=IOFF(I+1)                                                     *
+C*    ITYP=MOTYP(I)                                                    *
+C*    ELEC2=ELEC2+DP(II,ITYP)*HALF                                     *
+C*112 CONTINUE                                                         *
+C***********************************************************************
+      DO 113 INUM=1,NUM
+      IJCI=ICPOS(IBCI,INUM)
+      IEX=IPX(IIUNQ+IJCI)
+      JEX=JPX(IIUNQ+IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      HCI(IJEX)=ELEC2
+  113 CONTINUE
+C
+C   FORM THE "BARE" LAGRANGIAN MATRICES
+      CALL ZERO(EIJ,NBASIS*NBASIS)
+      DO 114 I=1,JOCC
+      ITYP=MOTYP(I)
+      DO 114 J=1,NBASIS
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      EIJ(I,J)=DP(IJ,ITYP)*HALF
+  114 CONTINUE
+      IPT=IEIJ(IIUNQ+IBCI)
+      CALL RWRIT(JTAPE2,EIJ,NBASQ,IPT)
+      IF(IPRNT.LE.2) GO TO 206
+      WRITE(6,8) IBCI
+      CALL MATOUT(EIJ,NBASIS,NBASIS,NBASIS,NBASIS,6)
+C
+  206 CONTINUE
+C   FORM THE "BARE" GENERALIZED LAGRANGIAN MATRICES
+      DO 116 ITYP=1,NTYPES
+      CALL ZERO(ZIJ,NTRI)
+      IF(ITYP.NE.MOTYP(IP).AND.ITYP.NE.MOTYP(IQ)) GO TO 207
+      IJ=0
+      DO 115 I=1,NBASIS
+      DO 115 J=1,I
+      IJ=IJ+1
+      ZIJ(IJ)=DP(IJ,ITYP)*HALF
+  115 CONTINUE
+  207 CONTINUE
+      CALL SWRIT(ITAP47,ZIJ,NTRI2)
+      IF(IPRNT.LE.2) GO TO 116
+      WRITE(6,9) IBCI,ITYP
+      CALL PRINT(ZIJ,NTRI,NBASIS,6)
+  116 CONTINUE
+C
+  120 CONTINUE
+      WRITE(6,10)
+      CALL PRINT(HCI,NCTRI,NCPEX,6)
+C
+C   CALCULATE SCF ENERGY FOR A TEST
+C   CALCULATE THE LAGRANGIAN MATRIX FOR A TEST
+      CALL SREW(JTAPE2)
+      CALL ZERO(EE,NBASIS*NBASIS)
+      ELEC=A00
+      DO 122 IJCI=1,ICIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      IBCI=ICITYP(IJCI)
+      IPT=IEIJ(IBCI)
+      CALL RREAD(JTAPE2,EIJ,NBASQ,IPT)
+      CIFAC=CI(IEX)*CI(JEX)*TWO
+      IF(IEX.EQ.JEX) CIFAC=CIFAC*HALF
+      ELEC=ELEC+HCI(IJEX)*CIFAC
+      DO 121 I=1,NBASIS
+      DO 121 J=1,NBASIS
+      EE(I,J)=EE(I,J)+EIJ(I,J)*CIFAC
+  121 CONTINUE
+  122 CONTINUE
+      ECITOT=ENUC+ELEC
+      WRITE(6,11) ESCF,ENUC,ELEC,ECITOT
+      IF(IPRNT.LE.2) GO TO 210
+      WRITE(6,12)
+      CALL MATOUT(EE,NBASIS,NBASIS,NBASIS,NBASIS,6)
+C
+  210 CONTINUE
+      CALL RCLOSE(ITAP47,3)
+      CALL RCLOSE(JTAPE2,3)
+      RETURN
+      END
+      SUBROUTINE PQDMAT(DP,DQ,ESO,AIJ,BIJ,IJCI)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION ESO(NBFAO,NBASIS)
+      DIMENSION DP(NTRI,NTYPEP),DQ(NTRI,NTYPEP)
+      DIMENSION AIJ(NTYTRI,ICIUNQ),BIJ(NTYTRI,ICIUNQ)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      DATA A00,TWO / 0.0D+00 , 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX'/)
+    2 FORMAT(//,2X,' DQ MATRIX'/)
+C
+      CALL ZERO(DP,NTRI*NTYPEP)
+      CALL ZERO(DQ,NTRI*NTYPEP)
+C
+      IJ=0
+      DO 104 I=1,NBASIS
+      DO 104 J=1,I
+      IJ=IJ+1
+      DO 103 ITYP=1,NTYPES
+      SUMP=A00
+      SUMQ=A00
+      DO 102 JTYP=1,NTYPES
+      IJTYP=IOFF(MAX0(ITYP,JTYP))+MIN0(ITYP,JTYP)
+      DO 101 K=NSTR(JTYP),NEND(JTYP)
+      FAC=ESO(I,K)*ESO(J,K)
+      IF(DABS(FAC).LT.TOL) GO TO 101
+      SUMP=SUMP+AIJ(IJTYP,IJCI)*FAC
+      SUMQ=SUMQ+BIJ(IJTYP,IJCI)*FAC
+  101 CONTINUE
+  102 CONTINUE
+      DP(IJ,ITYP)=SUMP
+      DQ(IJ,ITYP)=SUMQ
+  103 CONTINUE
+  104 CONTINUE
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NTYPEP,NTRI,NTYPEP,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NTYPEP,NTRI,NTYPEP,6)
+ 
+  201 CONTINUE
+      DO 108 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 106 ITYP=1,NTYPES
+      DP(II,ITYP)=DP(II,ITYP)/TWO
+      DQ(II,ITYP)=DQ(II,ITYP)/TWO
+  106 CONTINUE
+  108 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NTYPES)
+      CALL ESCVEC(TWO,DQ,NTRI*NTYPES)
+C
+      RETURN
+      END
+      SUBROUTINE PQDMTB(DQ,ESO,IP,IQ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION ESO(NBFAO,NBASIS)
+      DIMENSION DQ(NTRI,NTYPEP)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      DATA TWO / 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DQ MATRIX'/)
+C
+      CALL ZERO(DQ,NTRI*NTYPEP)
+C
+      IJ=0
+      DO 103 I=1,NBASIS
+      DO 103 J=1,I
+      IJ=IJ+1
+      DO 102 K=1,NBASIS
+      KTYP=MOTYP(K)
+      IF(KTYP.NE.MOTYP(IP).AND.KTYP.NE.MOTYP(IQ)) GO TO 102
+      FAC=ESO(I,K)*ESO(J,K)
+      IF(DABS(FAC).LT.TOL) GO TO 102
+      DO 101 ITYP=1,NTYPES
+      IF(KTYP.EQ.MOTYP(IP).AND.ITYP.EQ.MOTYP(IQ)) GO TO 201
+      IF(KTYP.EQ.MOTYP(IQ).AND.ITYP.EQ.MOTYP(IP)) GO TO 201
+      GO TO 101
+  201 CONTINUE
+      DQ(IJ,ITYP)=DQ(IJ,ITYP)+FAC
+  101 CONTINUE
+  102 CONTINUE
+  103 CONTINUE
+      IF(IPRNT.LE.4) GO TO 202
+      WRITE(6,1)
+      CALL MATOUT(DQ,NTRI,NTYPEP,NTRI,NTYPEP,6)
+ 
+  202 CONTINUE
+      DO 105 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 104 ITYP=1,NTYPES
+      DQ(II,ITYP)=DQ(II,ITYP)/TWO
+  104 CONTINUE
+  105 CONTINUE
+      CALL ESCVEC(TWO,DQ,NTRI*NTYPES)
+C
+      RETURN
+      END
+      SUBROUTINE BFMAT(NIJ,KIJ,FIJ,E1T,HCIA,HF,HM,EPF,BF,NABC,ISTEP)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION NIJ(NTRI,2),KIJ(NTRI,2)
+      DIMENSION FIJ(NTYPEP,ICIUNQ),E1T(NABC),HCIA(NCTRI,NABC)
+      DIMENSION HF(NTRI,3),HM(NTRI,3,NTYPES)
+      DIMENSION EPF(NBASIS,NBASIS),BF(NTRI)
+      DIMENSION DIP(3)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/DIPOL/DIPDA(135),DIPDM(135),DIPDN(135),DIPDT(135)
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+      COMMON/CI103/CI(100)
+      DATA A00,HALF,TWO / 0.0D+00 , 0.5D+00 , 2.0D+00 /
+      DATA DEBYE / 2.541765480D+00 /
+    1 FORMAT(//,2X,' DIPDA MATRIX'/)
+    2 FORMAT(//,2X,' DIPDN MATRIX'/)
+    3 FORMAT(//,2X,' HF MATRIX, IXYZ = ',I5/)
+    4 FORMAT(//,2X,' EPF MATRIX, IXYZ = ',I5/)
+    5 FORMAT(//,2X,' HCIA MATRIX, IJCI = ',I5/)
+    6 FORMAT(//,2X,' DIPOLE MOMENT (ELECTRONIC PART IN DEBYE)'/)
+C
+      CALL RFILE(ITAP43)
+      CALL SREAD(ITAP43,DIPDA,270)
+      CALL SREAD(ITAP43,DIPDN,270)
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DIPDA,3,45,3,N3N,6)
+      WRITE(6,2)
+      CALL MATOUT(DIPDN,3,45,3,N3N,6)
+C
+  201 CONTINUE
+      CALL RFILE(ITAP44)
+      DO 103 IXYZ=1,3
+      IH=IHA(IXYZ+N3N)
+      CALL SREAD(ITAP43,HF(1,IXYZ),NTRI2)
+      CALL RWRIT(ITAP44,HF(1,IXYZ),NTRI2,IH)
+      DO 102 ITYP=1,NTYPES
+      FAC=FOCC(ITYP)*HALF
+      DO 101 I=1,NTRI
+  101 HM(I,IXYZ,ITYP)=HF(I,IXYZ)*FAC
+  102 CONTINUE
+  103 CONTINUE
+C
+C   STORE DERIVATIVE LAGRANGIAN MATRICES
+      DO 110 IXYZ=1,3
+      IE=IEA(IXYZ+N3N)
+      IB=IBA(IXYZ+N3N)
+      CALL ZERO(EPF,NBASIS*NBASIS)
+C
+      DO 107 ITYP=1,NTYPES
+      DO 106 I=NSTR(ITYP),NEND(ITYP)
+      DO 106 J=1,NBASIS
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      EPF(I,J)=HM(IJ,IXYZ,ITYP)
+  106 CONTINUE
+  107 CONTINUE
+C
+C   ELEMENTS FOR INDEPENDENT PAIRS
+      DO 108 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      IJ=IOFF(I)+J
+      BF(IJ)=EPF(I,J)-EPF(J,I)
+  108 CONTINUE
+C
+C   ELEMENTS FOR DEPENDENT PAIRS
+      DO 109 II=1,NDEP
+      I=KIJ(II,1)
+      J=KIJ(II,2)
+      IJ=IOFF(I)+J
+      BF(IJ)=HF(IJ,IXYZ)
+  109 CONTINUE
+C
+      CALL RWRIT(ITAP44,BF,NTRI2,IB)
+      CALL RWRIT(ITAP44,EPF,NBASQ,IE)
+      IF(IPRNT.LE.4) GO TO 110
+      WRITE(6,4) IXYZ
+      CALL MATOUT(EPF,NBASIS,NBASIS,NBASIS,NBASIS,6)
+  110 CONTINUE
+C
+C   FORM THE HIJF MATRIX
+      DO 115 IJCI=1,IIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      DO 113 IXYZ=1,3
+C
+      ELECF=A00
+      DO 112 I=1,JOCC
+      II=IOFF(I+1)
+      ITYP=MOTYP(I)
+      ELECF=ELECF+FIJ(ITYP,IJCI)*HF(II,IXYZ)*TWO
+  112 CONTINUE
+      HCIA(IJEX,IXYZ+N3N)=ELECF
+  113 CONTINUE
+      IF(IPRNT.LE.2) GO TO 115
+      WRITE(6,5) IJEX
+      CALL PRINT(HCIA(IJEX,IXYZ+N3N),NCTRI,NCPEX,6)
+  115 CONTINUE
+C
+C   CALCULATE DIPOLE MOMENTS FOR A TEST
+      DO 120 IXYZ=1,3
+      VALU=A00
+      DO 118 IJCI=1,ICIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      FAC=CI(IEX)*CI(JEX)*TWO
+      IF(IEX.EQ.JEX) FAC=FAC*HALF
+      VALU=VALU+HCIA(IJEX,IXYZ+N3N)*FAC
+  118 CONTINUE
+      DIP(IXYZ)=-VALU*DEBYE
+      E1T(IXYZ+N3N)=VALU
+  120 CONTINUE
+      WRITE(6,6)
+      CALL MATOUT(DIP,3,1,3,1,6)
+C
+      CALL RCLOSE(ITAP43,3)
+      CALL RCLOSE(ITAP44,3)
+C
+      RETURN
+      END
+      SUBROUTINE AB2CI(NIJ,E1T,HCIA,HCI,BAF2,A22,A12,SA,EIJ,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION NIJ(NTRI,2),SA(NTRI,N3N)
+      DIMENSION E1T(NABC),HCIA(NCTRI,NABC),HCI(NCTRI)
+      DIMENSION BAF2(NCPEX,NABC),A22(NCPEX,NCPEX),A12(NIND,NCPEX)
+      DIMENSION EIJ(NBASIS,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPOS/ICITYP(5050),ICPOS(200,100)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/ENRGY/ESCF,ENUC,ELEC
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+      COMMON/CI103/CI(100)
+      COMMON/CI104/IEIJ(5050)
+      DATA A00,HALF,TWO,FOUR /  0.0D+00 , 0.5D+00 , 2.0D+00 , 4.0D+00 /
+    1 FORMAT(//,2X,' BAF2 MATRIX'/)
+    2 FORMAT(//,2X,' A12 MATRIX'/)
+    3 FORMAT(//,2X,' A22 MATRIX'/)
+C
+C   CALL BACK SA MATRICES
+      CALL RFILE(ITAP44)
+      DO 101 IABC=1,N3N
+      IS=ISA(IABC)
+      CALL RREAD(ITAP44,SA(1,IABC),NTRI2,IS)
+  101 CONTINUE
+C
+C   FORM THE BAF AND A12 MATRICES
+      CALL ZERO(BAF2,NCPEX*NABC)
+      CALL ZERO(A12,NIND*NCPEX)
+      CALL RFILE(JTAPE2)
+C
+      DO 110 ICI=1,NCPEX
+      DO 102 IABC=1,NABC
+      BAF2(ICI,IABC)=E1T(IABC)*CI(ICI)*HALF
+  102 CONTINUE
+      DO 109 JCI=1,NCPEX
+      IJCI=IOFF(MAX0(ICI,JCI))+MIN0(ICI,JCI)
+      DO 103 III=1,ICIUNQ
+      IEX=IPX(III)
+      JEX=JPX(III)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      IF(IJCI.EQ.IJEX) GO TO 301
+  103 CONTINUE
+      GO TO 109
+C
+C   CUMMULATE ONLY NON-ZERO CI'S
+  301 CONTINUE
+      IBCI=ICITYP(III)
+      IPT=IEIJ(IBCI)
+      CALL RREAD(JTAPE2,EIJ,NBASQ,IPT)
+C
+      DO 105 IABC=1,NABC
+      VALU0=A00
+      IF(IABC.GT.N3N) GO TO 201
+      DO 104 I=1,JOCC
+      DO 104 J=1,I
+      IJ=IOFF(I)+J
+      FAC4=FOUR
+      IF(I.EQ.J) FAC4=TWO
+      VALU0=VALU0+SA(IJ,IABC)*EIJ(I,J)*FAC4
+  104 CONTINUE
+  201 CONTINUE
+      VALU2=(-HCIA(IJCI,IABC)+VALU0)*CI(JCI)
+      BAF2(ICI,IABC)=BAF2(ICI,IABC)+VALU2*HALF
+  105 CONTINUE
+C
+      DO 107 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      VALU=(EIJ(I,J)-EIJ(J,I))*CI(JCI)
+      A12(II,ICI)=A12(II,ICI)-VALU*TWO
+  107 CONTINUE
+C
+  109 CONTINUE
+  110 CONTINUE
+      IF(IPRNT.LE.2) GO TO 202
+      WRITE(6,1)
+      CALL MATOUT(BAF2,NCPEX,NABC,NCPEX,NABC,6)
+      WRITE(6,2)
+      CALL MATOUT(A12,NIND,NCPEX,NIND,NCPEX,6)
+C
+C   FORM THE A22 MATRIX
+  202 CONTINUE
+      CALL ZERO(A22,NCPEX*NCPEX)
+      IJ=0
+      DO 115 I=1,NCPEX
+      DO 115 J=1,I
+      IJ=IJ+1
+      VALU=HCI(IJ)+CI(I)*CI(J)
+      IF(I.EQ.J) VALU=VALU-ELEC
+      A22(I,J)=VALU*HALF
+      A22(J,I)=A22(I,J)
+  115 CONTINUE
+      IF(IPRNT.LE.2) GO TO 203
+      WRITE(6,3)
+      CALL MATOUT(A22,NCPEX,NCPEX,NCPEX,NCPEX,6)
+C
+  203 CONTINUE
+      CALL RCLOSE(JTAPE2,3)
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE CPHF(ESO,NIJ,KIJ,ZETA,BAF2,CIA,A22,A12,A,U,T,B0,AA,TT,
+     1                DP,DQ,DM,W,BB,MIJ,PQ,NINDPX,NMAX,NADD,N3NXX)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*16 DLIM,DETERM
+      INTEGER*2 MIJ
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION A(NBFAO,NBFAO),ZETA(NTRI,NTYPEP)
+      DIMENSION BB(NINDPX,NMAX*2),W(NMAX,NMAX+NADD)
+      DIMENSION DP(NTRI,NADD*NTYPEP),DQ(NTRI,NADD*NTYPEP)
+      DIMENSION DM(NTRI,NADD*NTYPEP)
+      DIMENSION AA(NINDPX),TT(NINDPX),B0(NTRI),NIJ(NTRI,2),KIJ(NTRI,2)
+      DIMENSION BAF2(NCPEX,N3NXX),CIA(NCPEX,N3NXX)
+      DIMENSION A22(NCPEX,NCPEX),A12(NIND,NCPEX)
+      DIMENSION PQ(*)
+      DIMENSION NDUM(1024),BNORM(1024)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CALIF/LPARA(1024),ANORM(1024)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/TOLER/ICONV
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI102/NIND,NDEP
+      DATA A00,HALF,ONE,TWO,FOUR,TEN / 0.0D+00 , 0.5D+00 , 1.0D+00 ,
+     1                                 2.0D+00 , 4.0D+00 , 10.0D+00 /
+    1 FORMAT(//,2X,' A MATRIX'/)
+    2 FORMAT(//,2X,' IGROUP = ',I5,5X,' IFIRST = ',I5,5X,
+     1             ' NABC   = ',I5/)
+    3 FORMAT(//,2X,' BB MATRIX'/)
+    4 FORMAT(//,2X,' SCALED BB MATRIX'/)
+    5 FORMAT(//,2X,' ORTHONORMALIZED BB MATRIX'/)
+    6 FORMAT(//,2X,' ORTHONORMALITY OF BB MATRIX'/)
+    7 FORMAT(//,2X,' ITERATION NO. = ',I5/)
+    8 FORMAT(//,2X,' (1-A)*B MATRIX'/)
+    9 FORMAT(//,2X,' KVEC = ',I5,' K = ',I5,' TT = ',(10F10.5))
+   10 FORMAT(/,2X,' NITER  = ',I5,5X,' NVEC   = ',I5,5X,' NADDV  = ',I5/
+     1)
+   11 FORMAT(//,2X,' NORM OF ADDED VECTOR',(5(I5,F15.8)))
+   12 FORMAT(//,2X,' BB MATRIX'/)
+   13 FORMAT(/,2X,' END OF ITERATION    NVTOT  = ',I5/)
+   14 FORMAT(//,2X,'***NVTOT EXCEEDS NMAX***',5X,' NMAX = ',I5/)
+   15 FORMAT(//,2X,' EXPANDED VECTORS BB AND A*BB MATRICES'/)
+   16 FORMAT(//,2X,' W MATRIX'/)
+   17 FORMAT(//,2X,' SCALED W MATRIX'/)
+   18 FORMAT(//,2X,'***SIMULTANEOUS EQUATION CANNOT BE SOLVED***',
+     1 5X,' DETERM = ',Q20.10/)
+   19 FORMAT(/,2X,' LINEAR EQUATION HAS BEEN SOLVED',
+     1 5X,' DETERM = ',Q20.10/)
+   20 FORMAT(//,2X,' SOLUTION MATRIX OF SCALED W MATRIX'/)
+   21 FORMAT(//,2X,' SOLUTION MATRIX'/)
+   22 FORMAT(2X,2I7,F15.8)
+C
+      CRIT=1.0D-10
+      IF(ICONV.NE.0) CRIT=ONE/(TEN**ICONV)
+      DLIM=1.0Q-76
+      CALL RFILE(JTAPE1)
+      CALL RFILE(ITAP44)
+C
+      NINDPX=NIND+NCPEX
+      NINP2=NINDPX*2
+C
+C   CALL BACK LAGRANGIAN AND ZETA MATRICES
+      DO 101 ITYP=1,NTYPES
+      CALL RMREAD(ZETA(1,ITYP),35+ITYP)
+C     CALL PRINT(ZETA(1,ITYP),NTRI,NBASIS,6)
+  101 CONTINUE
+      CALL ZERO(ZETA(1,NTYPEP),NTRI)
+C
+C   FORM A MATRIX
+C   SEE EQ.(A-1)
+C
+      CALL ZERO(A,NBASIS*NBASIS)
+      DO 102 I=1,NBASIS
+      DO 102 J=1,NBASIS
+      ITYP=MOTYP(I)
+      JTYP=MOTYP(J)
+      II=IOFF(I+1)
+      JJ=IOFF(J+1)
+      A(I,J)=A(I,J)-ZETA(II,ITYP)+ZETA(II,JTYP)
+     1             -ZETA(JJ,JTYP)+ZETA(JJ,ITYP)
+  102 CONTINUE
+      IF(IPRNT.LE.2) GO TO 301
+      WRITE(6,1)
+      CALL MATOUT(A,NBFAO,NBFAO,NBASIS,NBASIS,6)
+C
+C   FORM SCALING VECTOR
+C   SEE EQS.(24) AND (25)
+C
+  301 CONTINUE
+C
+C:::ORBITAL SPACE:::
+      DO 103 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      AA(II)=ONE/DSQRT(DABS(A(I,J)))
+  103 CONTINUE
+C
+C:::CISPACE:::
+      DO 104 ICI=1,NCPEX
+      AA(NIND+ICI)=ONE/DSQRT(DABS(A22(ICI,ICI)))
+  104 CONTINUE
+C
+C   START GROUPING THE B VECTORS
+      IGROUP=0
+      ILAST=0
+  500 CONTINUE
+      IGROUP=IGROUP+1
+      IFIRST=ILAST+1
+      ILAST=IFIRST+NADD-1
+      IF(ILAST.GT.N3NXX) ILAST=N3NXX
+      NABC=ILAST-IFIRST+1
+      WRITE(3,2) IGROUP,IFIRST,NABC
+      WRITE(4,2) IGROUP,IFIRST,NABC
+      WRITE(6,2) IGROUP,IFIRST,NABC
+      CALL SREW(JTAPE1)
+C
+C   CALL BACK B0 MATRICES
+      CALL SREW(ITAP44)
+      DO 107 IABC=1,NABC
+      III=IABC+IFIRST-1
+C
+C:::ORBITAL SPACE:::
+      IB=IBA(III)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      DO 105 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      IJ=IOFF(I)+J
+      BB(II,IABC)=B0(IJ)
+  105 CONTINUE
+C
+C:::CI SPACE:::
+      DO 106 ICI=1,NCPEX
+      BB(NIND+ICI,IABC)=BAF2(ICI,III)
+  106 CONTINUE
+C
+  107 CONTINUE
+      IF(IPRNT.LE.2) GO TO 302
+      WRITE(6,3)
+      CALL MATOUT(BB,NINDPX,NABC,NINDPX,NABC,6)
+  302 CONTINUE
+C
+      DO 109 II=1,NINDPX
+      DO 108 IABC=1,NABC
+  108 BB(II,IABC)=BB(II,IABC)*AA(II)
+  109 CONTINUE
+      IF(IPRNT.LE.2) GO TO 303
+      WRITE(6,4)
+      CALL MATOUT(BB,NINDPX,NABC,NINDPX,NABC,6)
+C
+C   ORTHONORMALIZE B0 MATRIX
+C
+  303 CONTINUE
+      CALL ORTHOG(BB,BB(1,NABC+1),NINDPX,NABC,NINDPX,NDUM,NABC,NVEC)
+      IF(IPRNT.LE.2) GO TO 304
+      WRITE(6,5)
+      CALL MATOUT(BB,NINDPX,NVEC,NINDPX,NVEC,6)
+  304 CONTINUE
+      DO 110 IABC=1,NVEC
+  110 BNORM(IABC)=ONE
+C
+C   CHECK ORTHONORMALITY
+      IF(IPRNT.LE.2) GO TO 305
+      DO 112 I=1,NVEC
+      DO 112 J=1,NVEC
+      VALU=A00
+      DO 111 K=1,NINDPX
+  111 VALU=VALU+BB(K,I)*BB(K,J)
+      W(I,J)=VALU
+  112 CONTINUE
+      WRITE(6,6)
+      CALL MATOUT(W,NMAX,NMAX+NABC,NVEC,NVEC,6)
+C
+  305 NPVEC=0
+      NITER=0
+C:::::::::::::::::::::
+C:::START ITERATION:::
+C:::::::::::::::::::::
+  200 NITER=NITER+1
+      IF(IPRNT.GT.2)
+     *WRITE(6,7) NITER
+C
+      DO 114 II=1,NINDPX
+      DO 113 IABC=1,NVEC
+  113 BB(II,NPVEC+IABC)=BB(II,NPVEC+IABC)*AA(II)
+  114 CONTINUE
+C
+C   FORM A*B MATRIX
+      CALL MAKEAB(BB(1,NPVEC+1),DP,DQ,DM,BB(1,NPVEC+NVEC+1),ZETA,
+     1            NIJ,A22,A12,ESO,U,T,MIJ,PQ,NINDPX,NVEC)
+C
+      DO 116 II=1,NINDPX
+      DO 115 IABC=1,NVEC
+      BB(II,NPVEC+IABC)=BB(II,NPVEC+IABC)/AA(II)
+      BB(II,NPVEC+NVEC+IABC)=BB(II,NPVEC+NVEC+IABC)*AA(II)
+  115 CONTINUE
+  116 CONTINUE
+C
+C   STORE A*B MATRIX
+      DO 117 IABC=NPVEC+NVEC+1,NPVEC+NVEC*2
+      CALL SWRIT(JTAPE1,BB(1,IABC),NINP2)
+  117 CONTINUE
+C
+C   FORM (1-A)*B
+      DO 120 IABC=NPVEC+1,NPVEC+NVEC
+      DO 119 II=1,NINDPX
+C*119 BB(II,NVEC+IABC)=-BB(II,IABC)-BB(II,NVEC+IABC)
+  119 BB(II,NVEC+IABC)=BB(II,IABC)-BB(II,NVEC+IABC)
+  120 CONTINUE
+      IF(IPRNT.LE.2) GO TO 306
+      WRITE(6,8)
+      CALL MATOUT(BB(1,NPVEC+NVEC+1),NINDPX,NVEC,NINDPX,NVEC,6)
+C
+C   FORM ADDITIONAL EXPANSION VECTORS
+  306 NADDV=0
+      K=NPVEC+NVEC
+      DO 130 IABC=NPVEC+NVEC+1,NPVEC+NVEC*2
+C
+      DO 121 II=1,NINDPX
+  121 TT(II)=BB(II,IABC)
+      DO 124 L=1,K
+      CALL NORM(XBB,BB(1,L),BB(1,IABC),NINDPX)
+      FAC=XBB/BNORM(L)
+      DO 123 II=1,NINDPX
+  123 TT(II)=TT(II)-BB(II,L)*FAC
+  124 CONTINUE
+      IF(IPRNT.LE.2) GO TO 307
+      WRITE(6,9) IABC,K,(TT(I),I=1,NINDPX)
+  307 CONTINUE
+      CALL NORM(XTT,TT,TT,NINDPX)
+      IF(DABS(XTT).LT.CRIT) GO TO 130
+      NADDV=NADDV+1
+      K=K+1
+      BNORM(K)=XTT
+      DO 126 II=1,NINDPX
+C*126 BB(II,K)=-TT(II)
+  126 BB(II,K)=TT(II)
+C
+  130 CONTINUE
+C
+      WRITE(6,10) NITER,NVEC,NADDV
+      WRITE(3,10) NITER,NVEC,NADDV
+      WRITE(4,10) NITER,NVEC,NADDV
+      NPVEC=NPVEC+NVEC
+      NVEC=NADDV
+      IF(NADDV.EQ.0) GO TO 310
+      IF(IPRNT.LE.2) GO TO 308
+      IST=NPVEC+1
+      IED=NPVEC+NVEC
+      WRITE(6,11) (I,BNORM(I),I=IST,IED)
+      WRITE(6,12)
+      CALL MATOUT(BB(1,NPVEC+1),NINDPX,NVEC,NINDPX,NVEC,6)
+  308 GO TO 200
+C
+  310 NVTOT=NPVEC
+      WRITE(6,13) NVTOT
+      WRITE(3,13) NVTOT
+      WRITE(4,13) NVTOT
+      IF(NVTOT.LE.NMAX) GO TO 400
+      WRITE(6,14) NMAX
+      STOP
+C
+C   CALL BACK A*B MATRICES
+  400 CONTINUE
+      CALL SREW(JTAPE1)
+      DO 131 IABC=NVTOT+1,NVTOT*2
+  131 CALL SREAD(JTAPE1,BB(1,IABC),NINP2)
+      IF(IPRNT.LE.2) GO TO 311
+      WRITE(6,15)
+      CALL MATOUT(BB,NINDPX,NVTOT*2,NINDPX,NVTOT*2,6)
+C
+  311 CONTINUE
+      DO 133 I=1,NVTOT
+      DO 133 J=1,NVTOT
+      SUM=A00
+      DO 132 II=1,NINDPX
+C*132 SUM=SUM-BB(II,I)*BB(II,NVTOT+J)
+  132 SUM=SUM+BB(II,I)*BB(II,NVTOT+J)
+      W(I,J)=SUM
+  133 CONTINUE
+C
+C   READ BACK ORIGINAL B0 MATRICES
+      CALL SREW(ITAP44)
+      DO 136 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IB=IBA(III)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      DO 134 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      IJ=IOFF(I)+J
+      BB(II,NVTOT+IABC)=B0(IJ)*AA(II)
+  134 CONTINUE
+      DO 135 ICI=1,NCPEX
+      BB(NIND+ICI,NVTOT+IABC)=BAF2(ICI,III)*AA(NIND+ICI)
+  135 CONTINUE
+  136 CONTINUE
+      IF(IPRNT.LE.2) GO TO 312
+      WRITE(6,4)
+      CALL MATOUT(BB(1,NVTOT+1),NINDPX,NABC,NINDPX,NABC,6)
+C
+C   SET B0*B ON W
+  312 CONTINUE
+      DO 138 I=1,NVTOT
+      DO 138 J=1,NABC
+      SUM=A00
+      DO 137 II=1,NINDPX
+  137 SUM=SUM+BB(II,I)*BB(II,NVTOT+J)
+      W(I,NVTOT+J)=SUM
+  138 CONTINUE
+C
+      IF(IPRNT.LE.2) GO TO 313
+      WRITE(6,16)
+      CALL MATOUT(W,NMAX,NMAX+NABC,NVTOT,NVTOT+NABC,6)
+  313 CONTINUE
+      DO 139 I=1,NVTOT
+      AVAL=ONE/DSQRT(BNORM(I))
+      DO 139 J=1,NVTOT
+      BVAL=ONE/DSQRT(BNORM(J))
+      W(I,J)=W(I,J)*AVAL*BVAL
+  139 CONTINUE
+      DO 140 I=1,NVTOT
+      AVAL=ONE/DSQRT(BNORM(I))
+      DO 140 J=1,NABC
+      W(I,NVTOT+J)=W(I,NVTOT+J)*AVAL
+  140 CONTINUE
+      IF(IPRNT.LE.3) GO TO 315
+      WRITE(6,17)
+      CALL MATOUT(W,NMAX,NMAX+NABC,NVTOT,NVTOT+NABC,6)
+C
+C   SOLVE SMALL SIMULTANEOUS EQUATION
+  315 CONTINUE
+      CALL FLINQ(W,NMAX,NVTOT,NABC,DETERM)
+      IF(QABS(DETERM).GT.DLIM) GO TO 320
+C
+C   SIMULTANEOUS EQUATION CANNOT BE SOLVED---STOP!!!
+      WRITE(6,18) DETERM
+      STOP
+C
+C::::::::::::::::::::::::::::::::
+C:::LINEAR EQUATION WAS SOLVED:::
+C::::::::::::::::::::::::::::::::
+  320 CONTINUE
+      WRITE(6,19) DETERM
+      WRITE(3,19) DETERM
+      WRITE(4,19) DETERM
+      IF(IPRNT.LE.2) GO TO 322
+      WRITE(6,20)
+      CALL MATOUT(W(1,NVTOT+1),NMAX,NMAX+NABC,NVTOT,NABC,6)
+  322 CONTINUE
+      DO 151 I=1,NVTOT
+      AVAL=ONE/DSQRT(BNORM(I))
+      DO 151 J=1,NABC
+      W(I,NVTOT+J)=W(I,NVTOT+J)*AVAL
+  151 CONTINUE
+      IF(IPRNT.LE.4) GO TO 323
+      WRITE(6,21)
+      CALL MATOUT(W(1,NVTOT+1),NMAX,NMAX+NABC,NVTOT,NABC,6)
+C
+C   OBTAIN INDEPENDENT ELEMENTS OF UA MATRICES
+  323 CONTINUE
+      DO 153 II=1,NINDPX
+      DO 153 IABC=1,NABC
+      SUM=A00
+      DO 152 I=1,NVTOT
+C*152 SUM=SUM-BB(II,I)*W(I,NVTOT+IABC)
+  152 SUM=SUM+BB(II,I)*W(I,NVTOT+IABC)
+      BB(II,NVTOT+IABC)=SUM*AA(II)
+  153 CONTINUE
+C
+      CALL SREW(ITAP44)
+      DO 156 IABC=1,NABC
+      III=IABC+IFIRST-1
+C
+C:::ORBITAL SPACE:::
+      IB=IBA(III)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      DO 154 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      IJ=IOFF(I)+J
+      B0(IJ)=BB(II,NVTOT+IABC)
+  154 CONTINUE
+      CALL RWRIT(ITAP44,B0,NTRI2,IB)
+C
+C:::CI SPACE:::
+      DO 155 ICI=1,NCPEX
+      CIA(ICI,III)=BB(NIND+ICI,NVTOT+IABC)
+      IF(IPRNT.LE.2) GO TO 155
+      WRITE(6,22) ICI,III,CIA(ICI,III)
+  155 CONTINUE
+  156 CONTINUE
+C
+      LPARA(101)=10
+      LPARA(102)=IGROUP
+      LPARA(103)=ILAST
+      CALL RMWRIT(LPARA,2)
+      IF(ILAST.GE.N3NXX) GO TO 501
+      GO TO 500
+C
+  501 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+      RETURN
+      END
+      SUBROUTINE MAKEAB(B0,DP,DQ,DM,B1,ZETA,NIJ,A22,A12,ESO,U,T,MIJ,PQ,
+     1                  NINDPX,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION B0(NINDPX,NABC),B1(NINDPX,NABC)
+      DIMENSION ZETA(NTRI,NTYPEP),NIJ(NTRI,2)
+      DIMENSION A22(NCPEX,NCPEX),A12(NIND,NCPEX)
+      DIMENSION DP(NTRI,NABC*NTYPEP),DQ(NTRI,NABC*NTYPEP)
+      DIMENSION DM(NTRI,NABC*NTYPEP)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI102/NIND,NDEP
+      DATA A00 / 0.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' B1 MATRIX'/)
+    2 FORMAT(//,2X,' FINAL B1 MATRIX'/)
+C
+C   SEE EQ.(21)
+C   FORM DENSITY LIKE MATRIX IN SO BASIS
+C
+      CALL PQEMAT(DP,DQ,B0,NIJ,ESO,NINDPX,NABC)
+C
+C   FORM HALF-TRANSFORMED DENSITY LIKE MATRIX
+      NTYABC=NTYPES*NABC
+      CALL PQMAT(DP,DQ,DM,NTYABC,MIJ,PQ)
+C
+C   COMPLETE TRANSFORMATIONTION
+      DO 101 ITYPX=1,NTYABC
+      CALL MOCONS(DM(1,ITYPX),NTRI,DP(1,ITYPX),NTRI,ESO,U,T)
+  101 CONTINUE
+C
+      CALL ZERO(B1,NINDPX*NABC)
+      DO 104 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      ITYP=MOTYP(I)
+      JTYP=MOTYP(J)
+      IJ=IOFF(I)+J
+      IADD=(ITYP-1)*NABC
+      JADD=(JTYP-1)*NABC
+      DO 103 IABC=1,NABC
+      IAPT=IADD+IABC
+      JAPT=JADD+IABC
+  103 B1(II,IABC)=DP(IJ,IAPT)-DP(IJ,JAPT)
+  104 CONTINUE
+      IF(IPRNT.LE.3) GO TO 301
+      WRITE(6,1)
+      CALL MATOUT(B1,NINDPX,NABC,NINDPX,NABC,6)
+C
+C   SEE EQ.(12)
+C   REST OF EQ.(11)
+C
+  301 CONTINUE
+      DO 110 II=1,NIND
+      I=NIJ(II,1)
+      J=NIJ(II,2)
+      ITYP=MOTYP(I)
+      JTYP=MOTYP(J)
+      DO 106 JJ=1,NIND
+      K=NIJ(JJ,1)
+      L=NIJ(JJ,2)
+      KTYP=MOTYP(K)
+      LTYP=MOTYP(L)
+      ZVAL1=A00
+      ZVAL2=A00
+      ZVAL3=A00
+      ZVAL4=A00
+      IF(J.NE.K) GO TO 201
+      IL=IOFF(MAX0(I,L))+MIN0(I,L)
+      ZVAL1=ZETA(IL,ITYP)-ZETA(IL,JTYP)
+  201 IF(I.NE.K) GO TO 202
+      JL=IOFF(MAX0(J,L))+MIN0(J,L)
+      ZVAL2=-ZETA(JL,JTYP)+ZETA(JL,ITYP)
+  202 IF(J.NE.L) GO TO 203
+      IK=IOFF(MAX0(I,K))+MIN0(I,K)
+      ZVAL3=-ZETA(IK,ITYP)+ZETA(IK,JTYP)
+  203 IF(I.NE.L) GO TO 204
+      JK=IOFF(MAX0(J,K))+MIN0(J,K)
+      ZVAL4=ZETA(JK,JTYP)-ZETA(JK,ITYP)
+  204 ZVALT=ZVAL1+ZVAL2+ZVAL3+ZVAL4
+C
+      IF(DABS(ZVALT).LT.TOL) GO TO 106
+      DO 105 IABC=1,NABC
+      B1(II,IABC)=B1(II,IABC)+B0(JJ,IABC)*ZVALT
+  105 CONTINUE
+  106 CONTINUE
+C
+      DO 108 JJ=1,NCPEX
+      DO 107 IABC=1,NABC
+      B1(II,IABC)=B1(II,IABC)+B0(JJ+NIND,IABC)*A12(II,JJ)
+C*    B1(II,IABC)=B1(II,IABC)-B0(JJ+NIND,IABC)*A12(II,JJ)
+  107 CONTINUE
+  108 CONTINUE
+C
+  110 CONTINUE
+C
+      DO 120 II=1,NCPEX
+      DO 115 JJ=1,NIND
+      DO 114 IABC=1,NABC
+      B1(II+NIND,IABC)=B1(II+NIND,IABC)+B0(JJ,IABC)*A12(JJ,II)
+C*    B1(II+NIND,IABC)=B1(II+NIND,IABC)-B0(JJ,IABC)*A12(JJ,II)
+  114 CONTINUE
+  115 CONTINUE
+C
+      DO 117 JJ=1,NCPEX
+      DO 116 IABC=1,NABC
+      B1(II+NIND,IABC)=B1(II+NIND,IABC)+B0(JJ+NIND,IABC)*A22(II,JJ)
+  116 CONTINUE
+  117 CONTINUE
+C
+  120 CONTINUE
+      IF(IPRNT.LE.4) GO TO 302
+      WRITE(6,2)
+      CALL MATOUT(B1,NINDPX,NABC,NINDPX,NABC,6)
+C
+  302 CONTINUE
+      RETURN
+      END
+      SUBROUTINE PQEMAT(DP,DQ,B0,NIJ,ESO,NINDPX,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION DP(NTRI,NABC*NTYPEP),DQ(NTRI,NABC*NTYPEP)
+      DIMENSION B0(NINDPX,NABC),NIJ(NTRI,2),ESO(NBFAO,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/A(30,30),B(30,30)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI102/NIND,NDEP
+      DATA TWO / 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX IN PQDMAT'/)
+    2 FORMAT(//,2X,' DQ MATRIX IN PQDMAT'/)
+C
+C   SEE EQS.(22) AND (23)
+C
+      CALL ZERO(DP,NTRI*NTYPEP*NABC)
+      CALL ZERO(DQ,NTRI*NTYPEP*NABC)
+C
+      IJ=0
+      DO 105 I=1,NBASIS
+      DO 105 J=1,I
+      IJ=IJ+1
+      DO 103 ITYP=1,NTYPES
+      DO 102 II=1,NIND
+      K=NIJ(II,1)
+      L=NIJ(II,2)
+      KTYP=MOTYP(K)
+      LTYP=MOTYP(L)
+      AVAL=A(ITYP,KTYP)-A(ITYP,LTYP)
+      BVAL=B(ITYP,KTYP)-B(ITYP,LTYP)
+      FAC=ESO(I,K)*ESO(J,L)+ESO(I,L)*ESO(J,K)
+      IF(DABS(FAC).LT.TOL) GO TO 102
+      FACA=AVAL*FAC
+      FACB=BVAL*FAC
+      IADD=(ITYP-1)*NABC
+      DO 101 IABC=1,NABC
+      IAPT=IADD+IABC
+      DP(IJ,IAPT)=DP(IJ,IAPT)+B0(II,IABC)*FACA
+      DQ(IJ,IAPT)=DQ(IJ,IAPT)+B0(II,IABC)*FACB
+  101 CONTINUE
+  102 CONTINUE
+  103 CONTINUE
+  105 CONTINUE
+      NTYABC=NTYPES*NABC
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NTYABC,NTRI,NTYABC,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NTYABC,NTRI,NTYABC,6)
+C
+  201 CONTINUE
+      DO 107 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 106 ITYPX=1,NTYABC
+      DP(II,ITYPX)=DP(II,ITYPX)/TWO
+      DQ(II,ITYPX)=DQ(II,ITYPX)/TWO
+  106 CONTINUE
+  107 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NTYABC)
+      CALL ESCVEC(TWO,DQ,NTRI*NTYABC)
+C
+      RETURN
+      END
+      SUBROUTINE UCMAT(EIG,ESO,NIJ,KIJ,U,T,B,DP,DQ,DM,DEL,MIJ,PQ,
+     1                 NADD,N3NXX)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION EIG(NBASIS)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBFAO,NBFAO),T(NBFAO,NBFAO)
+      DIMENSION NIJ(NTRI,2),KIJ(NTRI,2),B(NTRI),DEL(NTRI)
+      DIMENSION DP(NTRI,NADD),DQ(NTRI,NADD),DM(NTRI,NADD)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI102/NIND,NDEP
+      DATA DLIMIT / 1.0D-8 /
+      DATA A00,ONE / 0.0D+00 , 1.0D+00 /
+    1 FORMAT(//,2X,' IGROUP = ',I5,5X,' IFIRST = ',I5,5X,
+     1             ' NABC   = ',I5/)
+    2 FORMAT(//,2X,' B0 MATRIX'/)
+    3 FORMAT(//,2X,' DP MATRIX'/)
+    4 FORMAT(//,2X,' DM MATRIX'/)
+C
+C   START GROUPING B0 MATRICES
+      CALL RFILE(ITAP44)
+      IGROUP=0
+      ILAST=0
+  500 CONTINUE
+      IGROUP=IGROUP+1
+      IFIRST=ILAST+1
+      ILAST=IFIRST+NADD-1
+      IF(ILAST.GT.N3NXX) ILAST=N3NXX
+      NABC=ILAST-IFIRST+1
+      WRITE(3,1) IGROUP,IFIRST,NABC
+      WRITE(4,1) IGROUP,IFIRST,NABC
+C
+C   CALL BACK B0 MATRICES
+      DO 101 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IB=IBA(III)
+      CALL RREAD(ITAP44,DM(1,IABC),NTRI2,IB)
+  101 CONTINUE
+      IF(IPRNT.LE.4) GO TO 301
+      WRITE(6,2)
+      CALL MATOUT(DM,NTRI,NABC,NTRI,NABC,6)
+C
+C   FORM DENSITY LIKE MATRIX IN SO BASIS
+  301 CONTINUE
+      CALL PQFMAT(DP,DQ,DM,NIJ,ESO,NABC)
+      IF(IPRNT.LE.4) GO TO 302
+      WRITE(6,2)
+      CALL MATOUT(DP,NTRI,NABC,NTRI,NABC,6)
+C
+C   FORM HALF-TRANSFORMED DENSITY LIKE MATRIX
+C   AND TRANSFORM THEM INTO MO BASIS
+  302 CONTINUE
+      CALL PQMAT(DP,DQ,DM,NABC,MIJ,PQ)
+      DO 102 IABC=1,NABC
+      CALL MOCONS(DM(1,IABC),NTRI,DP(1,IABC),NTRI,ESO,U,T)
+  102 CONTINUE
+      IF(IPRNT.LE.4) GO TO 303
+      WRITE(6,3)
+      CALL MATOUT(DP,NTRI,NABC,NTRI,NABC,6)
+C
+  303 CONTINUE
+      DO 103 II=1,NDEP
+      I=KIJ(II,1)
+      J=KIJ(II,2)
+      DEL(II)=A00
+      DELJI=EIG(J)-EIG(I)
+      IF(I.EQ.J) DELJI=ONE
+      IF(DABS(DELJI).LE.DLIMIT) GO TO 103
+      DEL(II)=ONE/DELJI
+  103 CONTINUE
+C
+      DO 105 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IB=IBA(III)
+      CALL RREAD(ITAP44,B,NTRI2,IB)
+      DO 104 II=1,NDEP
+      I=KIJ(II,1)
+      J=KIJ(II,2)
+      IJ=IOFF(I)+J
+      TDEL=DEL(II)
+      B(IJ)=(B(IJ)+DP(IJ,IABC))*TDEL
+  104 CONTINUE
+      CALL RWRIT(ITAP44,B,NTRI2,IB)
+  105 CONTINUE
+      IF(ILAST.GE.N3NXX) GO TO 501
+      GO TO 500
+C
+  501 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE PQFMAT(DP,DQ,B,NIJ,ESO,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION DP(NTRI,NABC),DQ(NTRI,NABC),B(NTRI,NABC)
+      DIMENSION ESO(NBFAO,NBASIS),NIJ(NTRI,2)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI102/NIND,NDEP
+      DATA A00,HALF,TWO / 0.0D+00 , 0.5D+00 , 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX'/)
+    2 FORMAT(//,2X,' DQ MATRIX'/)
+C
+C   FORM DENSITY MATRICES
+C
+C   FORM DP MATRIX
+      CALL ZERO(DP,NTRI*NABC)
+      CALL ZERO(DQ,NTRI*NABC)
+C
+      IJ=0
+      DO 103 I=1,NBASIS
+      DO 103 J=1,I
+      IJ=IJ+1
+      DO 102 II=1,NIND
+      K=NIJ(II,1)
+      L=NIJ(II,2)
+      KTYP=MOTYP(K)
+      LTYP=MOTYP(L)
+      KL=IOFF(K)+L
+      FAC=(ESO(I,K)*ESO(J,L)+ESO(I,L)*ESO(J,K))
+     1   *(FOCC(LTYP)-FOCC(KTYP))*HALF
+      IF(DABS(FAC).LT.TOL) GO TO 102
+      DO 101 IABC=1,NABC
+      FACT=B(KL,IABC)*FAC
+      DP(IJ,IABC)=DP(IJ,IABC)+FACT*TWO
+      DQ(IJ,IABC)=DQ(IJ,IABC)-FACT
+  101 CONTINUE
+  102 CONTINUE
+  103 CONTINUE
+C
+      IF(IPRNT.LE.4) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NABC,NTRI,NABC,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NABC,NTRI,NABC,6)
+C
+  201 CONTINUE
+      DO 105 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 104 ITYPX=1,NABC
+      DP(II,ITYPX)=DP(II,ITYPX)/TWO
+      DQ(II,ITYPX)=DQ(II,ITYPX)/TWO
+  104 CONTINUE
+  105 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NABC)
+      CALL ESCVEC(TWO,DQ,NTRI*NABC)
+C
+      RETURN
+      END
+      SUBROUTINE ORTHOG(U,W,NDIM,MDIM,N,NDUM,NTEMP,NVEC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION U(NDIM,MDIM),W(NDIM),NDUM(1)
+      DATA A00 / 0.0D+00 /
+C
+      DO 101 I=1,NTEMP
+  101 NDUM(I)=0
+C   N=1
+      DO 102 I=1,N
+  102 W(I)=U(I,1)
+      CALL NORMLZ(W,NDIM,N,IFLAG)
+      DO 103 I=1,N
+  103 U(I,1)=W(I)
+C
+C   N=>2
+C
+      NVEC=1
+      IF(NTEMP.EQ.1) RETURN
+      DO 110 II=2,NTEMP
+      DO 104 I=1,N
+  104 W(I)=U(I,II)
+      DO 107 K=1,II-1
+      IF(NDUM(K).NE.0) GO TO 107
+      EU=A00
+      DO 105 I=1,N
+  105 EU=EU+U(I,K)*U(I,II)
+      DO 106 I=1,N
+  106 W(I)=W(I)-EU*U(I,K)
+  107 CONTINUE
+      CALL NORMLZ(W,NDIM,N,IFLAG)
+      IF(IFLAG.NE.0) NDUM(II)=1
+      IF(IFLAG.NE.0) GO TO 110
+      NVEC=NVEC+1
+      DO 108 I=1,N
+  108 U(I,II)=W(I)
+  110 CONTINUE
+C
+      IX=0
+      DO 120 II=1,NTEMP
+      IF(NDUM(II).NE.0) GO TO 120
+      IX=IX+1
+      DO 115 I=1,N
+  115 W(I)=U(I,II)
+      DO 116 I=1,N
+  116 U(I,IX)=W(I)
+  120 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE NORMLZ(V,NDIM,N,IFLAG)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION V(NDIM)
+    1 FORMAT(//,2X,'***ERROR IN NORMALIZATION***'/)
+      DATA RLIM / 1.0D-38 /
+      DATA VLIM / 1.0D-6 /
+      DATA A00 / 0.0D+00 /
+C
+      IFLAG=0
+      SQL=A00
+      DO 101 I=1,N
+  101 SQL=SQL+V(I)*V(I)
+      R=DSQRT(SQL)
+      IF(R.LE.RLIM) GO TO 202
+      IF(R.LE.VLIM) GO TO 204
+C
+  201 DO 102 I=1,N
+  102 V(I)=V(I)/R
+      GO TO 205
+  202 WRITE(6,1)
+      STOP
+C
+  204 IFLAG=1
+  205 RETURN
+      END
+      SUBROUTINE NORM(XAB,A,B,N)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION A(1),B(1)
+      DATA A00 / 0.0D+00 /
+C
+      XAB=A00
+      DO 101 I=1,N
+  101 XAB=XAB+A(I)*B(I)
+      RETURN
+      END
+      SUBROUTINE UXMAT(KIJ,B,SM,U,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION KIJ(NTRI,2),B(NTRI,NABC),SM(NTRI,NABC),U(NBASIS,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI102/NIND,NDEP
+      DATA A00,HALF / 0.0D+00 , 0.5D+00 /
+    1 FORMAT(//,2X,' U MATRIX, IABC= ',I5/)
+C
+      CALL RFILE(ITAP44)
+      DO 101 IABC=1,NABC
+      IB=IBA(IABC)
+      CALL RREAD(ITAP44,B(1,IABC),NTRI2,IB)
+      IF(IABC.GT.N3N) GO TO 101
+      IS=ISA(IABC)
+      CALL RREAD(ITAP44,SM(1,IABC),NTRI2,IS)
+  101 CONTINUE
+C
+C   FILL UP THE REST OF U MATRIX
+      DO 105 IABC=1,NABC
+      IU=IUA(IABC)
+      IF(IABC.GT.N3N) GO TO 301
+C
+      IJ=0
+      DO 102 I=1,NBASIS
+      DO 102 J=1,I
+      IJ=IJ+1
+      IF(I.EQ.J) GO TO 201
+      U(I,J)=B(IJ,IABC)
+      U(J,I)=-U(I,J)-SM(IJ,IABC)
+      GO TO 102
+  201 U(I,I)=-SM(IJ,IABC)*HALF
+  102 CONTINUE
+C   SPECIFIY NON-INDEPENDENT VARIABLES
+      DO 103 II=1,NDEP
+      I=KIJ(II,1)
+      J=KIJ(II,2)
+      IJ=IOFF(I)+J
+      U(I,J)=-SM(IJ,IABC)*HALF
+      U(J,I)=U(I,J)
+  103 CONTINUE
+      GO TO 302
+C
+  301 CONTINUE
+      IJ=0
+      DO 104 I=1,NBASIS
+      DO 104 J=1,I
+      IJ=IJ+1
+      IF(I.EQ.J) GO TO 202
+      U(I,J)=B(IJ,IABC)
+      U(J,I)=-U(I,J)
+      GO TO 104
+  202 U(I,I)=A00
+  104 CONTINUE
+C
+  302 CONTINUE
+      CALL RWRIT(ITAP44,U,NBASQ,IU)
+      IF(IPRNT.LE.3) GO TO 105
+      WRITE(6,1) IABC
+      CALL MATOUT(U,NBASIS,NBASIS,NBASIS,NBASIS,6)
+C
+  105 CONTINUE
+C
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE WAMAT(ESO,ZETA,U,T,EPA,WA,SA,DP,DQ,DM,MIJ,PQ,NADD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER*2 MIJ(*)
+      DIMENSION ESO(NBFAO,NBASIS),U(NBASIS,NBASIS),T(NBASIS,NBASIS)
+      DIMENSION EPA(NBASIS,NBASIS)
+      DIMENSION ZETA(NTRI,NTYPEP),WA(NBASIS,NBASIS),SA(NTRI,NADD*NTYPEP)
+      DIMENSION DP(NTRI,NADD*NTYPEP),DQ(NTRI,NADD*NTYPEP)
+      DIMENSION DM(NTRI,NADD*NTYPEP)
+      DIMENSION PQ(*)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA A00 / 0.0D+00 /
+    1 FORMAT(//,2X,' IGROUP = ',I5,5X,' IFIRST = ',I5,5X,
+     1             ' NABC   = ',I5/)
+    2 FORMAT(//,2X,' WA MATRIX, IABC = ',I5/)
+C
+C   FORM WA MATRICES
+C   SEE EQ.(13)
+C
+      CALL RFILE(ITAP44)
+      CALL RFILE(JTAPE1)
+C
+C   CALL BACK LAGRANGIAN MATRICES
+      DO 101 ITYP=1,NTYPES
+      CALL RMREAD(ZETA(1,ITYP),35+ITYP)
+  101 CONTINUE
+      CALL ZERO(ZETA(1,NTYPEP),NTRI)
+C
+C   START GROUPING WA MATRICES
+      IGROUP=0
+      ILAST=0
+  500 CONTINUE
+      IGROUP=IGROUP+1
+      IFIRST=ILAST+1
+      ILAST=IFIRST+NADD-1
+      IF(ILAST.GT.N3N) ILAST=N3N
+      NABC=ILAST-IFIRST+1
+      WRITE(3,1) IGROUP,IFIRST,NABC
+      WRITE(4,1) IGROUP,IFIRST,NABC
+C
+C   CALL BACK DERIVATIVE OVERLAP INTEGRALS
+      DO 103 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IS=ISA(III)
+      CALL RREAD(ITAP44,SA(1,IABC),NTRI2,IS)
+  103 CONTINUE
+C
+C   FORM DENSITY LIKE MATRIX
+      CALL PQGMAT(DP,DQ,SA,ESO,NABC)
+C
+C   FORM HALF-TRANSFORMED DENSITY LIKE MATRIX
+      NTYABC=NTYPES*NABC
+      CALL PQMAT(DP,DQ,DM,NTYABC,MIJ,PQ)
+C
+C   COMPLETE TRANSFORMATION
+      DO 105 ITYPX=1,NTYABC
+      CALL MOCONS(DM(1,ITYPX),NTRI,DP(1,ITYPX),NTRI,ESO,U,T)
+  105 CONTINUE
+C
+      DO 110 IABC=1,NABC
+      III=IABC+IFIRST-1
+      IS=ISA(III)
+      IE=IEA(III)
+      CALL RREAD(ITAP44,SA(1,IABC),NTRI2,IS)
+      CALL RREAD(ITAP44,EPA,NBASQ,IE)
+      DO 107 I=1,NBASIS
+      ITYP=MOTYP(I)
+      DO 107 J=1,NBASIS
+      JTYP=MOTYP(J)
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      JAPT=(JTYP-1)*NABC+IABC
+      VALU1=EPA(J,I)+EPA(J,I)
+      VALU2=DP(IJ,JAPT)
+      VALU3=A00
+      DO 106 K=1,JOCC
+      IK=IOFF(MAX0(I,K))+MIN0(I,K)
+      JK=IOFF(MAX0(J,K))+MIN0(J,K)
+      FAC1=ZETA(IK,ITYP)+ZETA(IK,JTYP)
+      FAC2=ZETA(JK,JTYP)+ZETA(JK,JTYP)
+      VALU3=VALU3+SA(JK,IABC)*FAC1+SA(IK,IABC)*FAC2
+  106 CONTINUE
+      WA(I,J)=VALU1-VALU2-VALU3
+  107 CONTINUE
+      CALL SWRIT(JTAPE1,WA,NBASQ)
+      IF(IPRNT.LE.3) GO TO 110
+      WRITE(6,2) IABC
+      CALL MATOUT(WA,NBASIS,NBASIS,NBASIS,NBASIS,6)
+  110 CONTINUE
+      IF(ILAST.GE.N3N) GO TO 501
+      GO TO 500
+C
+  501 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+      RETURN
+      END
+      SUBROUTINE PQGMAT(DP,DQ,SA,ESO,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION DP(NTRI,NABC*NTYPEP),DQ(NTRI,NABC*NTYPEP)
+      DIMENSION ESO(NBFAO,NBASIS),SA(NTRI,NABC*NTYPEP)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/GVBAB/A(30,30),B(30,30)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA A00,TWO / 0.0D+00 , 2.0D+00 /
+      DATA TOL / 1.0D-12 /
+    1 FORMAT(//,2X,' DP MATRIX IN PQGMAT'/)
+    2 FORMAT(//,2X,' DQ MATRIX IN PQGMAT'/)
+C
+      CALL ZERO(DP,NTRI*NTYPEP*NABC)
+      CALL ZERO(DQ,NTRI*NTYPEP*NABC)
+C
+      IJ=0
+      DO 105 I=1,NBASIS
+      DO 105 J=1,I
+      IJ=IJ+1
+      DO 104 K=1,JOCC
+      KTYP=MOTYP(K)
+      DO 104 L=1,JOCC
+      LTYP=MOTYP(L)
+      KL=IOFF(MAX0(K,L))+MIN0(K,L)
+      FAC=ESO(I,K)*ESO(J,L)+ESO(J,K)*ESO(I,L)
+      IF(DABS(FAC).LT.TOL) GO TO 104
+      DO 103 ITYP=1,NTYPES
+      AVAL=A(ITYP,LTYP)
+      BVAL=B(ITYP,LTYP)
+      FACA=AVAL*FAC
+      FACB=BVAL*FAC
+      IADD=(ITYP-1)*NABC
+      DO 102 IABC=1,NABC
+      IAPT=IADD+IABC
+      DP(IJ,IAPT)=DP(IJ,IAPT)+SA(KL,IABC)*FACA
+      DQ(IJ,IAPT)=DQ(IJ,IAPT)+SA(KL,IABC)*FACB
+  102 CONTINUE
+  103 CONTINUE
+  104 CONTINUE
+  105 CONTINUE
+      NTYABC=NTYPES*NABC
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(DP,NTRI,NTYABC,NTRI,NTYABC,6)
+      WRITE(6,2)
+      CALL MATOUT(DQ,NTRI,NTYABC,NTRI,NTYABC,6)
+C
+  201 CONTINUE
+      DO 107 I=1,NBASIS
+      II=IOFF(I+1)
+      DO 106 ITYPX=1,NTYABC
+      DP(II,ITYPX)=DP(II,ITYPX)/TWO
+      DQ(II,ITYPX)=DQ(II,ITYPX)/TWO
+  106 CONTINUE
+  107 CONTINUE
+      CALL ESCVEC(TWO,DP,NTRI*NTYABC)
+      CALL ESCVEC(TWO,DQ,NTRI*NTYABC)
+C
+      RETURN
+      END
+      SUBROUTINE SCF2W(E2M,E2P,E2Q,EPA,UA,SA,WA)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION E2M(N3N,N3N),E2P(N3N,N3N),E2Q(N3N,N3N)
+      DIMENSION EPA(NBASIS,NBASIS),UA(NBASIS,NBASIS)
+      DIMENSION SA(NTRI,N3N),WA(NBASIS,NBASIS,N3N)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      DATA A00,TWO,FOUR / 0.0D+00 , 2.0D+00 , 4.0D+00 /
+    1 FORMAT(//,2X,' SA MATRIX, IABC = ',I5/)
+    2 FORMAT(//,2X,' WA MATRIX, IABC = ',I5/)
+    3 FORMAT(//,2X,' E2P MATRIX IN SCF2W'/)
+    4 FORMAT(//,2X,' E2Q MATRIX IN SCF2W'/)
+    5 FORMAT(//,2X,' E2M MATRIX IN SCF2W'/)
+C
+C   CALL BACK SA , UA  AND WA MATRICES
+      CALL RFILE(ITAP44)
+      CALL RFILE(JTAPE1)
+      DO 101 IABC=1,N3N
+      IS=ISA(IABC)
+      CALL RREAD(ITAP44,SA(1,IABC),NTRI2,IS)
+      CALL SREAD(JTAPE1,WA(1,1,IABC),NBASQ)
+      IF(IPRNT.LE.3) GO TO 101
+      WRITE(6,1) IABC
+      CALL PRINT(SA(1,IABC),NTRI,NBASIS,6)
+      WRITE(6,2) IABC
+      CALL MATOUT(WA(1,1,IABC),NBASIS,NBASIS,NBASIS,NBASIS,6)
+  101 CONTINUE
+C
+C   CALCULATE SCF SECOND DERIVATIVES
+C   SEE EQ.(12)
+C
+C   (B COORDINATE)
+      DO 106 IABC=1,N3N
+      IE=IEA(IABC)
+      IU=IUA(IABC)
+      CALL RREAD(ITAP44,EPA,NBASQ,IE)
+      CALL RREAD(ITAP44,UA,NBASQ,IU)
+C
+C   (A COORDINATE)
+      DO 105 JABC=1,N3N
+      VALUP=A00
+      VALUQ=A00
+      DO 104 I=1,JOCC
+      DO 102 J=1,JOCC
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      VALUP=VALUP-SA(IJ,JABC)*EPA(I,J)
+  102 CONTINUE
+      DO 103 J=1,NBASIS
+      VALUQ=VALUQ+WA(J,I,JABC)*UA(J,I)
+  103 CONTINUE
+  104 CONTINUE
+      E2P(IABC,JABC)=VALUP*TWO
+      E2Q(IABC,JABC)=VALUQ*TWO
+  105 CONTINUE
+  106 CONTINUE
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(6,3)
+      CALL MATOUT(E2P,N3N,N3N,N3N,N3N,6)
+      WRITE(6,4)
+      CALL MATOUT(E2Q,N3N,N3N,N3N,N3N,6)
+C
+C*******************************************
+C***SUM UP CONTRIBUTIONS DUE TO MO CHANGE***
+C*******************************************
+  201 CONTINUE
+      DO 110 I=1,N3N
+      DO 110 J=1,N3N
+      E2M(I,J)=E2P(I,J)+E2Q(I,J)
+  110 CONTINUE
+C
+      IF(IPRNT.LE.2) GO TO 202
+      WRITE(6,5)
+      CALL MATOUT(E2M,N3N,N3N,N3N,N3N,6)
+C
+  202 CONTINUE
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE1,3)
+      RETURN
+      END
+      SUBROUTINE SCF2ND(E2A,HCIA,CIA,E2M,E2C,E2T,SA,EIJ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION HCIA(NCTRI,N3N),CIA(NCPEX,N3N)
+      DIMENSION E2A(N3N,N3N),E2M(N3N,N3N),E2C(N3N,N3N),E2T(N3N,N3N)
+      DIMENSION SA(NTRI,N3N),EIJ(NBASIS,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CIPOS/ICITYP(5050),ICPOS(200,100)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP35,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/WORKS/JTAPE1,JTAPE2
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI103/CI(100)
+      COMMON/CI104/IEIJ(5050)
+      DATA A00,HALF,TWO / 0.0D+00 , 0.5D+00 , 2.0D+00 /
+    1 FORMAT(///
+     1 2X,'::::::::::::::::::::::::::::'/
+     2 2X,':::SUMMARY OF CALCULATION:::'/
+     3 2X,'::::::::::::::::::::::::::::'/)
+    2 FORMAT(//,2X,' E2A MATRIX'/)
+    3 FORMAT(//,2X,' E2M MATRIX'/)
+    4 FORMAT(//,2X,' E2C MATRIX'/)
+    5 FORMAT(//,2X,' SCF SECOND DERIVATIVE MATRIX'/)
+    6 FORMAT(2I5)
+    7 FORMAT(3F20.10)
+C
+C   CALCULATE SCF SECOND DERIVATIVES
+C   SEE EQ.(12)
+C
+C***********************************************
+C***CONTRIBUTION DUE TO CI COEFFICIENT CHANGE***
+C***********************************************
+C
+      CALL RFILE(ITAP44,3)
+      DO 101 IABC=1,N3N
+      IS=ISA(IABC)
+      CALL RREAD(ITAP44,SA(1,IABC),NTRI2,IS)
+  101 CONTINUE
+C
+      CALL RFILE(JTAPE2)
+      CALL ZERO(E2C,N3N*N3N)
+      DO 105 ICI=1,NCPEX
+      DO 105 JCI=1,NCPEX
+      IJCI=IOFF(MAX0(ICI,JCI))+MIN0(ICI,JCI)
+      DO 102 III=1,ICIUNQ
+      IEX=IPX(III)
+      JEX=JPX(III)
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      IF(IJCI.EQ.IJEX) GO TO 301
+  102 CONTINUE
+      GO TO 105
+C
+C   CUMMULATE ONLY NON-ZERO CI'S
+  301 CONTINUE
+      IBCI=ICITYP(III)
+      IPT=IEIJ(IBCI)
+      CALL RREAD(JTAPE2,EIJ,NBASQ,IPT)
+C
+      DO 104 IABC=1,N3N
+      DO 104 JABC=1,N3N
+      VALU0=A00
+      DO 103 I=1,JOCC
+      DO 103 J=1,JOCC
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+C*    VALU0=VALU0-SA(IJ,JABC)*EIJ(I,J)
+      VALU0=VALU0-SA(IJ,JABC)*EIJ(J,I)
+  103 CONTINUE
+      VALUC=CIA(ICI,IABC)*(HCIA(IJCI,JABC)+VALU0*TWO)*CI(JCI)
+      E2C(IABC,JABC)=E2C(IABC,JABC)+VALUC*TWO
+  104 CONTINUE
+  105 CONTINUE
+C
+      WRITE(6,1)
+      WRITE(6,2)
+      CALL MATOUT(E2A,N3N,N3N,N3N,N3N,6)
+      WRITE(6,3)
+      CALL MATOUT(E2M,N3N,N3N,N3N,N3N,6)
+      WRITE(6,4)
+      CALL MATOUT(E2C,N3N,N3N,N3N,N3N,6)
+      DO 106 I=1,N3N
+      DO 106 J=1,N3N
+  106 E2T(I,J)=E2A(I,J)+E2M(I,J)+E2C(I,J)
+      WRITE(6,5)
+      CALL MATOUT(E2T,N3N,N3N,N3N,N3N,6)
+C
+      ITAP15=15
+      REWIND ITAP15
+      N6N=N3N*2
+      WRITE(ITAP15,6) NATOMS,N6N
+      WRITE(ITAP15,7) ((E2T(I,J),J=1,N3N),I=1,N3N)
+      REWIND ITAP15
+C
+      CALL RCLOSE(ITAP44,3)
+      CALL RCLOSE(JTAPE2,3)
+      RETURN
+      END
+      SUBROUTINE CI1ST(E1A,D1W,E1T,U,W)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION E1A(N3N),D1W(N3N),E1T(N3N)
+      DIMENSION U(NBASIS,NBASIS),W(NBASIS,NBASIS)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      DATA A00 / 0.0D+00 /
+    1 FORMAT(//,2X,' NUCLEAR REPULSION FIRST DERIVATIVE MATRIX'/)
+    2 FORMAT(//,2X,' CI ONE-ELECTRON FIRST DERIVATIVE MATRIX'/)
+    3 FORMAT(//,2X,' CI TWO-ELECTRON FIRST DERIVATIVE MATRIX'/)
+    4 FORMAT(//,2X,' LAGRANGIAN MATRIX'/)
+    5 FORMAT(//,2X,' U MATRIX, IABC = ',I5/)
+    6 FORMAT(//,2X,' EA'' MATRIX'/)
+    7 FORMAT(//,2X,' TOTAL CI FIRST DERIVATIVE MATRIX'/)
+C
+C
+      CALL RMREAD(W,29)
+      IF(IPRNT.LE.2) GO TO 301
+      WRITE(6,1)
+      CALL MATOUT(W,NBASIS,NBASIS,NBASIS,NBASIS,6)
+C
+  301 CONTINUE
+      CALL RFILE(ITAP44)
+      DO 105 IABC=1,N3N
+      IU=IUA(IABC)
+      CALL RREAD(ITAP44,U,NBASQ,IU)
+      IF(IPRNT.LE.2) GO TO 302
+      WRITE(6,2) IABC
+      CALL MATOUT(U,NBASIS,NBASIS,NBASIS,NBASIS,6)
+  302 VALU=A00
+      DO 103 I=1,NBASIS
+      DO 103 J=1,NBASIS
+  103 VALU=VALU+U(J,I)*W(I,J)
+      D1W(IABC)=VALU
+  105 CONTINUE
+      WRITE(6,3)
+      CALL MATOUT(D1W,3,NATOMS,3,NATOMS,6)
+C
+C   SUM UP ALL CONTRIBUTIONS
+      DO 107 IABC=1,N3N
+  107 E1T(IABC)=E1A(IABC)+D1W(IABC)
+      WRITE(6,7)
+      CALL MATOUT(E1T,3,NATOMS,3,NATOMS,6)
+C
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE DIPMO(HCIA,CIA,HF,UA)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION HF(NTRI,3),UA(NBASIS,NBASIS,N3N)
+      DIMENSION HCIA(NCTRI,N3NP3),CIA(NCPEX,N3NP3)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CALIF/LPARA(1024),DIPDE(3,45),DIPDC(3,45),DUM(754)
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/DIPOL/DIPDA(3,45),DIPDM(3,45),DIPDN(3,45),DIPDT(3,45)
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI103/CI(100)
+      DATA A00,HALF,ONE,TWO,FOUR / 0.0D+00 , 0.5D+00 , 1.0D+00 ,
+     1                             2.0D+00 , 4.0D+00 /
+      DATA DEBYE,BOHR / 2.541765480D+00 , 0.52917706D+00 /
+    1 FORMAT(//,2X,' FIRST DERIVATIVES OF DIPOLE MOMENTS'/)
+    2 FORMAT(//,2X,' UA MATRIX, IABC = ',I5,' IXYZ = ',I5/)
+    3 FORMAT(//,2X,' DIPDA MATRIX'/)
+    4 FORMAT(//,2X,' DIPDM MATRIX'/)
+    5 FORMAT(//,2X,' DIPDC MATRIX'/)
+    6 FORMAT(//,2X,' DIPDE MATRIX'/)
+    7 FORMAT(//,2X,' DIPDN MATRIX'/)
+    8 FORMAT(//,2X,' FIRST DERIVATIVES OF DIPOLE MOMENTS (IN DEBYE/BOHR)
+     *'/)
+    9 FORMAT(//,2X,' FIRST DERIVATIVES OF DIPOLE MOMENTS (IN DEBYE/A)'/)
+   10 FORMAT(2I5)
+   11 FORMAT(3F20.10)
+C
+      CALL RFILE(ITAP44)
+      DEB4=DEBYE*FOUR
+      DEB2=DEBYE*TWO
+      RBOHR=ONE/BOHR
+C     WRITE(6,1)
+C
+      CALL ZERO(DIPDM,N3N*3)
+      CALL ZERO(DIPDC,N3N*3)
+C
+      DO 101 IXYZ=1,3
+      IH=IHA(IXYZ+N3N)
+      CALL RREAD(ITAP44,HF(1,IXYZ),NTRI2,IH)
+  101 CONTINUE
+      DO 102 IABC=1,N3N
+      IU=IUA(IABC)
+      CALL RREAD(ITAP44,UA(1,1,IABC),NBASQ,IU)
+      IF(IPRNT.LE.3) GO TO 102
+      WRITE(6,2) IABC
+      CALL MATOUT(UA(1,1,IABC),NBASIS,NBASIS,NBASIS,NBASIS,6)
+  102 CONTINUE
+C
+      DO 106 IABC=1,N3N
+      DO 105 IXYZ=1,3
+      VALUM=A00
+      DO 103 I=1,JOCC
+      ITYP=MOTYP(I)
+      FAC=FOCC(ITYP)*HALF
+      DO 103 J=1,NBASIS
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      VALUM=VALUM+UA(J,I,IABC)*HF(IJ,IXYZ)*FAC
+  103 CONTINUE
+      VALUC=A00
+      DO 104 IJCI=1,ICIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      FAC=TWO
+      IF(IEX.EQ.JEX) FAC=ONE
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      VALUC=VALUC+CIA(IEX,IABC)*CI(JEX)*HCIA(IJEX,IXYZ+N3N)*FAC
+  104 CONTINUE
+      DIPDM(IXYZ,IABC)=VALUM
+      DIPDC(IXYZ,IABC)=VALUC
+  105 CONTINUE
+  106 CONTINUE
+C
+      DO 107 I=1,3
+      DO 107 J=1,N3N
+      DIPDM(I,J)=-DIPDM(I,J)*DEB4
+      DIPDC(I,J)=-DIPDC(I,J)*DEB2
+  107 CONTINUE
+C
+C   SUM UP CONTRIBUTIONS FROM MO CHANGE
+      DO 108 I=1,3
+      DO 108 J=1,N3N
+      DIPDE(I,J)=DIPDA(I,J)+DIPDM(I,J)+DIPDC(I,J)
+  108 CONTINUE
+C*    IF(IPRNT.LE.2) GO TO 201
+      WRITE(6,3)
+      CALL MATOUT(DIPDA,3,45,3,N3N,6)
+      WRITE(6,4)
+      CALL MATOUT(DIPDM,3,45,3,N3N,6)
+      WRITE(6,5)
+      CALL MATOUT(DIPDC,3,45,3,N3N,6)
+C
+C   SUM UP ALL CONTRIBUTIONS
+  201 CONTINUE
+      DO 109 I=1,3
+      DO 109 J=1,N3N
+      DIPDT(I,J)=DIPDE(I,J)+DIPDN(I,J)
+  109 CONTINUE
+C
+C*    IF(IPRNT.LE.2) GO TO 202
+      WRITE(6,6)
+      CALL MATOUT(DIPDE,3,45,3,N3N,6)
+      WRITE(6,7)
+      CALL MATOUT(DIPDN,3,45,3,N3N,6)
+  202 CONTINUE
+      WRITE(6,8)
+      CALL MATOUT(DIPDT,3,45,3,N3N,6)
+C
+      DO 110 I=1,3
+      DO 110 J=1,N3N
+      DIPDT(I,J)=DIPDT(I,J)*RBOHR
+  110 CONTINUE
+      WRITE(6,9)
+      CALL MATOUT(DIPDT,3,45,3,N3N,6)
+C
+      ITAP17=17
+      REWIND ITAP17
+      WRITE(ITAP17,10) NATOMS,N3N
+      WRITE(ITAP17,11) ((DIPDT(I,J),J=1,N3N),I=1,3)
+      REWIND ITAP17
+C
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE POLAR(HCIA,CIA,HF,UF)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION HF(NTRI,3),UF(NBASIS,NBASIS,3)
+      DIMENSION HCIA(NCTRI,N3NP3),CIA(NCPEX,N3NP3)
+      DIMENSION POM(3,3),POC(3,3)
+      DIMENSION POL(3,3),POLC(3,3),EIG(3),EIV(3,3),A(6),FV1(3),FV2(3)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/CIOFF/IIUNQ,IJUNQ,ICIUNQ,IPX(5050),JPX(5050)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/START/FOCC(30),NSORB(30),NSTR(30),NEND(30),MOTYP(256)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+      COMMON/CI101/IOCC,JOCC,KOCC
+      COMMON/CI103/CI(100)
+      DATA A00,HALF,ONE,TWO,FOUR / 0.0D+00 , 0.5D+00 , 1.0D+00 ,
+     1                             2.0D+00 , 4.0D+00 /
+      DATA BOHR / 0.52917706D+00 /
+    1 FORMAT(//,2X,' HF MATRIX, IXYZ = ',I5/)
+    2 FORMAT(//,2X,' UF MATRIX, IXYZ = ',I5/)
+    3 FORMAT(//,2X,' POM MATRIX'/)
+    4 FORMAT(//,2X,' POC MATRIX'/)
+    5 FORMAT(//,2X,' POLARIZABILITY TENSOR MATRIX (IN A.U.)'/)
+    6 FORMAT(//,2X,' POLARIZABILITY TENSOR MATRIX (IN A**3)'/)
+    7 FORMAT(//,2X,' A MATRIX'/)
+    8 FORMAT(//,2X,' PRINCIPAL POLARIZABILITY TENSOR MATRIX (IN A.U.)'/)
+    9 FORMAT(//,2X,' PRINCIPAL POLARIZABILITY TENSOR MATRIX (IN A**3)'/)
+   10 FORMAT(//,2X,' EIGENVECTOR MATRIX'/)
+C
+      CALL RFILE(ITAP44)
+      A33=BOHR*BOHR*BOHR
+C
+C   CALL BACK HF MATRICES
+      DO 101 IXYZ=1,3
+      IH=IHA(IXYZ+N3N)
+      IU=IUA(IXYZ+N3N)
+      CALL RREAD(ITAP44,HF(1,IXYZ),NTRI2,IH)
+      CALL RREAD(ITAP44,UF(1,1,IXYZ),NBASQ,IU)
+      IF(IPRNT.LE.3) GO TO 101
+      WRITE(6,1) IXYZ
+      CALL PRINT(HF(1,IXYZ),NTRI,NBASIS,6)
+      WRITE(6,2) IXYZ
+      CALL MATOUT(UF(1,1,IXYZ),NBASIS,NBASIS,NBASIS,NBASIS,6)
+  101 CONTINUE
+C
+C:::B (G) COORDINATE:::
+      DO 105 IXYZ=1,3
+C
+C:::A (F) COORDINATES:::
+  301 CONTINUE
+      DO 104 JXYZ=1,3
+      VALUP=A00
+      DO 102 I=1,JOCC
+      ITYP=MOTYP(I)
+      FAC=FOCC(ITYP)*HALF
+      DO 102 J=1,NBASIS
+      IJ=IOFF(MAX0(I,J))+MIN0(I,J)
+      VALUP=VALUP-UF(J,I,IXYZ)*HF(IJ,JXYZ)*FAC
+  102 CONTINUE
+      VALUC=A00
+      DO 103 IJCI=1,ICIUNQ
+      IEX=IPX(IJCI)
+      JEX=JPX(IJCI)
+      FAC=TWO
+      IF(IEX.EQ.JEX) FAC=ONE
+      IJEX=IOFF(MAX0(IEX,JEX))+MIN0(IEX,JEX)
+      VALUC=VALUC-CIA(IEX,IXYZ+N3N)*CI(JEX)*HCIA(IJEX,JXYZ+N3N)*FAC
+  103 CONTINUE
+      POM(IXYZ,JXYZ)=VALUP*FOUR
+      POC(IXYZ,JXYZ)=VALUC*TWO
+  104 CONTINUE
+  105 CONTINUE
+C
+      DO 106 IXYZ=1,3
+      DO 106 JXYZ=1,3
+      POL(IXYZ,JXYZ)=POM(IXYZ,JXYZ)+POC(IXYZ,JXYZ)
+  106 CONTINUE
+      WRITE(6,3)
+      CALL MATOUT(POM,3,3,3,3,6)
+      WRITE(6,4)
+      CALL MATOUT(POC,3,3,3,3,6)
+      WRITE(6,5)
+      CALL MATOUT(POL,3,3,3,3,6)
+      DO 107 I=1,3
+      DO 107 J=1,3
+      POLC(I,J)=POL(I,J)*A33
+  107 CONTINUE
+      WRITE(6,6)
+      CALL MATOUT(POLC,3,3,3,3,6)
+C
+      IJ=0
+      DO 108 I=1,3
+      DO 108 J=1,I
+      IJ=IJ+1
+      A(IJ)=POL(I,J)
+  108 CONTINUE
+      WRITE(6,7)
+      CALL PRINT(A,6,3,6)
+      CALL RSP(3,3,6,A,EIG,1,EIV,FV1,FV2)
+C
+      CALL ZERO(POL,9)
+      DO 110 I=1,3
+  110 POL(I,I)=EIG(I)
+      WRITE(6,8)
+      CALL MATOUT(POL,3,3,3,3,6)
+      DO 111 I=1,3
+      DO 111 J=1,3
+      POLC(I,J)=POL(I,J)*A33
+  111 CONTINUE
+      WRITE(6,9)
+      CALL MATOUT(POLC,3,3,3,3,6)
+      WRITE(6,10)
+      CALL MATOUT(EIV,3,3,3,3,6)
+C
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE ORB1ST(B0,CC,IFLAG)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION B0(NTRI),CC(NBASIS,1)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+    1 FORMAT(//,2X,' FIRST DERIVATIVES OF ORBITAL ENERGIES W.R.T. NUCLEA
+     1R COORDINATE'/)
+    2 FORMAT(//,2X,' FIRST DERIVATIVES OF ORBITAL ENERGIES W.R.T. ELECTR
+     1IC FIELD'/)
+C
+C   FOR NUCLEAR COORDINATE PERTURBATION
+      IF(IFLAG.EQ.2) GO TO 201
+      CALL RFILE(ITAP44)
+      DO 102 IABC=1,N3N
+      IB=IBA(IABC)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      DO 101 I=1,NBASIS
+      II=IOFF(I+1)
+      CC(I,IABC)=B0(II)
+  101 CONTINUE
+  102 CONTINUE
+      WRITE(6,1)
+      CALL MATOUT(CC,NBASIS,N3N,NBASIS,N3N,6)
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+C
+C   FOR ELECTRIC FIELD PERTURBATION
+  201 CONTINUE
+      CALL RFILE(ITAP44)
+      DO 104 IXYZ=1,3
+      IB=IBA(IXYZ+N3N)
+      CALL RREAD(ITAP44,B0,NTRI2,IB)
+      DO 103 I=1,NBASIS
+      II=IOFF(I+1)
+      CC(I,IXYZ)=B0(II)
+  103 CONTINUE
+  104 CONTINUE
+      WRITE(6,2)
+      CALL MATOUT(CC,NBASIS,3,NBASIS,3,6)
+      CALL RCLOSE(ITAP44,3)
+C
+      RETURN
+      END
+      SUBROUTINE WRBMAT(BB,NABC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION BB(NTRI,NABC)
+      COMMON/BASIS/NBASIS,NTRI,NTRI2,NBFAO,NBATRI,NBASQ
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/POSIT/ISA(153),IHA(153),IFA(153),IEA(153),IBA(153),IUA(153)
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+    1 FORMAT(//,2X,' B0 MATRIX'/)
+C
+      CALL RFILE(ITAP44)
+      DO 101 IABC=1,NABC
+      IB=IBA(IABC)
+      CALL RREAD(ITAP44,BB(1,IABC),NTRI2,IB)
+  101 CONTINUE
+      WRITE(6,1)
+      CALL MATOUT(BB,NTRI,NABC,NTRI,NABC,6)
+      CALL RCLOSE(ITAP44,3)
+C
+      RETURN
+      END
+      SUBROUTINE THIRD(E1T,HCIA,CIA,NSECMX)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION E1T(N3N),HCIA(NCTRI*N3N),CIA(NCPEX*N3N)
+      COMMON/CISET/NCPEX,NORPEX,NCTRI
+      COMMON/FUNCS/NTYPES,NTYPEP,NTYTRI,NTREAD,NATOMS,N3N,N3NP3
+      COMMON/MFSEC/MASTER,NSECT
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TAPES/ITAP37,ITAP42,ITAP43,ITAP44,ITAP47
+    1 FORMAT(//,2X,' E1T MATRIX IN THIRD'/)
+    2 FORMAT(//,2X,' HCIA MATRIX IN THIRD'/)
+    3 FORMAT(//,2X,' CIA MATRIX IN THIRD'/)
+C
+      IF(IPRNT.LE.2) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(E1T,3,NATOMS,3,NATOMS,6)
+      WRITE(6,2)
+      CALL MATOUT(HCIA,NCTRI,N3N,NCTRI,N3N,6)
+      WRITE(6,3)
+      CALL MATOUT(CIA,NCPEX,N3N,NCPEX,N3N,6)
+C
+  201 CONTINUE
+      CALL RFILE(ITAP44)
+      N3N2=N3N*2
+      NPOINT=NSECMX
+      CALL RWRIT(ITAP44,E1T,N3N2,NPOINT)
+      NSEC3L=((N3N2-1)/NSECT+1)
+      NPOINT=NPOINT+NSEC3L
+      CALL RWRIT(ITAP44,HCIA,N3N2*NCTRI,NPOINT)
+      NSECNC=((N3N2*NCTRI-1)/NSECT+1)
+      NPOINT=NPOINT+NSECNC
+      CALL RWRIT(ITAP44,CIA,N3N2*NCPEX,NPOINT)
+C
+      CALL RCLOSE(ITAP44,3)
+      RETURN
+      END
+      SUBROUTINE RMREAD(IA,IADD)
+      IMPLICIT INTEGER (A-Z)
+      DIMENSION IA(1)
+      COMMON/MFSEC/MASTER,NSECT
+C
+      CALL RFILE(MASTER)
+      CALL MREAD(IA,IADD)
+      CALL RCLOSE(MASTER,3)
+      RETURN
+C
+      ENTRY RMWRIT(IA,IADD)
+      CALL RFILE(MASTER)
+      CALL MWRIT(IA,IADD)
+      CALL RCLOSE(MASTER,3)
+      RETURN
+      END

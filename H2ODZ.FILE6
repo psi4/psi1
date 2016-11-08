@@ -1,0 +1,263 @@
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+   THE NORMAL COORDINATE ANALYSIS PROGRAM (VERSION OF 2/01/89)
+ 
+ 
+ 
+   PARAMETERS FOR THE CALCULATION
+ 
+   IFXGF  =     1
+   ISOTOP =     1
+   IDIPOL =     3
+   IPOLAR =     3
+   IGEOMT =     1
+   ITHERM =     1
+   IQELEC =     1
+   IZVLIM =    20
+   IPLOT  =     0
+   IPRNT  =     0
+   NATOM  =     3
+   N3N    =     9
+ 
+ 
+   SCF ENERGY =       -76.0110023991
+ 
+ 
+ 
+   MOLECULAR GEOMETRY (IN A.U.)
+      NO.              X                   Y                   Z                   W
+ 
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (R)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - READ34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (A)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0EAD34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (D)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0D34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (#)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0034 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (#)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0034 0#############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+        1             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        2        600000.0000000000        0.0000000000        0.0000000000        0.0000000000
+        3             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+ 
+ 
+   INTERATOMIC DISTANCE MATRIX
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2  ************   0.0000000
+   3     0.0000000************   0.0000000
+ 
+ 
+   MOLECULAR GEOMETRY (IN A)
+      NO.              X                   Y                   Z                   W
+ 
+        1             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        2        317506.2360000000        0.0000000000        0.0000000000        0.0000000000
+        3             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+ 
+ 
+   INTERATOMIC DISTANCE MATRIX
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2  ************   0.0000000
+   3     0.0000000************   0.0000000
+ 
+ 
+   FX MATRIX (IN HARTREE/BOHR+2)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1     0.0000001   0.0000000   0.0000000  -0.0000001   0.0000000   0.0000000  -0.0000001   0.0000000   0.0000000
+    2     0.0000000   0.8575391   0.0000000   0.0000000  -0.4287695  -0.2864064   0.0000000  -0.4287695   0.2864064
+    3     0.0000000   0.0000000   0.4395752   0.0000000  -0.2117077  -0.2197876   0.0000000   0.2117077  -0.2197876
+    4    -0.0000001   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000
+    5     0.0000000  -0.4287695  -0.2117077   0.0000000   0.4558991   0.2490571   0.0000000  -0.0271296  -0.0373494
+    6     0.0000000  -0.2864064  -0.2197876   0.0000000   0.2490571   0.2055496   0.0000000   0.0373494   0.0142379
+    7    -0.0000001   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000
+    8     0.0000000  -0.4287695   0.2117077   0.0000000  -0.0271296   0.0373494   0.0000000   0.4558991  -0.2490571
+    9     0.0000000   0.2864064  -0.2197876   0.0000000  -0.0373494   0.0142379   0.0000000  -0.2490571   0.2055496
+ 
+ 
+   FX MATRIX (IN MDYN/A)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1     0.0000018   0.0000000   0.0000000  -0.0000008   0.0000000   0.0000000  -0.0000008   0.0000000   0.0000000
+    2     0.0000000  13.3511852   0.0000000   0.0000000  -6.6755925  -4.4591149   0.0000000  -6.6755925   4.4591149
+    3     0.0000000   0.0000000   6.8438274   0.0000000  -3.2961164  -3.4219136   0.0000000   3.2961164  -3.4219136
+    4    -0.0000008   0.0000000   0.0000000   0.0000002   0.0000000   0.0000000   0.0000006   0.0000000   0.0000000
+    5     0.0000000  -6.6755925  -3.2961164   0.0000000   7.0979786   3.8776157   0.0000000  -0.4223861  -0.5814993
+    6     0.0000000  -4.4591149  -3.4219136   0.0000000   3.8776157   3.2002407   0.0000000   0.5814993   0.2216729
+    7    -0.0000008   0.0000000   0.0000000   0.0000006   0.0000000   0.0000000   0.0000002   0.0000000   0.0000000
+    8     0.0000000  -6.6755925   3.2961164   0.0000000  -0.4223861   0.5814993   0.0000000   7.0979786  -3.8776157
+    9     0.0000000   4.4591149  -3.4219136   0.0000000  -0.5814993   0.2216729   0.0000000  -3.8776157   3.2002407
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CC0, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 26 (OFFSET 000648).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CCC, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 27 (OFFSET 000654).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CD8, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 28 (OFFSET 000660).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+ 
+ 
+   CENTER OF MASS
+         CMX            CMY            CMZ
+ 
+        0.0000000      0.0000000      0.0000000
+ 
+ 
+ 
+   CARTESIAN COORDINATES W.R.T. CENTER OF MASS
+      NO.            X              Y              Z              W
+ 
+        1           0.0000000      0.0000000      0.0000000      0.0000000
+        2      317506.2360000      0.0000000      0.0000000      0.0000000
+        3           0.0000000      0.0000000      0.0000000      0.0000000
+ 
+ 
+   INERTIA TENSOR
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2     0.0000000   0.0000000
+   3     0.0000000   0.0000000   0.0000000
+ 
+ 
+   PRINCIPAL MOMENTS OF INERTIA
+   NO.        IN AMU.A+2        IN G.CM+2         IN CM-1           IN MHZ
+                                (*D+39)
+ 
+   1          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+   2          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+   3          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+ 
+ 
+   FIRST DERIVATIVES OF DIPOLE MOMENTS (IN DEBYE/A)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1    -4.7871129   0.0000000   0.0000000   2.3935564   0.0000000   0.0000000   2.3935564   0.0000000   0.0000000
+    2     0.0000000  -2.7628389   0.0000000   0.0000000   1.3814194  -0.6760795   0.0000000   1.3814194   0.6760795
+    3     0.0000000   0.0000000  -2.2488653   0.0000000  -0.4864458   1.1244326   0.0000000   0.4864458   1.1244326
+0AFB217I VSIOS : END OF DATA SET, FILE FT18F001
+         VSIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 174 (OFFSET 2C2EF2).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVSIOS (355780) CALLED BY AFBVCOMH (3441F0) AT OFFSET 000098.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFRSF# (348D4C) FROM LOCATION 349268.
+ -----------------------------------------------------------------------------
+  VFRSF# (348D4C) CALLED BY NORMCO (020000) AT ISN 174 AT OFFSET 2C2EF2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0AFB900I VEMGN : EXECUTION TERMINATING DUE TO ERROR COUNT FOR ERROR NUMBER 217
+0 MESSAGE SUMMARY: MESSAGE NUMBER - COUNT                                                                                           
+0                           209       3                                                                                             
+0                           215      20                                                                                             
+0                           217       1                                                                                             

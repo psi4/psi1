@@ -1,0 +1,33 @@
+/* Generic job exec. */                                                         
+arg molecule loadfiles                                                          
+debug = ''                                                                      
+                                                                                
+if debug ^= 'DEBUG' then debug = ''                                             
+                                                                                
+say '*********' loadfiles molecule debug '***************************'          
+                                                                                
+psiinit                                                                         
+fi '*' clear                                                                    
+fi AFFPRINT disk job      AFFPRINT A                                            
+fi AFFIN    term                                                                
+fi AFFON    disk job      AFFON    A                                            
+fi  3 disk molecule CHECK   A  '('lrecl 132 block 132                           
+fi  4 term                                                                      
+fi  5 disk molecule INPUT   A                                                   
+fi  6 disk molecule FILE6   A  '('lrecl 132 block 132                           
+fi  7 disk BASIS    DATA    A                                                   
+fi 11 disk molecule FILE11  A '('lrecl  80 recfm f disp mod                     
+do i = 12 to 29                                                                 
+  fi i disk molecule 'FILE'i A '('lrecl  80 recfm f                             
+  end                                                                           
+do i = 30 to 99                                                                 
+  fi i disk molecule 'UNIT'i A '('lrecl 4096 recfm f xtent 200                  
+  end                                                                           
+                                                                                
+say 'Loading ...'                                                               
+load loadfiles '(' clear noauto                                                 
+                                                                                
+start '*' debug                                                                 
+jobrc = rc                                                                      
+copy molecule file6 a '=' output a '('append                                    
+exit jobrc                                                                      

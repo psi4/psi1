@@ -1,0 +1,9 @@
+FORMDEF (F1FORT   FDEF38PP       ) SYSDISK                                      
+PAGEDEF (P1FORT   PDEF38PP       ) SYSDISK                                      
+FONT (   X0GT12   FONT3820       ) SYSDISK                                      
+         NOTRC                                                                  
+         NOCC                                                                   
+DUPLEX   NORMAL                                                                 
+MESSAGES NO                                                                     
+         OPTIMIZE                                                               
+BIN      2                                                                      

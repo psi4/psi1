@@ -1,0 +1,18 @@
+C
+      SUBROUTINE DATETM(dattim, eecpu, eetime, eetcpu)
+c This simulates the IBM Fortran Utilities time retrieval routine
+      character*23 dattim
+      character*24 fdate
+      integer time
+      real*4 eecpu, eetime, eetcpu, tt, ut, st
+      real*4 tarray(2)
+      dattim = fdate()
+      call etime(tarray)
+      tt = float(time())
+      ut = tarray(1)
+      st = tarray(2)
+      eecpu = ut
+      eetime = tt
+      eetcpu = st + ut
+      return
+      END

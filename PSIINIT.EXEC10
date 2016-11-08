@@ -1,0 +1,5 @@
+/* */                                                                           
+GLOBAL TXTLIB  VSF2MATH VSF2FORT CMSLIB TSOLIB psilib                           
+GLOBAL LOADLIB VSF2LOAD                                                         
+q txtlib                                                                        
+q loadlib                                                                       

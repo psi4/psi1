@@ -1,0 +1,4137 @@
+      SUBROUTINE ABORT(N,A)
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+      COMMON/IOFILE/IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+C
+      DIMENSION A(9)
+      WRITE(IW,9999) (A(I),I=1,N)
+ 9999 FORMAT(//,1X,72(1H*),/,1X,72(1H*),//,31X,11HJOB ABORTED,/,
+     11X,9A8,//,1X,72(1H*),/,1X,72(1H*))
+CPS   CALL CLOSMS(IDAF)
+      CALL EXIT(99)
+      END
+      SUBROUTINE ATOMS(EX,CS,CP,CD,KSTART,KATOM,KTYPE,KNG,KLOC,
+     #KMIN,KMAX,T,ISO,NEWSH,ZAN,C,INVT,ICT,NS,KS,
+     #LBLAT,CSINP,CPINP,CDINP)
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 EX(MXPR),CS(MXPR),CP(MXPR),CD(MXPR),T(MXT),ZAN(MXAT)
+      REAL*8 C(3,MXAT)
+      INTEGER KSTART(MXSH),KATOM(MXSH),KTYPE(MXSH),KNG(MXSH)
+      INTEGER KLOC(MXSH),KMIN(MXSH),KMAX(MXSH),ISO(MXSH,MXISO)
+      INTEGER INVT(MXTRN),ICT(MXAT,MXTRN),NS(MXAT),KS(MXAT)
+      INTEGER NEWSH(MXSH,MXTRN),LBLAT(2,MXAT)
+      INTEGER ISTACK(10)
+      CHARACTER*80 GET
+C
+CPS
+      REAL* 4 ATNUM
+      REAL*8 LINE,LINEV,LEESF
+CPS
+CPS   REAL LEESF
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /PSIZE/  MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU,MNSFU,MPRU,MCXU,
+     #MCCU,MBLU
+      COMMON /RESTAR/ TIMLIM
+      COMMON /OUTPUT/ NPRINT,NGEOM,NORMF,NORMP
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQW,NX,NE,NA,NB
+      COMMON /NSHEL/  NSHELL
+      COMMON /SYMTRY/ NT
+      COMMON /TRANSF/ XSMAL,YSMAL,ZSMAL,XNEW,YNEW,ZNEW,XP,YP,ZP
+      COMMON /FRAME/  U1,U2,U3,V1,V2,V3,W1,W2,W3,X0,Y0,Z0
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+C
+      DIMENSION NBFS(21),MINF(21),MAXF(21),LABEL(21),NANGM(21)
+      DIMENSION EXX(6),CSS(6),CPP(6),CDD(6)
+      DIMENSION STOSF(36,5),LEESF(36,2),SCC(3)
+CRBR  DIMENSION STOSF(36,4),LEESF(36,2),SCC(3)
+      DIMENSION INTYP(200)
+      DIMENSION CSINP(MXPR),CPINP(MXPR),CDINP(MXPR)
+C
+      DATA LABEL /4H  1S,4H  2S,4H  2P,4H 2SP,4H  3S,4H  3P,4H 3SP,
+     14H  3D,4H  4S,4H  4P,4H 4SP,4H  4D,4H  5S,4H  5P,4H  5D,
+     24H   S,4H   P,4H   D,4H   K,4H   L,4H   M/
+      DATA NBFS /1,1,3,4,1,3,4,6,1,3,4,6,1,3,6,1,3,6,1,4,6/
+      DATA MINF /1,1,2,1,1,2,1,5,1,2,1,5,1,2,5,1,2,5,1,1,5/
+      DATA MAXF /1,1,4,4,1,4,4,10,1,4,4,10,1,4,10,1,4,10,1,4,10/
+      DATA NANGM /1,1,2,2,1,2,2,3,1,2,2,3,1,2,3,1,2,3,1,2,3/
+      DATA NBAS1,NBAS2,NBAS3/4H STO,4H N31,4H N21/
+      DATA STOSF /1.24D+00,1.69D+00,2.69D+00,3.68D+00,4.68D+00,5.67D+00,
+     16.67D+00,7.66D+00,8.65D+00,9.64D+00,10.61D+00,11.59D+00,
+     212.56D+00,13.53D+00,14.50D+00,15.47D+00,16.43D+00,17.40D+00,
+     318*0.00D+00,
+     40.00D+00,0.00D+00,0.80D+00,1.15D+00,1.50D+00,1.72D+00,
+     51.95D+00,2.25D+00,2.55D+00,2.88D+00,3.48D+00,3.90D+00,
+     64.36D+00,4.83D+00,5.31D+00,5.79D+00,6.26D+00,6.74D+00,
+     718*0.00D+00,
+     80.00D+00,0.00D+00,0.00D+00,0.00D+00,0.00D+00,0.00D+00,
+     90.00D+00,0.00D+00,0.00D+00,0.00D+00,1.75D+00,1.70D+00,
+     11.70D+00,1.75D+00,1.90D+00,2.05D+00,2.10D+00,2.33D+00,
+     290*0.00D+00/
+      DATA LEESF /1.20D+00,0.00D+00,0.00D+00,0.00D+00,1.03D+00,1.00D+00,
+     10.99D+00,0.99D+00,1.00D+00,0.00D+00,0.00D+00,0.00D+00,
+     20.00D+00,0.00D+00,0.98D+00,0.98D+00,1.00D+00,0.00D+00,
+     318*0.00D+00,
+     41.15D+00,0.00D+00,0.00D+00,0.00D+00,1.12D+00,1.04D+00,
+     50.98D+00,0.98D+00,1.00D+00,0.00D+00,0.00D+00,0.00D+00,
+     60.00D+00,0.00D+00,1.02D+00,1.01D+00,1.01D+00,0.00D+00,
+     718*0.00D+00/
+      DATA PI32 /5.5683279968317D+00/
+      DATA TOL /1.0D-10/
+      DATA LINE,LINEV /8H * * * *,8H       */
+      DATA IBLANK /4H    /
+C
+ 8888 FORMAT(I5,1X,A4,I5,1X,A4,4F10.5)
+ 8887 FORMAT(2A4,2X,F5.1,3F20.12)
+CRBR7 FORMAT(2A4,2X,F5.0,3F20.12)
+ 8886 FORMAT(I5,E15.9,2E20.12)
+ 8885 FORMAT(/,20X,20(1H*),//,20X,'MOLECULAR BASIS SET',//,
+     120X,20(1H*),/)
+ 8884 FORMAT(//,30X,38(2H* ),//,30X,'   ATOM   ','ATOMIC',16X,
+     1'COORDINATES',17X,'NUMBER OF',/,40X,'CHARGE',7X,'X',13X,
+     1'Y',14X,'Z',7X,'SHELLS',//,30X,38(2H* ))
+ 8883 FORMAT(/,28X,2H* ,2A4,2X,F5.1,3(F12.7,3X),I5,10X,1H*)
+ 8882 FORMAT(/,28X,78(1H*),//,8X,' CONTRACTED PRIMITIVE FUNCTIONS',//,
+     1'       ATOM       ','SHELL TYPE PRIM      EXPONENTS   ',
+     29X,'CONTRACTION COEFFICIENTS')
+ 8881 FORMAT(18X,I3,1X,A4,3X,I3,1X,2F15.6,3H  (,F12.6,3H  ))
+ 8879 FORMAT(50H HONDO DOESN'T TAKE THE DANGER OUT OF BEING CLOSE./
+     119H REDUNDANT CENTERS.)
+ 8878 FORMAT(38H UNRECOGNIZABLE BASIS FUNCTION TYPE = ,A4)
+ 8877 FORMAT(/,' TOTAL NUMBER OF SHELLS ',13X,'=',I5,/
+     1,' TOTAL NUMBER OF BASIS FUNCTIONS     =',I5,/,
+     1' NUMBER OF ELECTRONS ',16X,'=',I5,/,
+     1' CHARGE OF MOLECULE ',17X,'=',I5,/,
+     1' STATE MULTIPLICITY ',17X,'=',I5,/,
+     1' NUMBER OF OCCUPIED ORBITALS (ALPHA) =',I5,/,
+     1' NUMBER OF OCCUPIED ORBITALS (BETA ) =',I5,/,
+     1' TOTAL NUMBER OF ATOMS',15X,'=',I5)
+ 8876 FORMAT(' EXCESSIVE NUMBER OF ATOMS')
+ 8875 FORMAT(' EXCESSIVE NUMBER OF SHELLS')
+ 8874 FORMAT(' EXCESSIVE NUMBER OF BASIS FUNCTIONS')
+ 8873 FORMAT(' EXCESSIVE NUMBER OF CONTRACTED PRIMITIVE FUNCTIONS')
+ 8872 FORMAT(' EXCESSIVE CONTRACTION INTO SHELL')
+ 8871 FORMAT(92X,3A4)
+ 8870 FORMAT(/,1X,5H*****,' TRANSFORMATION TABLE OF ATOMS',
+     15H*****,/,30X,' ROWS ARE ATOMS',/,30X,
+     1' COLUMNS ARE SYMMETRY OPERATIONS')
+ 8869 FORMAT(//)
+ 8868 FORMAT(1X,16A8)
+ 8867 FORMAT(1X,A8,15(I4,3X,1H*))
+ 8866 FORMAT(1X,16(I4,3X,1H*))
+ 8865 FORMAT(/,1X,5H*****,' TRANSFORMATION TABLE OF SHELLS',
+     15H*****,/,30X,' ROWS ARE SHELLS',/,30X,
+     1' COLUMNS ARE SYMMETRY OPERATIONS')
+ 8864 FORMAT(' THE CONTRACTED PRIMITIVE FUNCTIONS HAVE BEEN ',
+     1'UNNORMALIZED')
+ 8860 FORMAT(1H1)
+ 8859 FORMAT(3I5)
+ 8855 FORMAT(/)
+ 8851 FORMAT(/,1X,5H*****,' INVERSE TRANSFORMATIONS ',5H*****,/)
+ 8850 FORMAT(' THE CONTRACTED BASIS FUNCTIONS ARE NOW NORMALIZED TO',
+     1' UNITY')
+ 8849 FORMAT(18X,I3,1X,A4,3X,I3,1X,2F15.6,3H  (,F12.6,3H  ),
+     2F15.6,3H  (,F12.6,3H  ))
+ 8848 FORMAT(/,4X,2A4)
+C
+C     READ IN MOLECULE INFORMATION (CHARGE,MULTIPLICITY,UNITS)
+C     READ IN UNIQUE CENTERS AND ATOMIC BASIS SETS GROUPED
+C     IN SHELLS
+C     GENERATE ALL NEW CENTERS
+C     SET TABLE ( CENTERS VERSUS TRANSFORMATIONS )
+C     SET TABLE ( SHELLS VERSUS TRANSFORMATIONS )
+C
+      MSU=0
+      MCONSU=0
+      MCU=0
+C
+      ONE=1.0D+00
+      ZERO=0.0D+00
+      PT5=0.5D+00
+      PT75=0.75D+00
+      PT25=0.25D+00
+      UNITS=ONE/0.52917706D+00
+      IF(NPRINT.NE.6) WRITE(IW,8885)
+      DO 10 I=1,MXPR
+         EX(I)=ZERO
+         CS(I)=ZERO
+         CP(I)=ZERO
+         CD(I)=ZERO
+         CSINP(I)=ZERO
+         CPINP(I)=ZERO
+         CDINP(I)=ZERO
+   10 CONTINUE
+      READ(IR,8859) ICH,MUL,IUNT
+      IF(NPRINT.EQ.7) WRITE(IP,8859) ICH,MUL,IUNT
+      NAT=0
+      NE=0
+      NSHELL=0
+      LOC=0
+      NGAUSS=0
+  100 READ(IR,8887) IATOM1,IATOM2,ZNUC,X,Y,Z
+      IF(NPRINT.EQ.7) WRITE(IP,8887) IATOM1,IATOM2,ZNUC,X,Y,Z
+      IF(IATOM1.EQ.IBLANK.AND.IATOM2.EQ.IBLANK) GO TO 3000
+C
+      MSU=MSU+1
+C
+      IF(IUNT.LE.0) GO TO 110
+      X=X*UNITS
+      Y=Y*UNITS
+      Z=Z*UNITS
+  110 IF(NAT.EQ.0) GO TO 121
+      DO 120 IAT=1,NAT
+         TEST=(X-C(1,IAT))**2+(Y-C(2,IAT))**2+(Z-C(3,IAT))**2
+         IF(TEST.GE.TOL) GO TO 120
+         WRITE(IW,8879)
+         STOP
+  120 CONTINUE
+  121 NAT=NAT+1
+      LBLAT(1,NAT)=IATOM1
+      LBLAT(2,NAT)=IATOM2
+      NS(NAT)=0
+      KS(NAT)=NSHELL+1
+      NE=NE+ZNUC
+      ZAN(NAT)=ZNUC
+      C(1,NAT)=X
+      C(2,NAT)=Y
+      C(3,NAT)=Z
+C
+C     ----- READ INFORMATION ON EACH PRIMITIVE -----
+C
+      LEVEL=0
+      LINENO=0
+  200 CONTINUE
+C
+      READ (IR,9000) GET
+ 9000 FORMAT (A80)
+      LINENO=LINENO+1
+      IF (GET(1:5).EQ.'     '.AND.IR.EQ.5) GO TO 2000
+      IF (GET(1:5).EQ.'     '.AND.IR.NE.5) THEN
+         LEVEL=LEVEL-1
+         IF (LEVEL.GT.0) THEN
+            LINENO=ISTACK(LEVEL)
+            REWIND IR
+            DO 205 I=1,LINENO
+               READ (IR,9000) GET
+  205       CONTINUE
+         ELSE
+            IR=5
+         END IF
+         GO TO 200
+      END IF
+      IF (GET(1:3).EQ.'GET') THEN
+         IF (LEVEL.GT.10) STOP
+         IR=7
+         IF (LEVEL.GT.0) ISTACK(LEVEL)=LINENO
+         CALL FIND(GET,ZNUC,IR,LINENO)
+         LEVEL=LEVEL+1
+         GO TO 200
+      END IF
+      BACKSPACE IR
+C
+C
+      READ(IR,8888) ISHELL,ITYPE,IGAUSS,IBASIS,SC,(SCC(I),I=1,3)
+      IF(NPRINT.EQ.7) WRITE(IP,8888) ISHELL,ITYPE,IGAUSS,IBASIS,SC,
+     1(SCC(I),I=1,3)
+      IF(ISHELL.LE.0) GO TO 2000
+      IF(IGAUSS.LE.10) GO TO 210
+      WRITE(IW,8872)
+      STOP
+  210 CONTINUE
+C
+      MCONSU=MCONSU+1
+      IF (IGAUSS.GT.MCONU) MCONU=IGAUSS
+C
+      ITYP=0
+      DO 220 I=1,21
+         IF(ITYPE.EQ.LABEL(I)) ITYP=I
+  220 CONTINUE
+      IF(ITYP.GT.0) GO TO 221
+      WRITE(IW,8878) ITYPE
+      STOP
+  221 IF(IBASIS.NE.NBAS3)GO TO 224
+      ATNUM=ZNUC
+      NUCZ=IFIX(ATNUM)
+      CALL N21G(CSINP,CPINP,SC,SCC,LEESF,
+     1IGAUSS,NUCZ,INTYP,NANGM,NBFS,MINF,MAXF,LOC,NGAUSS,NS)
+      GO TO 200
+  224 IF(IBASIS.NE.NBAS2) GO TO 225
+C
+C     ----- N-31G BASIS SET -----
+C           J.CHEM.PHYS. 54,  724 (1971)
+C                        56, 2257 (1972)
+C     4-31G AVAILABLE FOR HYDROGEN, BORON TO FLUORINE,
+C           AND PHOSPHORUS TO CHLORINE.
+C     5-31G AND 6-31G AVAILABLE FOR HYDROGEN, AND
+C          AND BORON TO FLUORINE.
+C
+      ATNUM=ZNUC
+      NUCZ=IFIX(ATNUM)
+      CALL N31G(CSINP,CPINP,SC,SCC,LEESF,IGAUSS,NUCZ,INTYP,NANGM,
+     1NBFS,MINF,MAXF,LOC,NGAUSS,NS)
+      GO TO 200
+  225 CONTINUE
+      NSHELL=NSHELL+1
+      KMIN(NSHELL)=MINF(ITYP)
+      KMAX(NSHELL)=MAXF(ITYP)
+      KSTART(NSHELL)=NGAUSS+1
+      KATOM(NSHELL)=NAT
+      KTYPE(NSHELL)=NANGM(ITYP)
+      INTYP(NSHELL)=ITYP
+      KNG(NSHELL)=IGAUSS
+      KLOC(NSHELL)=LOC+1
+      NGAUSS=NGAUSS+IGAUSS
+      LOC=LOC+NBFS(ITYP)
+      K1=KSTART(NSHELL)
+      K2=K1+KNG(NSHELL)-1
+      NS(NAT)=NS(NAT)+1
+      IF(IBASIS.EQ.NBAS1) GO TO 250
+C
+C     ----- GENERAL BASIS SET -----
+C
+      IF(ITYP.LE.15) CALL BERROR(3)
+      DO 230 K=K1,K2
+         READ(IR,8886) KDUM,EX(K),C1,C2
+         LINENO=LINENO+1
+         IF(NPRINT.EQ.7) WRITE(IP,8886) KDUM,EX(K),C1,C2
+         IF(ITYPE.EQ.LABEL(16)) CSINP(K)=C1
+         IF(ITYPE.EQ.LABEL(17)) CPINP(K)=C1
+         IF(ITYPE.EQ.LABEL(18)) CDINP(K)=C1
+         IF(ITYPE.EQ.LABEL(19)) CSINP(K)=C1
+         IF(ITYPE.EQ.LABEL(20)) CSINP(K)=C1
+         IF(ITYPE.EQ.LABEL(20)) CPINP(K)=C2
+         IF(ITYPE.EQ.LABEL(21)) CDINP(K)=C1
+         CS(K)=CSINP(K)
+         CP(K)=CPINP(K)
+         CD(K)=CDINP(K)
+  230 CONTINUE
+      GO TO 1000
+C
+C     ----- STO-NG BASIS SET -----
+C           J.CHEM.PHYS. 38, 2686 (1963)
+C                        51, 2657 (1969)
+C                        52, 2769 (1970)
+C     NOTE : CALL ERROR ROUTINE IF ATOM HEAVIER THAN ARGON.
+C
+  250 CONTINUE
+      ATNUM=ZNUC
+      NUCZ=IFIX(ATNUM)
+      IF(NUCZ.GT.18) CALL BERROR(1)
+      DO 260 I=1,IGAUSS
+         EXX(I)=ZERO
+         CSS(I)=ZERO
+         CPP(I)=ZERO
+         CDD(I)=ZERO
+  260 CONTINUE
+  420 CALL BERROR(1)
+  430 CONTINUE
+      IF(SC.EQ.ZERO) SC=STOSC
+      DO 440 I=1,IGAUSS
+         K=K1+I-1
+         EX(K)=EXX(I)*SC**2
+         CSINP(K)=CSS(I)
+         CPINP(K)=CPP(I)
+         CDINP(K)=CDD(I)
+         CS(K)=CSINP(K)
+         CP(K)=CPINP(K)
+         CD(K)=CDINP(K)
+  440 CONTINUE
+C
+C     IF(NORMP.NE.1) ... UNNORMALIZATION OF THE PRIMITIVE FUNCTIONS.
+C     IF CONTRACTION COEFFICIENTS ARE GIVEN IN TERMS OF NORMALIZED
+C     PRIMITIVE FUNCTIONS, CHANGE THEM TO GO WITH UNNORMALIZED
+C     PRIMITIVES .
+C     FOR D SHELLS, THE INPUT COEFFICIENTS CD MUST BE THE COEFFICIENTS
+C     CORRESPONDING TO THE NORMALIZED PRIMITIVE X**2 *EXP(-A*R**2).
+C     ALWAYS UNNORMALIZE STO-NG PRIMITIVE COEFFICIENTS
+C
+ 1000 CONTINUE
+      IF(NORMP.EQ.1.AND.IBASIS.NE.NBAS1) GO TO 1020
+      DO 1010 IG=K1,K2
+         EE=EX(IG)+EX(IG)
+         FACS=PI32/(EE*DSQRT(EE))
+         FACP=PT5*FACS/EE
+C CHANGING NORMALIZATION OF D FUNCTIONS TO SUIT PITZER
+C     FACD=PT75*FACS/(EE*EE)
+         FACD=PT25*FACS/(EE*EE)
+         CS(IG)=CS(IG)/DSQRT(FACS)
+         CP(IG)=CP(IG)/DSQRT(FACP)
+         CD(IG)=CD(IG)/DSQRT(FACD)
+ 1010 CONTINUE
+ 1020 CONTINUE
+C
+C     IF(NORMF.NE.1) NORMALIZE THE CONTRACTED BASIS FUNCTIONS.
+C
+      IF(NORMF.EQ.1) GO TO 200
+      FACS=ZERO
+      FACP=ZERO
+      FACD=ZERO
+      DO 1040 IG=K1,K2
+         DO 1040 JG=K1,IG
+            EE=EX(IG)+EX(JG)
+            FAC=EE*DSQRT(EE)
+            DUMS=CS(IG)*CS(JG)/FAC
+            DUMP=PT5*CP(IG)*CP(JG)/(EE*FAC)
+C     DUMD=PT75*CD(IG)*CD(JG)/(EE**2*FAC)
+            DUMD=PT25*CD(IG)*CD(JG)/(EE**2*FAC)
+            IF(IG.EQ.JG) GO TO 1030
+            DUMS=DUMS+DUMS
+            DUMP=DUMP+DUMP
+            DUMD=DUMD+DUMD
+ 1030       FACS=FACS+DUMS
+            FACP=FACP+DUMP
+            FACD=FACD+DUMD
+ 1040 CONTINUE
+      DO 1050 IG=K1,K2
+         IF(FACS.GT.TOL) CS(IG)=CS(IG)/DSQRT(FACS*PI32)
+         IF(FACP.GT.TOL) CP(IG)=CP(IG)/DSQRT(FACP*PI32)
+         IF(FACD.GT.TOL) CD(IG)=CD(IG)/DSQRT(FACD*PI32)
+ 1050 CONTINUE
+      GO TO 200
+ 2000 CONTINUE
+      ICU=1
+      IF (NT.EQ.1) GO TO 100
+C
+C
+C     GENERATE EQUIVALENT CENTERS
+C
+      CALL LOCAL(X,Y,Z,XS,YS,ZS)
+      XSMAL=XS
+      YSMAL=YS
+      ZSMAL=ZS
+      NAT0=NAT
+      DO 2030 IT=1,NT
+         IF(IT.EQ.1) GO TO 2030
+         NN=9*(IT-1)
+         CALL TRANS(NN,T)
+         CALL ROT
+         DO 2010 IAT=1,NAT
+            TEST=(XP-C(1,IAT))**2+(YP-C(2,IAT))**2+(ZP-C(3,IAT))**2
+            IF(TEST.LE.TOL) GO TO 2030
+ 2010    CONTINUE
+C
+         ICU=ICU+1
+C
+         NUAT=NAT
+         NAT=NAT+1
+         C(1,NAT)=C(1,NUAT)
+         C(2,NAT)=C(2,NUAT)
+         C(3,NAT)=C(3,NUAT)
+         C(1,NUAT)=XP
+         C(2,NUAT)=YP
+         C(3,NUAT)=ZP
+         NS(NAT)=NS(NAT0)
+         KS(NAT)=KS(NAT-1)+NS(NAT0)
+         LBLAT(1,NAT)=LBLAT(1,NAT0)
+         LBLAT(2,NAT)=LBLAT(2,NAT0)
+         ZAN(NAT)=ZAN(NAT0)
+         NE=NE+ZAN(NAT)
+         NSHELL=NSHELL+NS(NAT)
+         NS1=NS(NAT)
+         DO 2020 K=1,NS1
+            J=KS(NAT0)+K-1
+            JJ=KS(NAT)+K-1
+            KMIN(JJ)=KMIN(J)
+            KMAX(JJ)=KMAX(J)
+            KSTART(JJ)=KSTART(J)
+            KTYPE(JJ)=KTYPE(J)
+            KNG(JJ)=KNG(J)
+            KATOM(JJ)=NAT
+            KLOC(JJ)=LOC+1
+            INTYP(JJ)=INTYP(J)
+ 2020    LOC=LOC+NBFS(INTYP(JJ))
+ 2030 CONTINUE
+C
+      IF (ICU.GT.MCU) MCU=ICU
+C
+      GO TO 100
+ 3000 CONTINUE
+C
+C     ----- SET MCU FOR CASE WHERE NO ATOMS ARE RELATED -----
+C
+      IF (MCU.LE.0) MCU=1
+C
+C
+C     IF(NORMP.NE.1) THE CONTRACTED BASIS FUNCTIONS HAVE BEEN
+C     EXPRESSED IN TERMS OF UNNORMALIZED PRIMITIVE FUNCTIONS.
+C
+      IF(NORMP.NE.1) WRITE(IW,8864)
+C
+C     IF(NORMF.NE.1) THE CONTRACTED BASIS FUNCTIONS HAVE BEEN
+C     NORMALIZED TO UNITY
+C
+      IF(NORMF.NE.1) WRITE(IW,8850)
+C
+C     FORM TRANSFORMATION TABLES FOR ATOMS AND SHELLS.
+C
+      DO 3050 IAT=1,NAT
+         X=C(1,IAT)
+         Y=C(2,IAT)
+         Z=C(3,IAT)
+         NS1=KS(IAT)-1
+         NS2=NS(IAT)
+         CALL LOCAL(X,Y,Z,XS,YS,ZS)
+         XSMAL=XS
+         YSMAL=YS
+         ZSMAL=ZS
+         DO 3040 IT=1,NT
+            NN=9*(IT-1)
+            CALL TRANS(NN,T)
+            CALL ROT
+            DO 3010 I=1,NAT
+               TEST=(XP-C(1,I))**2+(YP-C(2,I))**2+(ZP-C(3,I))**2
+               IF(TEST.GT.TOL) GO TO 3010
+               ICTR=I
+               GO TO 3020
+ 3010       CONTINUE
+ 3020       ICT(IAT,IT)=ICTR
+            NS3=KS(ICTR)-1
+            DO 3030 ISH=1,NS2
+ 3030       NEWSH(NS1+ISH,IT)=NS3+ISH
+ 3040    CONTINUE
+ 3050 CONTINUE
+CPS   NTWD=(NT+7)/8
+      NTWD=(NT+3)/4
+      IF (NTWD.GT.30) STOP 'NTWD TOO BIG...PWS'
+CPS
+      DO 3090 I=1,NSHELL
+         DO 3060 IT=1,NTWD
+ 3060    INDOUT(IT)=0
+         DO 3070 IT=1,NT
+            INDIN(IT)=0
+ 3070    INDIN(IT)=NEWSH(I,IT)
+         CALL ISOIN
+         DO 3080 IT=1,NTWD
+ 3080    ISO(I,IT)=INDOUT(IT)
+ 3090 CONTINUE
+C
+C     NPRINT=7   ... PUNCH BASIS SET INPUT DATA + MO'S
+C     NPRINT=1   ... EXTRA PRINTING FOR BASIS SET + SYMMETRY.
+C     NPRINT=0   ... NORMAL PRINTING
+C
+      IF(NPRINT.EQ.6) GO TO 5000
+      WRITE(IW,8884)
+      DO 4000 IAT=1,NAT
+         WRITE(IW,8883) LBLAT(1,IAT),LBLAT(2,IAT),ZAN(IAT),C(1,IAT),
+     1   C(2,IAT),C(3,IAT),NS(IAT)
+         NS1=KS(IAT)
+         NS2=NS1+NS(IAT)-1
+         WRITE(IW,8871) (LABEL(INTYP(ISH)),ISH=NS1,NS2)
+ 4000 CONTINUE
+      WRITE(IW,8882)
+      DO 4090 IAT=1,NAT
+         DO 4010 IT=1,NT
+            IF(ICT(IAT,IT).GT.IAT) GO TO 4090
+ 4010    CONTINUE
+         WRITE(IW,8848) LBLAT(1,IAT),LBLAT(2,IAT)
+         NS1=KS(IAT)
+         NS2=NS1+NS(IAT)-1
+         DO 4080 ISH=NS1,NS2
+            WRITE(IW,8855)
+            I1=KSTART(ISH)
+            I2=I1+KNG(ISH)-1
+            ITYP=INTYP(ISH)
+            DO 4070 IG=I1,I2
+               GO TO (4020,4020,4030,4050,4020,4030,4050,4040,4020,4030,
+     1         4050,4040,4020,4030,4040,4020,4030,4040,4020,4050,4040),
+     *         ITYP
+ 4020          C1=CS(IG)
+               C2=CSINP(IG)
+               GO TO 4060
+ 4030          C1=CP(IG)
+               C2=CPINP(IG)
+               GO TO 4060
+ 4040          C1=CD(IG)
+               C2=CDINP(IG)
+               GO TO 4060
+ 4050          C1=CS(IG)
+               C2=CSINP(IG)
+               C3=CP(IG)
+               C4=CPINP(IG)
+               WRITE(IW,8849) ISH,LABEL(ITYP),IG,EX(IG),C1,C2,C3,C4
+               GO TO 4070
+ 4060          WRITE(IW,8881) ISH,LABEL(ITYP),IG,EX(IG),C1,C2
+ 4070       CONTINUE
+ 4080    CONTINUE
+ 4090 CONTINUE
+      IF(NPRINT.NE.1) GO TO 5000
+      WRITE(IW,8860)
+      WRITE(IW,8870)
+      IMAX=0
+ 4100 IMIN=IMAX+1
+      IMAX=IMAX+15
+      IF(IMAX.GT.NT) IMAX=NT
+      IMAX1=IMAX+1
+      WRITE(IW,8869)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8867) LINEV,(I,I=IMIN,IMAX)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINE ,I=IMIN,IMAX1)
+      DO 4200 IAT=1,NAT
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8866) IAT,(ICT(IAT,I),I=IMIN,IMAX)
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8868) (LINE ,I=IMIN,IMAX1)
+ 4200 CONTINUE
+      IF(IMAX.LT.NT) GO TO 4100
+      WRITE(IW,8860)
+      WRITE(IW,8865)
+      IMAX=0
+ 4300 IMIN=IMAX+1
+      IMAX=IMAX+15
+      IF(IMAX.GT.NT) IMAX=NT
+      IMAX1=IMAX+1
+      WRITE(IW,8869)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8867) LINEV,(I,I=IMIN,IMAX)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINE ,I=IMIN,IMAX1)
+      DO 4400 ISH=1,NSHELL
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8866) ISH,(NEWSH(ISH,I),I=IMIN,IMAX)
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+         WRITE(IW,8868) (LINE ,I=IMIN,IMAX1)
+ 4400 CONTINUE
+      IF(IMAX.LT.NT) GO TO 4300
+      WRITE(IW,8860)
+      WRITE(IW,8851)
+      IMAX=0
+ 4500 IMIN=IMAX+1
+      IMAX=IMAX+15
+      IF(IMAX.GT.NT) IMAX=NT
+      IMAX1=IMAX+1
+      WRITE(IW,8869)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8867) LINEV,(I,I=IMIN,IMAX)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINE ,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8867) LINEV,(INVT(I),I=IMIN,IMAX)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINEV,I=IMIN,IMAX1)
+      WRITE(IW,8868) (LINE ,I=IMIN,IMAX1)
+      IF(IMAX.LT.NT) GO TO 4500
+ 5000 CONTINUE
+      IF(NAT.LE.MXAT) GO TO 5100
+      WRITE(IW,8876)
+      STOP
+ 5100 IF(NSHELL.LE.MXSH) GO TO 5200
+      WRITE(IW,8875)
+      STOP
+ 5200 CONTINUE
+C5200 IF(LOC.LE.100) GO TO 5300
+C5200 IF(LOC.LE.120) GO TO 5300
+C     WRITE(IW,8874)
+C     STOP
+ 5300 IF(NGAUSS.LE.MXPR) GO TO 5400
+      WRITE(IW,8873)
+      STOP
+ 5400 CONTINUE
+C
+      MSFU=MCONSU
+C
+      NUM=LOC
+      NE=NE-ICH
+      NA=(NE+MUL-1)/2
+      NB=(NE-MUL+1)/2
+      NX=NUM*(NUM+1)/2
+      WRITE(IW,8877) NSHELL,NUM,NE,ICH,MUL,NA,NB,NAT
+      RETURN
+      END
+      SUBROUTINE BERROR
+      ENTRY MSREAD
+      ENTRY N21G
+      ENTRY N31G
+      ENTRY DIJGEN
+C
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+C
+      WRITE(IOUT,1)
+    1 FORMAT(//,' ILLEGAL SUBROUTINE CALLED:BASIS ERROR?',//)
+      CALL EXIT
+C
+      END
+      SUBROUTINE CIPA(PTR,DTR,KATOM,KTYPE,ISC,IPC,CC,LAB,LOC,
+     #LOC2,KLASS,LAMBDA,IPA,KMIN,SLAB,IADDR,
+     #ISO,ICT,GAM,TRACEP,TRACED,CHARR)
+C
+C
+C
+C
+C     ----- SUBROUTINE CIPA GENERATES COEFFICIENTS OF SYMMETRY
+C           ADAPTED LINEAR COMBINATIONS -----
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 PTR(3,1),DTR(6,1),CC(MXCF),GAM(MXTRN,MXTRN)
+      REAL*8 TRACEP(MXTRN),TRACED(MXTRN),CHARR(MXTRN,MXSYM)
+      INTEGER KATOM(MXSH),KTYPE(MXSH),ISC(MXSH,MXPSYM),LAB(MXCF)
+      INTEGER IPC(MXSH,MXPSYM),LOC(MXAT,3),LOC2(MXAT,3),KLASS(MXAT)
+      INTEGER LAMBDA(MXSYM),IPA(MXSYM),KMIN(MXSH),IADDR(MXSYM)
+      INTEGER ISO(MXSH,MXISO),ICT(MXAT,MXTRN),SLAB(MXSYM)
+      LOGICAL SKIP(3)
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /SCHMDT/ P(18,18),PNORM(18)
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /SYMTRY/ NT
+      COMMON /SMORB/  GRP,IGROUP,NAXIS
+      COMMON /NSHEL/  NSHELL
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQW,NX,NE,NA,NB
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+      COMMON /SALCS/  NIRR
+      COMMON /CIPAS/  NIRRED
+      COMMON /OUTPUT/ NPRINT,NGEOM,NORMF,NORMP
+      COMMON /PACKQ/   I1,I2,I3,I4,I5
+C
+      DIMENSION KBB(3),KCC(3)
+      DIMENSION ISGRP(30),CA(18),CHAR(3,48)
+      DIMENSION IPB(70,14),ISB(70,14)
+C
+      DATA TOL/1.0D-10/
+      DATA TOLTOL/1.0D-20/
+      DATA ZERO,ONE/0.0D+00,1.0D+00/
+      DATA BLOCKI/8HBLOCKI  /
+C
+C ZERO OUT THE P ARRAY
+C
+      DO 21 I=1,18
+         DO 20 J=1,I
+            P(I,J)=ZERO
+            P(J,I)=ZERO
+   20    CONTINUE
+   21    CONTINUE
+C
+      NIRR=NIRRED
+      DO 100 N=1,NSHELL
+         DO 100 I=1,NIRRED
+            ISB(N,I)=0
+  100 IPB(N,I)=0
+      DO 496 J=1,5
+         DO 496 I=1,3
+  496 LOC(J,I)=-1
+C
+C     FOR EACH CENTER FIND SUBGROUP WHICH MAPS IT INTO ITSELF
+C
+C***  IF(NT.GT.48) CALL ABORT(9,
+C*** 168HSUBROUTINE CIPA--ORDER OF POINT GROUP TOO LARGE FOR SUBGROUP PA
+C*** 2CKING)
+      DO 498 N=1,NAT
+         K=1
+         J=0
+         DO 497 IT=1,NT
+            IF(ICT(N,IT).NE.N) GO TO 497
+            J=J+K
+  497    K=K+K
+         ISGRP(N)=J
+C     WRITE(IW,9987) N,J
+cps 9987    FORMAT(I5,5X,Z8)
+  498 CONTINUE
+      DO 499 I=1,NAT
+  499 KLASS(I)=0
+      ICLASS=0
+      DO 501 I=1,NIRRED
+  501 IPA(I)=0
+      IC=0
+      DO 1000 NATOM=1,NAT
+C
+C     PICK CENTER IN P1 LIST.
+C
+         DO 500 IT=1,NT
+            IF(ICT(NATOM,IT).GT.NATOM) GO TO 1000
+  500    CONTINUE
+         IF(KLASS(NATOM).NE.0) GO TO 1000
+         ICLASS=ICLASS+1
+         KLASS(NATOM)=ICLASS
+         ISG=ISGRP(NATOM)
+C
+C     FIND OTHER CENTERS IN SAME CLASS
+C
+         MIN=NATOM+1
+         IF(MIN.GT.NAT) GO TO 50
+         DO 40 J=MIN,NAT
+            JSG=ISGRP(J)
+            IF(JSG.NE.ISG) GO TO 40
+            DO 30 IT=1,NT
+               IF(ICT(J,IT).GT.J) GO TO 40
+   30       CONTINUE
+            KLASS(J)=ICLASS
+   40    CONTINUE
+   50    CONTINUE
+         DO 60 I=1,3
+   60    SKIP(I)=.TRUE.
+         DO 80 I=1,NSHELL
+            J=KATOM(I)
+            IF(KLASS(J).NE.ICLASS) GO TO 80
+            J=KTYPE(I)
+            GO TO (70,71,72),J
+   70       SKIP(1)=.FALSE.
+            GO TO 80
+   71       SKIP(2)=.FALSE.
+            IF(KMIN(I).EQ.1) SKIP(1)=.FALSE.
+            GO TO 80
+   72       SKIP(3)=.FALSE.
+   80    CONTINUE
+         DO 510 IT=1,NT
+            DO 510 I=1,3
+  510    CHAR(I,IT)=ZERO
+C
+C     FIND CHARACTERS OF REDUCIBLE REPRESENTATION.
+C
+         DO 550 IATOM=1,NAT
+            DO 515 IT=1,NT
+               IF(ICT(NATOM,IT).EQ.IATOM) GO TO 516
+  515       CONTINUE
+            GO TO 550
+  516       CONTINUE
+            DO 520 IT=1,NT
+               IF(ICT(IATOM,IT).NE.IATOM) GO TO 520
+C
+C     EQUIVALENT CENTER IATOM WILL CONTRIBUTE ONLY TO CHARACTER
+C     OF OPERATIONS WHICH MAP IT INTO ITSELF.
+C
+               CHAR(1,IT)=CHAR(1,IT)+ONE
+               CHAR(2,IT)=CHAR(2,IT)+TRACEP(IT)
+               CHAR(3,IT)=CHAR(3,IT)+TRACED(IT)
+  520       CONTINUE
+  550    CONTINUE
+C     WRITE(IW,9989) ((CHARR(IT,IRP),IT=1,NT),IRP=1,NIRRED)
+ 9989    FORMAT(//(1X,12F10.5))
+C     WRITE(IW,9989) ((CHAR(KT,IT),IT=1,NT),KT=1,3)
+C
+C     DECOMPOSE REDUCIBLE REPRESENTATION INTO IRREDUCIBLE
+C     REPRESENTATIONS.
+C
+         G=DBLE(NT)
+         NP=0
+         NF=0
+         DO 800 KT=1,3
+            NF=NF+NP
+            NP=NP+KT
+            IF(SKIP(KT)) GO TO 800
+  562       IB=0
+            LOC(ICLASS,KT)=IC
+            DO 700 IRP=1,NIRRED
+               LL=LAMBDA(IRP)
+               FAC=DBLE(LL)/G
+               FNA=ZERO
+               DO 570 IT=1,NT
+  570          FNA=FNA+CHAR(KT,IT)*CHARR(IT,IRP)
+               FNA=FNA/G
+               IF(FNA.LT.TOL) GO TO 700
+C
+C     IRREDUCIBLE REPRESENTATION IRP OCCURS FNA TIMES.
+C     FORM P-MATRIX.
+C
+               MAX=NP*LL
+               DO 585 I=1,MAX
+                  DO 585 J=1,MAX
+  585          P(I,J)=ZERO
+               ITB=0
+               DO 620 IT=1,NT
+                  IF(ICT(NATOM,IT).NE.NATOM) GO TO 620
+                  LB1=0
+                  DO 610 L1=1,LL
+                     LB2=0
+                     DO 600 L2=1,LL
+                        GM=GAM(IT,IB+LL*(L1-1)+L2)*FAC
+                        DO 590 I=1,NP
+                           DO 590 J=1,NP
+                              DUM=GM
+                              IF(KT.EQ.2) DUM=DUM*PTR(I,ITB+J)
+                              IF(KT.EQ.3) DUM=DUM*DTR(I,ITB+J)
+  590                   P(LB1+I,LB2+J)=P(LB1+I,LB2+J)+DUM
+  600                LB2=LB2+NP
+  610             LB1=LB1+NP
+  620          ITB=ITB+NP
+C
+C     ORTHOGONALIZE COLUMNS OF P-MATRIX.
+C
+               MAX=NP*LL
+               DO 2001 IXC=1,MAX
+                 DO 2000 IXV=1,MAX
+                    IF(DABS(P(IXC,IXV)) .LE. TOLTOL) P(IXC,IXV)=ZERO
+2000             CONTINUE
+2001           CONTINUE
+2002           FORMAT(D15.10)
+               CALL SHMIDT(MAX)
+               DO 630 J=1,MAX
+                  IF(PNORM(J).LT.TOL) GO TO 630
+C     WRITE(IW,9990) NATOM,KT,IRP,FNA,(P(I,J),I=1,MAX)
+C9990             FORMAT(3I5,F10.5,6F12.6/25X,6F12.6)
+  630          CONTINUE
+               IPB1=0
+               DO 660 J=1,MAX
+                  IF(PNORM(J).LT.TOL) GO TO 660
+                  IPA(IRP)=IPA(IRP)+1
+                  IPB1=IPB1+1
+                  LB1=0
+                  DO 650 L=1,LL
+                     DO 640 I=1,NP
+                        IC=IC+1
+C***                    IF(IC.GT.MXCF) CALL ABORT(9,68HSUBROUTINE CIPA--
+C*** *NO. OF SALC COEFFICIENTS EXCEEDS CURRENT ARRAY SIZE)
+                        I1=I+NF
+                        I2=IPA(IRP)
+                        I3=IRP
+                        I4=L
+                        CALL PAK
+                        LAB(IC)=I5
+                        CC(IC)=P(LB1+I,J)
+  640                CONTINUE
+  650             LB1=LB1+NP
+  660          CONTINUE
+               IPB2=-IPB1
+               DO 680 I=1,NSHELL
+                  IF(KLASS(KATOM(I)).NE.KLASS(NATOM)) GO TO 680
+                  KKT=KTYPE(I)
+                  K=0
+                  IF(KKT.EQ.KT) GO TO 663
+                  IF(KKT.EQ.2.AND.KT.EQ.1.AND.KMIN(I).EQ.1) GO TO 661
+                  GO TO 680
+  661             K=1
+  663             IPB2=IPB2+IPB1
+                  DO 665 J=1,15
+  665             INDOUT(J)=ISO(I,J)
+                  CALL ISOOUT
+                  IF(K.EQ.1) GO TO 675
+                  IPB(I,IRP)=IPB2
+                  DO 670 IT=1,NT
+                     J=INDIN(IT)
+  670             IPB(J,IRP)=IPB2
+                  GO TO 680
+  675             ISB(I,IRP)=IPB2
+                  DO 677 IT=1,NT
+                     J=INDIN(IT)
+  677             ISB(J,IRP)=IPB2
+  680          CONTINUE
+               IPA(IRP)=IPA(IRP)+IPB2
+  700       IB=IB+LL*LL
+            LOC2(ICLASS,KT)=IC
+  800    CONTINUE
+         DO 820 KT=1,3
+            KBB(KT)=LOC(ICLASS,KT)
+  820    KCC(KT)=LOC2(ICLASS,KT)
+         ITM=NT
+         JCLASS=ICLASS
+C
+C     ROTATE COEFFICIENTS ONTO EQUIVALENT CENTERS
+C
+         DO 1450 IT=1,ITM
+C
+C     FIND EQUIVALENT CENTER
+C
+            ICEN=ICT(NATOM,IT)
+            IF(KLASS(ICEN).NE.0) GO TO 1450
+            ICLASS=ICLASS+1
+            KLASS(ICEN)=ICLASS
+C
+C     FIND OTHER CENTERS IN SAME CLASS
+C
+            DO 840 I=1,NAT
+               IF(KLASS(I).NE.JCLASS) GO TO 840
+               J=ICT(I,IT)
+               KLASS(J)=ICLASS
+  840       CONTINUE
+            NP=0
+            DO 1400 KT=1,3
+               NP=NP+KT
+               IF(SKIP(KT)) GO TO 1400
+               LOC(ICLASS,KT)=IC
+               KB=KBB(KT)
+               KC=KCC(KT)
+ 1165          I5=LAB(KB+1)
+               CALL UNPAK
+               IRP=I3
+               L=I4
+               IB=0
+               IF(IRP.EQ.1) GO TO 1180
+               MAX=IRP-1
+               DO 1170 I=1,MAX
+                  LL=LAMBDA(I)
+ 1170          IB=IB+LL*LL
+ 1180          LL=LAMBDA(IRP)
+               MAX=NP*LL
+               DO 1190 I=1,MAX
+ 1190          CA(I)=CC(KB+I)
+               JC=0
+               DO 1240 K=1,LL
+                  DO 1240 I=1,NP
+                     IC=IC+1
+C***                 IF(IC.GT.MXCF) CALL ABORT(9,68HSUBROUTINE CIPA--NO.
+C*** * OF SALC COEFFICIENTS EXCEEDS CURRENT ARRAY SIZE)
+                     DUM=ZERO
+                     D=ONE
+                     DO 1200 J=1,NP
+                        DO 1200 M=1,LL
+                           IF(KT.EQ.2) D=PTR(I,J+3*(IT-1))
+                           IF(KT.EQ.3) D=DTR(I,J+6*(IT-1))
+                           DUM=DUM+D*CA(J+NP*(M-1))*GAM(IT,IB+LL*(K-1)+M
+     *                     )
+ 1200                CONTINUE
+                     CC(IC)=DUM
+                     JC=JC+1
+                     LAB(IC)=LAB(KB+JC)
+ 1240          CONTINUE
+               KB=KB+MAX
+               IF(KB.LT.KC) GO TO 1165
+               LOC2(ICLASS,KT)=IC
+ 1400       CONTINUE
+ 1450    CONTINUE
+ 1000 CONTINUE
+C     DO 1100 I=1,IC
+C1100 WRITE(IW,9988) I,LAB(I),CC(I)
+c 9988 FORMAT(I5,5X,Z8,1PE25.14)
+C
+C     DETERMINE INITIAL ADDRESS OF SYMMETRY BLOCKS
+C
+      J=0
+      K=0
+      DO 1300 I=1,NIRRED
+         N=IPA(I)
+         IF(N.EQ.0) GO TO 1300
+         IADDR(I)=J
+         J=J+N*(N+1)/2
+         K=K+N*N
+ 1300 CONTINUE
+      IF (NPRINT.NE.1) GO TO 1355
+      DO 1350 I=1,NSHELL
+         WRITE(IW,9986) (ISB(I,J),J=1,NIRRED)
+ 1350 WRITE(IW,9986) (IPB(I,J),J=1,NIRRED)
+      WRITE(IW,9986) (IADDR(J),J=1,NIRRED)
+      WRITE(IW,9986) (IPA(J),J=1,NIRRED),K
+ 1355 CONTINUE
+ 9986 FORMAT(14I5)
+      K=NT
+      NT=NIRRED
+      DO 1500 I=1,NSHELL
+         DO 1480 J=1,NIRRED
+ 1480    INDIN(J)=IPB(I,J)+1
+         CALL ISOIN
+         IPC(I,1)=INDOUT(1)
+         IPC(I,2)=INDOUT(2)
+         DO 1490 J=1,NIRRED
+ 1490    INDIN(J)=ISB(I,J)+1
+         CALL ISOIN
+         ISC(I,1)=INDOUT(1)
+         ISC(I,2)=INDOUT(2)
+ 1500 CONTINUE
+      NT=K
+      MXCF=IC
+      IF (NPRINT.EQ.1) CALL SALC(KLASS,KTYPE,KMIN,KATOM,LOC,LOC2,
+     #LAB,CC,LAMBDA,SLAB,ISC,IPC,ICT)
+C
+C
+C
+      CALL COUNT(KLASS,KTYPE,KMIN,KATOM,LOC,LOC2,LAB,CC,LAMBDA,
+     #ISC,IPC,ICT)
+      IF(BLKTYP.EQ.BLOCKI) CALL DIJGEN(LOC,ICT,KLASS,NAT,NT)
+ 9000 CONTINUE
+      RETURN
+      END
+      SUBROUTINE COUNT(KLASS,KTYPE,KMIN,KATOM,LOC,LOC2,LAB,CC,
+     #LAMBDA,ISC,IPC,ICT)
+C
+C  RUN THROUGH SYMMETRY PART TO FIND DIMENSIONS FOR PITZER
+C  ARRAYS
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 CC(MXCF)
+      INTEGER KLASS(MXAT),KTYPE(MXSH),KMIN(MXSH),KATOM(MXSH)
+      INTEGER LOC(MXAT,3),LOC2(MXAT,3),LAB(MXCF),LAMBDA(MXSYM)
+      INTEGER ISC(MXSH,MXPSYM),IPC(MXSH,MXPSYM),ICT(MXAT,MXTRN)
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /PSIZE/  MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU,MNSFU,MPRU,MCXU,
+     #MCCU,MBLU
+      COMMON /NSHEL/  NSHELL
+      COMMON /SALCS/  NIRRED
+      COMMON /SYMTRY/ NT
+      COMMON /IOFILE/ IR,IW
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /INFOA/  NAT
+      COMMON /PACKQ/   I1,I2,I3,I4,I5
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+C
+      DIMENSION II(30),CA(30,18),IA(3),A(10)
+C
+      DATA IA/0,1,4/
+      DATA A/3H S ,3H X ,3H Y ,3H Z ,3H XX,3H YY,3H ZZ,
+     13H XY,3H XZ,3H YZ/
+C
+C     WRITE(IOUT,*) LOC2
+      ITM=NT
+      NTSAVE=NT
+      NT=NIRRED
+      NTD=(NT+3)/4
+      MGCSU=0
+      MCTU=0
+      MRU=0
+      MCSU=0
+      MSFRU=0
+C
+      DO 300 NATOM=1,NAT
+         DO 10 IT=1,ITM
+            IF(ICT(NATOM,IT).GT.NATOM) GO TO 300
+   10    CONTINUE
+         ICLASS=KLASS(NATOM)
+         DO 20 I=1,NAT
+   20    II(I)=0
+         DO 30 IT=1,ITM
+            JCEN=ICT(NATOM,IT)
+   30    II(JCEN)=1
+         NP=0
+         DO 200 KT=1,3
+            NP=NP+KT
+            DO 32 I=1,NSHELL
+               J=KATOM(I)
+               IF(J.NE.NATOM) GO TO 32
+               IF(KTYPE(I).EQ.KT) GO TO 35
+               IF(KT.EQ.1.AND.KTYPE(I).EQ.2.AND.KMIN(I).EQ.1) GO TO 34
+   32       CONTINUE
+            GO TO 200
+   34       CONTINUE
+            DO 334 IQ=1,NTD
+               INDOUT(IQ)=ISC(I,IQ)
+  334       CONTINUE
+            GO TO 36
+   35       CONTINUE
+            DO 335 IQ=1,NTD
+               INDOUT(IQ)=IPC(I,IQ)
+  335       CONTINUE
+C
+   36       CALL ISOOUT
+C
+C     ----- COUNT NUMBER OF SHELLS OF THIS TYPE -----
+C
+            IFAC=0
+            DO 37 I=1,NSHELL
+               J=KATOM(I)
+               IF (J.NE.NATOM) GO TO 37
+               IF (KTYPE(I).EQ.KT) IFAC=IFAC+1
+               IF (KT.EQ.1.AND.KTYPE(I).EQ.2.AND.KMIN(I).EQ.1) IFAC=IFAC
+     *         +1
+   37       CONTINUE
+C
+            IF (IFAC.LE.0) STOP ' IFAC.LE.0 IN COUNT'
+C
+C
+            ID=IA(KT)
+            KA=LOC(ICLASS,KT)
+            KAA=KA
+            KB=LOC2(ICLASS,KT)
+C
+            MGCSU=MGCSU+1
+            NSOL=0
+            NSO=0
+C
+   25       I5=LAB(KA+1)
+            CALL UNPAK
+            IRP=I3
+            IPA=I2+INDIN(IRP)-1
+   40       LL=LAMBDA(IRP)
+            MAX=NP*LL
+C
+            NSO=NSO+1
+C
+            DO 100 JCEN=1,NAT
+               IF(II(JCEN).EQ.0) GO TO 100
+               IF(JCEN.EQ.NATOM) GO TO 100
+               JCLASS=KLASS(JCEN)
+               KC=LOC(JCLASS,KT)+KA-KAA
+  100       CONTINUE
+            K=0
+            DO 140 L=1,LL
+C
+               NSOL=NSOL+1
+               NAO=0
+C
+               DO 120 N=1,NAT
+                  IF (II(N).EQ.0) GO TO 120
+                  NAO=NAO+NP
+  120          CONTINUE
+C
+               IF (NAO.GT.MCTU) MCTU=NAO
+C
+  140       K=K+NP
+            KA=KA+MAX
+            IF(KA.LT.KB) GO TO 25
+C
+            IF (NSO.GT.MRU) MRU=NSO
+            IF (NSOL.GT.MCSU) MCSU=NSOL
+            MSFRU=MSFRU+NSO*IFAC
+C
+  200    CONTINUE
+  300 CONTINUE
+      NT=NTSAVE
+      KAORDS=MGCSU
+C
+      RETURN
+      END
+      FUNCTION ENUC(NAT,ZAN,C)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION ZAN(30),C(3,30)
+      DATA ZERO /0.0D+00/
+      ENUC=ZERO
+      IF(NAT.EQ.1) RETURN
+      DO 20 I=2,NAT
+         NI=I-1
+         DO 20 J=1,NI
+            RR=ZERO
+            DO 10 K=1,3
+   10       RR=RR+(C(K,I)-C(K,J))**2
+   20 ENUC=ENUC+ZAN(I)*ZAN(J)/DSQRT(RR)
+      RETURN
+      END
+      SUBROUTINE FIND(GET,ZNUC,IR,LINENO)
+C
+      REAL*8 ZNUC
+      CHARACTER*80 GET,LINE
+      CHARACTER*12 ATNAME(92)
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+C
+      DATA ATNAME /'HYDROGEN    ','HELIUM      ','LITHIUM     '
+     #,            'BERYLLIUM   ','BORON       ','CARBON      '
+     #,            'NITROGEN    ','OXYGEN      ','FLUORINE    '
+     #,            'NEON        ','SODIUM      ','MAGNESIUM   '
+     #,            'ALUMINUM    ','SILICON     ','PHOSPHORUS  '
+     #,            'SULFUR      ','CHLORINE    ','ARGON       '
+     #,            'POTASSIUM   ','CALCIUM     ','SCANDIUM    '
+     #,            'TITANIUM    ','VANADIUM    ','CHROMIUM    '
+     #,            'MANGANESE   ','IRON        ','COBALT      '
+     #,            'NICKEL      ','NICKEL      ','ZINC        '
+     #,            'GALLIUM     ','GERMANIUM   ','ARSENIC     '
+     #,            'SELENIUM    ','BROMINE     ','KRYPTON     '
+     #,            56*'123456789012'                            /
+C
+      LINENO=0
+      REWIND IR
+      DO 10 I=1,10000
+         READ (IR,900,END=9000,ERR=9000) LINE
+         LINENO=LINENO+1
+  900    FORMAT (A80)
+         IF (LINE(1:60).EQ.GET(5:64)) GO TO 20
+   10 CONTINUE
+      GO TO 9000
+C
+   20 CONTINUE
+      NUM=ZNUC+0.5D+00
+      DO 30 I=1,10000
+         READ (IR,900,END=9000,ERR=9000) LINE
+         LINENO=LINENO+1
+         IF (LINE(1:12).EQ.ATNAME(NUM)) RETURN
+   30 CONTINUE
+C
+ 9000 CONTINUE
+      WRITE(IOUT,901) GET
+  901 FORMAT (//,' INPUT (FIND) : CANNOT FIND LINE:',1X,A80,//)
+      STOP
+      END
+cets The following is called by a C program which handles dynamic
+cets allocation of memory.
+      subroutine fentry(z,ia,maxcr)
+cets  PROGRAM INPUT
+C*******************************************************************
+C  NOTICE OF PROGRAM CREATION                                      *
+C        BY:  ROBERT MACLAGAN                                      *
+C             FROM FEBRUARY 5, 1985 VERSION OF 'INPUT'             *
+C      DATE:  FEBRUARY 10, 1984                                    *
+C    ENTERED INTO SCHAEFER AS INPUT ON 3-7-85                      *
+C*******************************************************************
+c  NOTICE OF PROGRAM MODIFICATION                                  *
+c        by:  Edward Seidl(cets)                                   *
+c      date:  October 22, 1988                                     *
+c    reason:  dynamic core allocation                              *
+c*******************************************************************
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+cets  DIMENSION Z(180000),IA(1)
+      dimension z(maxcr),ia(intowp(maxcr))
+C
+cets  EQUIVALENCE (Z,IA)
+c
+      close (unit=5)
+      close (unit=6)
+      open (unit=5,file='input.dat',status='old')
+      open (unit=6,file='output.dat')
+      open (unit=3,file='tape3.dat')
+      open (unit=7,file='basis.dat')
+C
+cets  MAXCOR=360000
+      maxcor=intowp(maxcr)
+C
+      CALL TSTART(3)
+      CALL TSTART(6)
+cps      CALL NOUNFL
+C
+C     ----- CALL THE MAIN SUBROUTINE, PASSING IN CORE -----
+C
+      CALL MAIN(Z,IA,MAXCOR)
+C
+      ITAP30 = 30
+      JCODE = 3
+      CALL RCLOSE(ITAP30,JCODE)
+C
+      CALL TSTOP(3)
+      CALL TSTOP(6)
+C
+c     CALL EXIT
+      stop
+C
+      END
+      SUBROUTINE INTR(C)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 C(3,MXAT)
+C
+C
+C     ----- CALCULATE ATOM-ATOM DISTANCES -----
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQW,NX,NE,NA,NB
+C
+      DIMENSION R(30)
+C
+      DATA ONE,UNIT /1.0D+00,0.52917706D+00/
+C
+      IPASS=1
+      FAC=ONE
+      WRITE(IW,9995)
+ 9996 FORMAT(/,10X,'INTERNUCLEAR DISTANCES (ANGS.)',/,10X,30(1H-))
+ 9995 FORMAT(/,10X,'INTERNUCLEAR DISTANCES ( A.U.)',/,10X,30(1H-))
+    5 CONTINUE
+      MAX=0
+   10 MIN=MAX+1
+      MAX=MAX+8
+      IF(MAX.GT.NAT) MAX=NAT
+      WRITE(IW,9999)
+      WRITE(IW,9998) (J,J=MIN,MAX)
+      WRITE(IW,9999)
+      DO 30 I=1,NAT
+         DO 20 J=MIN,MAX
+            RR=(C(1,I)-C(1,J))**2+(C(2,I)-C(2,J))**2+(C(3,I)-C(3,J))**2
+   20    R(J)=DSQRT(RR)*FAC
+         WRITE(IW,9997) I,(R(J),J=MIN,MAX)
+   30 CONTINUE
+      IF(MAX.LT.NAT) GO TO 10
+      IF(IPASS.EQ.2) RETURN
+      IPASS=2
+      FAC=UNIT
+      WRITE(IW,9996)
+      GO TO 5
+ 9999 FORMAT(/)
+ 9998 FORMAT(5X,8(7X,I2,6X))
+ 9997 FORMAT(I5,8F15.7)
+      END
+      SUBROUTINE INTRAN(T)
+C
+C
+      REAL*8 T(MXT),XOLD,YOLD,ZOLD,XNEW,YNEW,ZNEW,XP,YP,ZP
+C
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /TRANSF/ XOLD,YOLD,ZOLD,XNEW,YNEW,ZNEW,XP,YP,ZP
+      return
+C
+C--TRANS--------------------------------------------------TRANS
+C
+      ENTRY TRANS(NN,t)
+C
+C      CALCULATE THE COORDINATES (XNEW,YNEW,ZNEW) OF THE TRANSFORM
+C      OF THE POINT (XOLD,YOLD,ZOLD) UNDER THE TRANSFORMATION T
+C
+      XNEW=XOLD*T(NN+1)+YOLD*T(NN+2)+ZOLD*T(NN+3)
+      YNEW=XOLD*T(NN+4)+YOLD*T(NN+5)+ZOLD*T(NN+6)
+      ZNEW=XOLD*T(NN+7)+YOLD*T(NN+8)+ZOLD*T(NN+9)
+      RETURN
+      END
+      SUBROUTINE LOCAL(X,Y,Z,XS,YS,ZS)
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     CALCULATE THE COORDINATES (XS,YS,ZS) OF A POINT IN THE LOCAL
+C     FRAME GIVEN THE COORDINATES (X,Y,Z) IN THE MASTER FRAME
+C
+      COMMON/FRAME/U1,U2,U3,V1,V2,V3,W1,W2,W3,X0,Y0,Z0
+      XS=U1*(X-X0)+U2*(Y-Y0)+U3*(Z-Z0)
+      YS=V1*(X-X0)+V2*(Y-Y0)+V3*(Z-Z0)
+      ZS=W1*(X-X0)+W2*(Y-Y0)+W3*(Z-Z0)
+      RETURN
+      END
+      SUBROUTINE MAIN(A,IA,MAXCOR)
+C
+C      THIS PROGRAM DOES RHF AND UHF SCF CALCULATIONS
+C      REFERENCE: C.C.J. ROOTHAAN      REV.MOD.PHYS. 23, 69(1951)
+C                 J.A. POPLE AND R.K. NESBET J.CHEM.PHYS 22, 571 (1954)
+C      COMPUTATIONAL REFERENCES:
+C     'NUMERICAL INTEGRATION USING RYS POLYNOMIALS'
+C             H.F.KING AND M.DUPUIS
+C                                       J.COMP.PHYS. 21,144 (1976)
+C     'EVALUATION OF MOLECULAR INTEGRALS OVER GAUSSIAN
+C                                          BASIS FUNCTIONS'
+C             M.DUPUIS,J.RYS AND H.F.KING
+C                                       J.CHEM.PHYS. 65,111 (1976)
+C     'MOLECULAR SYMMETRY AND CLOSED SHELL HF CALCULATIONS'
+C             M.DUPUIS AND H.F.KING
+C                       INTER.J.QUAN.CHEM.  11, 613 (1977).
+C     ----------------------------------------------------------
+C     THIS PROGRAM CAN HANDLE A TOTAL OF 30 ATOMS, 70 UNIQUE
+C     SHELLS, AND A TOTAL OF 240 PRIMITIVE GAUSSIAN FUNCTIONS
+C     IN UNIQUE SHELLS.  THE NUMBER OF CONTRACTED FUNCTIONS
+C     IS FURTHER LIMITED ONLY BY THE AVAILABLE FIELD LENGTH.
+C     FIELD LENGTH FOR EACH OVERLAY IS COMPUTED INTERNALLY
+C     AND REQUESTED BY SUBROUTINE REL1.
+C
+C     NOTE ...
+C          N=TOTAL NUMBER OF BASIS FUNCTIONS
+C       N      N*(N+1)/2      N**2       3*N       TOTAL
+C
+C      70      2485           4900        210        7595
+C      75      2850           5625        225        8700
+C      80      3240           6400        240        9880
+C      85      3655           7225        255       11135
+C      90      4095           8100        270       12465
+C      95      4560           9025        285       13870
+C     100      5050          10000        300       15350
+C     105      5565          11025        315       16905
+C     110      6105          12100        330       18535
+C     115      6670          13225        345       20240
+C     120      7260          14400        360       22020
+C     125      7875          15625        375       23875
+C     130      8515          16900        390       25805
+C     135      9180          18225        405       27810
+C     140      9870          19600        420       29890
+C     145     10585          21025        435       32045
+C     150     11325          22500        450       34275
+C     155     12090          24025        465       36580
+C     160     12880          25600        480       38960
+C     165     13695          27225        495       41415
+C     170     14535          28900        510       43945
+C     175     15400          30625        525       46550
+C     180     16290          32400        540       49230
+C     185     17205          34225        555       51985
+C     190     18145          36100        570       54815
+C     195     19110          38025        585       57720
+C     200     20100          40000        600       60700
+C
+C     THE PROGRAM CHECKS FOR CPU TIME ,CAN BE STOPPED,
+C     AND RESTARTED WHERE IT LEFT OFF.  THE RESTART DATA
+C     ARE PRINTED AND PUNCHED AUTOMATICALLY.
+C         THE INPUT DECK IS AS FOLLOWS :
+C     ---------------------------------------------------------
+C     -1-   TITLE       FORMAT(10A8)
+C     ---------------------------------------------------------
+C     -2-
+C     TIMLIM,NGEOM,NPRINT,NORMF,NORMP
+C     OPTIONS FOR THE JOB
+C                            FORMAT(F10.0,4I5)
+C            --- TIMLIM = INTERNAL TIME LIMIT TO STOP THE JOB.
+C                         THE CPU TIME  IS GIVEN BY THE SYSTEM
+C                         CLOCK (SUBROUTINE SECOND(TIM) ) AND IS
+C                         COMPARED WITH THE TIME LIMIT AFTER
+C                         COMPUTATION OF EACH BLOCK OF INTEGRALS
+C                         OR AFTER EACH SCF CYCLE.  IF CPU TIME IS
+C                         GREATER THAN TIMLIM, THE PROGRAM
+C                         GENERATES ALL DATA NECESSARY FOR A
+C                         RESTART AND THEN STOPS.  TIMLIM
+C                         SHOULD BE SMALLER THAN BATCH TIME.
+C            --- NGEOM =  0  ... ZERO OUT INFORMATION FROM OLD CALCS
+C                       =  1  ... PRESERVE INFORMATION FROM OLD CALCS
+C            --- NPRINT =  0  ... NORMAL PRINTING
+C                       =  1  ... EXTRA PRINTING FOR BASIS SET+SYMMETRY
+C                       =  2  ... EXTRA PRINTING FOR MO GUESS ROUTINES
+C            --- NORMF : NOT EQUAL TO 1 TO NORMALIZE THE BASIS
+C                        FUNCTIONS.
+C                        IF EQUAL TO 1, NO NORMALIZATION.
+C            --- NORMP : EQUAL 1 IF CONTRACTION COEFFICIENTS
+C                        CORRESPOND TO UNNORMALIZED PRIMITIVE
+C                        FUNCTIONS.
+C                        .NOT.EQ.1 IF CONTRACTION COEFFICIENTS
+C                        CORRESPOND TO NORMALIZED PRIMITIVE
+C                        FUNCTIONS.  IN THIS CASE, THE
+C                        CONTRACTION COEFFICIENTS OF THE D,F,G-TYPE
+C                        PRIMITIVE FUNCTIONS SHOULD BE THE ONES
+C                        FOR THE D(XX),F(XXX),G(XXXX) PRIMITIVES.
+C                        VALUES OF THE CONTRACTION COEFFICIENTS
+C                        FOR UNNORMALIZED AND (NORMALIZED) PRIMITIVES
+C                        ARE PRINTED OUT (WHEN NPRINT=0).
+C                        NOTE THAT IN THE CASE NORMF.EQ.0, THE
+C                        COEFFICIENTS OF THE OCCUPIED ORBITALS
+C                        ARE GIVEN IN TERMS OF NORMALIZED BASIS
+C                        FUNCTIONS.
+C     --------------------------------------------------------
+C     -3- SCHOENFLIES SYMBOL OF THE SYMMETRY POINT GROUP
+C             FORMAT(A5,I5)
+C     POSSIBLE SYMBOLS:  'C1        '
+C                        'CS        '
+C                        'CI        '
+C                        'CN       I'  I =ORDER OF PRINCIPAL AXIS
+C                        'S2N      I'
+C                        'CNH      I'
+C                        'CNV      I'
+C                        'DN       I'
+C                        'DNH      I'
+C                        'DND      I'
+C                        'T         '
+C                        'TH        '
+C                        'TD        '
+C                        'O         '
+C                        'OH        '
+C                        'I         '
+C                        'IH        '
+C     --------------------------------------------------------
+C     -4- ORIENTATION OF LOCAL SYMMETRY FRAME
+C         X1, Y1, Z1, X2, Y2, Z2   FORMAT(6F10.5)
+C          POINT 1 = (X1,Y1,Z1)   POINT 2 = (X2,Y2,Z2)   TWO DISTINCT PO
+C          USE CARDS 4 AND 5 TO SPECIFY NONSTANDARD ORIENTATION OF
+C          SYMMETRY ELEMENTS.
+C          DEFAULT OPTION IS TO LET SYMMETRY FRAME COINCIDE WITH MASTER
+C          TO ELECT DEFAULT OPTION FOR ANY GROUP OTHER THAN C1 LET CARD
+C          BLANK, AND OMIT CARD 5.
+C
+C          GROUP: SYMMETRY ELEMENTS WITH RESPECT TO LOCAL X,Y,Z FRAME:
+C          _____  ______________________________________________________
+C          C1     NO SYMMETRY. OMIT CARDS 4 AND 5.
+C          CS     REFLECTION PLANE = (X,Y)
+C          CI     CENTER OF INVERSION IS ORIGIN, X=Y=Z=0
+C          CN     N-FOLD AXIS = Z
+C          S2N       S2N AXIS = Z
+C          CNH    N-FOLD AXIS = Z, SIGMA-H PLANE = (X,Y)
+C          CNV    N-FOLD AXIS = Z, SIGMA-V PLANE = (X,Z)
+C          DN     N-FOLD AXIS = Z, 2-FOLD AXIS = X
+C          DNH    N-FOLD AXIS = Z, 2-FOLD AXIS = X, SIGMA-H PLANE = (X,Y
+C          DND    N-FOLD AXIS = Z, 2-FOLD AXIS = X.
+C                 WHEN N IS ODD THEN SIGMA-V PLANE = (Y,Z).
+C          T      2-FOLD AXES = X,Y AND Z
+C          TH     2-FOLD AXES = X,Y AND Z, INVERSION CENTER = ORIGIN
+C          TD         S4 AXES = X,Y AND Z
+C          O      4-FOLD AXES = X,Y AND Z
+C          OH     4-FOLD AXES = X,Y AND Z, INVERSION CENTER = ORIGIN
+C          I      5-FOLD AXIS = Z, 2-FOLD AXIS = Y,  THERE IS A
+C                 3-FOLD AXIS 37.8 DEGREE FROM Z IN (X,Y) PLANE
+C                 ALTERNATIVE ORIENTATION IS:
+C                 3-FOLD AXIS = Z, 2-FOLD AXIS = Y,  THERE IS A
+C                 5-FOLD AXIS 37.8 DEGREE FROM Z IN (X,Y) PLANE
+C          IH     SAME AS I, REFLECTION PLANE = (X,Z) IN EITHER ORIENTAT
+C
+C          MEANING OF POINTS 1 AND 2:
+C          FOR C1 GROUP, NO CARDS 4 OR 5, GO TO CARD -6-
+C          FOR CS GROUP, ANY TWO POINTS IN THE SYMMETRY PLANE.
+C          FOR CI GROUP, POINT 1 = CENTER OF INVERTION.  (IGNORE POINT 2
+C          FOR ALL OTHER GROUPS POINTS 1 AND 2 MAY BE ANY TWO POINTS ON
+C          LOCAL Z AXIS. (SEE TABLE ABOVE.)
+C     ------------------------------------------------------------------
+C     -5-  ORIENTATION OF SYMMETRY FRAME CONTINUED.
+C                 X3, Y3, Z3, DIRECTIONAL PARAMETER    FORMAT(3F10.5,A8)
+C          POINT 3 = (X3,Y3,Z3)    MUST NOT BE COLINEAR WITH POINTS
+C                                  1 AND 2 ON CARD 4.
+C          OMIT CARD 5 IF DEFAULT OPTION IS ELECTED ON CARD 4.
+C
+C          FOR C1 GROUP, OMIT CARD 5.
+C          FOR CS GROUP, POINT 3 = ANY POINT IN SYM PLANE. IGNORE PARAME
+C          FOR CI GROUP, OMIT CARD 5.
+C          FOR OTHER GROUPS, INPUT POINT 3 AND DIRECTIONAL PARAMETER.
+C          POSSIBLE VALUES OF DIRECTIONAL PARAMETER:
+C               'PARALLEL'  POINT 3 LIES ON LOCAL X AXIS. (DEFAULT VALUE
+C               'NORMAL  '  POINT 3 LIES ON LOCAL Y AXIS.
+C               'THREE   '  ALTERNATIVE ICOSAHEDRAL ORIENTATION WITH Z A
+C                           AXIS. OPTION TO BE USED ONLY WITH GROUPS I O
+C                           IN THIS CASE POINT 3 MUST LIE ON X AXIS.
+C
+C          COMMENT: THE MOST COMMON USE OF THE 'NORMAL  ' OPTION IS WITH
+C                   DND WITH ODD N, E.G. STAGGERED ETHANE.  THEN THE LOC
+C                   PLANE IS A SIGMA-V PLANE NORMAL TO THE X AXIS.
+C     ---------------------------------------------------------
+C     -6- CHARGE , MULTIPLICITY ,UNITS.  FORMAT(3I5)
+C               CHARGE = +1 FOR NH4+, -1 FOR F- ION, FOR EXAMPLE.
+C               MULTIPLICITY = 1 FOR CLOSED-SHELL MOLECULE.
+C               IUNIT > 0 FOR ANGSTROM
+C               IUNIT < OR = 0 FOR ATOMIC UNITS.
+C     --------------------------------------------------------
+C     -7-  FIRST UNIQUE CENTER    FORMAT(2A4,2X,F5.0,3F20.10)
+C                NAME,ZNUC,X,Y,Z
+C             NAME = ATOMIC NAME (USED ONLY FOR PRINT OUT).
+C             ZNUC = NUCLEAR CHARGE.
+C             X,Y,Z = COORDINATES IN THE MASTER FRAME.
+C     ---------------------------------------------------------
+C     -8-  ISHELL, ITYPE, IGAUSS, IBASIS, (SC(I),I=1,4)
+C          FORMAT(I5,1X,A4,I5,1X,A4,4F10.5)
+C               ISHELL = SHELL NUMBER ON THIS ATOM.
+C                   FOR EACH ATOM, ISHELL TAKES VALUES 1,2,...
+C               ITYPE  = SHELL TYPE ='   S' OR '   K' FOR S SHELLS
+C                                    '   P'           FOR P SHELLS
+C                                              '   L' FOR L SHELLS
+C                                    '   D' OR '   M' FOR D SHELLS
+C                       FOR STO-NG AND N-31G FUNCTIONS, TYPES ARE:
+C                            '  1S','  2S','  2P',' 2SP','  3S','  3P'
+C                     ' 3SP','  3D','  4S','  4P',' 4SP','  4D','  5S'
+C                            '  5P','  5D'.
+C               IGAUSS    = NUMBER OF CONTRACTED PRIMITIVES IN SHELL
+C               IBASIS    = BASIS FUNCTION TYPE.
+C                         = ' STO' FOR STO-NG FUNCTIONS.
+C                         = ' N31' FOR  N-31G FUNCTIONS
+C                         = '    ' FOR GENERAL TYPE FUNCTIONS.
+C                        IF IBASIS= N31, ENTER ONLY ONE CARD PER ATOM.
+C               SC     = SCALING FACTORS FOR STO-NG AND N-31G FUNCTIONS.
+C                        IF EQUAL TO ZERO, SC'S ARE SET TO POPLE'S
+C                        STANDARD VALUES.
+C     ---------------------------------------------------------
+C     IF STO-NG OR N-31G BASIS FUNCTIONS, GO BACK TO -8-
+C     -9- IG, A, C1, C2,   FORMAT(I5,E15.9,2E20.10)
+C           IG = PRIMITIVE NUMBER IN THE SHELL ISHELL
+C              FOR EACH SHELL, IG TAKES VALUES 1,2,...,IGAUSS.
+C            A = GAUSSIAN EXPONENTIAL PARAMETER OF PRIMITIVE
+C           C1 = CONTRACTION COEFFICIENT FOR S,P,D,M SHELLS, AND
+C                FOR THE S FUNCTION OF AN L SHELL.
+C           C2 = CONTRACTION COEFFICIENT FOR THE P FUNCTIONS OF
+C                AN L SHELL
+C      ..... THERE ARE IGAUSS CARDS, ONE FOR EACH PRIMITIVE OF SHELL
+C      ..... THEN DATA FOR THE NEXT SHELL, RETURN TO CARD-8-.
+C     ---------------------------------------------------------
+C     -10- A BLANK CARD ENDS LIST OF SHELLS CENTERED ON THIS ATOM
+C     ...... THEN NEXT UNIQUE CENTER. GO BACK TO CARD-7-
+C     ---------------------------------------------------------
+C     -11- A BLANK CARD ENDS THE LIST OF THE UNIQUE CENTERS.
+C     ---------------------------------------------------------
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      INTEGER IA(MAXCOR)
+      REAL*8   A(1)
+C
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+C
+C     ----- SET UP JOB -----
+C
+      ICHECK = 3
+      IOUT   = 6
+      ITAP30 = 30
+C
+      MXAT=30
+      MXTRN=48
+      MXPR=300
+      MXSH=100
+      MXSYM=14
+      MXCF=10000
+      MXT=MXTRN*9
+      MXISO=MXTRN/4
+      MXPSYM=(MXSYM+3)/4
+C
+      CALL IZERO(IA,MAXCOR)
+C
+C     ----- START: READ IN BASIS SET AND GET INITIAL MO'S -----
+C
+      CALL START(A,IA,MAXCOR)
+C
+C
+      RETURN
+      END
+      SUBROUTINE MOLE(ZAN,C,EX,CSPD,KSTART,KATOM,KTYPE,KNG,KLOC,
+     #KMIN,KMAX,NEWSH,TITLE,T,INVT,ISO,ICT,NS,KS,
+     #LBLAT,CSINP)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 ZAN(MXAT),C(3,MXAT),EX(MXPR),CSPD(MXPR,3),T(MXT)
+      REAL*8 CSINP(MXPR,3)
+      INTEGER KSTART(MXSH),KATOM(MXSH),KTYPE(MXSH),KNG(MXSH)
+      INTEGER KLOC(MXSH),KMIN(MXSH),KMAX(MXSH),NEWSH(MXSH,MXTRN)
+      INTEGER INVT(MXTRN),ISO(MXSH,MXISO),ICT(MXAT,MXTRN)
+      INTEGER TITLE(20),NS(MXAT),KS(MXAT),LBLAT(2,MXAT)
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /OUTPUT/ NPRINT,NGEOM,NORMF,NORMP
+      COMMON /RESTAR/ TIMLIM
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQW,NX,NE,NA,NB
+      COMMON /NSHEL/  NSHELL
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+C
+      DIMENSION JFIX(9)
+C
+      DATA ZERO /0.0D+00/
+ 7777 FORMAT(1H ,///,20X,92(1H*),/,20X,1H*,90X,1H*,/,
+     120X,1H*,21X,'  INPUT PROGRAM FOR HFS PROGRAMS (HONDO-LIKE)  ',
+     222X,1H*,/,20X,1H*,90X,1H*,/,20X,1H*,10X,10X,14X,
+     3' KING-DUPUIS-RYS-SAXE ',10X,10X,14X,1H*,/,20X,1H*,90X,1H*,/,
+CRBR 222X,1H*,/,20X,1H*,90X,1H*,/,20X,1H*,10X,A10,14X,
+CRBR 3' KING-DUPUIS-RYS-SAXE ',10X,A10,14X,1H*,/,20X,1H*,90X,1H*,/,
+     420X,1H*,5X,20A4,5X,1H*,/,20X,1H*,90X,1H*,/,20X,92(1H*),/)
+ 7776 FORMAT(F10.0,4I5,10I2)
+ 7775 FORMAT(/,
+     1' TIME LIMIT   (NOT IN EFFECT)                = ',F10.3,/,
+     1' OUTPUT OPTION                               = ',I5,/,
+     1' OPTION TO PRESERVE M.O. COEFFICIENTS        = ',I5,/,
+     1' OPTION FOR NORMALIZATION OF BASIS FUNCTIONS = ',I5,/,
+     1' OPTION FOR UNNORMALIZATION OF PRIMATIVES    = ',I5)
+ 7774 FORMAT(20A4)
+C
+      IR=5
+      IW=6
+C
+C     ----- FIND INPUT RECORDS -----
+C
+      CALL LOCATE(IR,'# INPUT ##',IERROR)
+      IF (IERROR.NE.0) THEN
+         WRITE (IP,90)
+   90    FORMAT (//,' # INPUT ##  ERROR--NO INPUT FOUND',//)
+         CALL EXIT(20)
+      END IF
+C
+C     READ TITLE AND OPTIONS
+C
+      READ(IR,7774) TITLE
+      READ(IR,7776) TIMLIM,NGEOM,NPRINT,NORMF,NORMP,
+     * NFIX,(JFIX(JX),JX=1,9)
+      IF(NPRINT.EQ.7) WRITE(IP,7774) TITLE
+      IF(NPRINT.EQ.7) WRITE(IP,7776) TIMLIM,NPRINT,NGEOM,NORMF,
+     1 NORMP
+      IF(NPRINT.EQ.6) GO TO 1
+CRBR  WRITE(IW,7777) DAY,WHEN,TITLE
+      WRITE(IW,7777) TITLE
+    1 CONTINUE
+CPS   IF(TIMLIM.EQ.ZERO) STOP
+      IF(NORMF.NE.1) NORMF=0
+      IF(NORMP.NE.1) NORMP=0
+      WRITE(IW,7775) TIMLIM,NPRINT,NGEOM,NORMF,NORMP
+C
+C     ----- INITIALIZE TRANS ROUTINE -----
+C
+      CALL INTRAN(T)
+C
+C
+C     READ SYMMETRY POINT GROUP OF THE MOLECULE,
+C     AND GENERATE THE TRANSFORMATION MATRICES.
+C
+      CALL PTGRP(T,T,T,INVT)
+C
+C     READ THE BASIS SET FOR THE UNIQUE CENTERS,
+C     AND GENERATE THE MOLECULAR BASIS SET.
+C
+      CALL ATOMS(EX,CSPD(1,1),CSPD(1,2),CSPD(1,3),KSTART,KATOM,
+     #KTYPE,KNG,KLOC,KMIN,KMAX,T,ISO,NEWSH,ZAN,C,INVT,
+     #ICT,NS,KS,LBLAT,CSINP(1,1),CSINP(1,2),CSINP(1,3))
+C
+      RETURN
+      END
+      SUBROUTINE OUT(ZAN,C,ICT,NS,KS,EX,CSPD,KSTART,KATOM,KTYPE,
+     #KNG,KLOC,KMIN,KMAX,ISC,IPC,CC,LAB,LOC,
+     #LOC2,KLASS,LAMBDA,IADDR,IPP,T,INVT,ISO,TITLE,
+     #LBLAT,SB,PTR,DTR,MXPRD)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 ZAN(MXAT),C(3,MXAT),EX(MXPR),CSPD(MXPR,3)
+      REAL*8 CC(MXCF),T(MXT),PTR(3,3,NT),DTR(6,6,NT)
+      INTEGER ICT(MXAT,MXTRN),NS(MXAT),KS(MXAT),KSTART(MXSH)
+      INTEGER KATOM(MXSH),KTYPE(MXSH),KNG(MXSH),KLOC(MXSH)
+      INTEGER KMIN(MXSH),KMAX(MXSH),ISC(MXSH,MXPSYM)
+      INTEGER IPC(MXSH,MXPSYM),LAB(MXCF),LOC(MXAT,3),LOC2(MXAT,3)
+      INTEGER KLASS(MXAT),LAMBDA(MXSYM),IADDR(MXSYM),IPP(MXSYM)
+      INTEGER INVT(MXTRN),ISO(MXSH,MXISO),TITLE(20)
+      INTEGER SB(MXSYM),LBLAT(2,MXAT)
+C
+      INTEGER FCB(16)
+      INTEGER ITEMP(200)
+      REAL*8   TEMP(100)
+      EQUIVALENCE (ITEMP,TEMP)
+C
+      DIMENSION ZZZ(3),ICRUD(200)
+      COMMON /OUTPUT/ NPRINT,NGEOM,NORMF,NORMP
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /SALCS/  NIRRED
+      COMMON /SYMTRY/ NT
+      COMMON /PSIZE/  MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU,MNSFU,MPRU,MCXU,
+     #MCCU,MBLU
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQ,NX,NE,NA,NB
+      COMMON /NSHEL/  NSHELL
+C
+C     ----- SET MXPR TO TRUE NUMBER OF PRIMITIVES -----
+C
+      MXPR=KSTART(NSHELL)+KNG(NSHELL)-1
+C
+      ITAP30=30
+C     ITAP30=4
+      CALL RFILE(ITAP30)
+C
+      IEND=1
+      MPOINT=200
+      MCONST=200
+      MCALCS=100
+      NCALCS=0
+C
+      DO 1 I=1,MPOINT
+         ITEMP(I)=0
+    1 CONTINUE
+C
+      CALL WWRITW(ITAP30,TITLE,20,IEND,IEND)
+      DO 2 I=2,5
+         CALL WWRITW (ITAP30,ITEMP,20,IEND,IEND)
+    2 CONTINUE
+C
+C     ----- ZERO ARRAY FOR CONSTANTS -----
+C
+      IF(NGEOM.EQ.1) THEN
+C
+        CALL WREADW (ITAP30,ITEMP,43,101,JUNK)
+        IEND0 = ITEMP(1)
+        NSYMHF = ITEMP(41)
+        MXCOEF = ITEMP(42)
+        IOPEN = ITEMP(43)
+C
+      END IF
+C
+      CALL WWRITW (ITAP30,ITEMP,MCONST,IEND,IEND)
+C
+C     ----- ZERO ARRAY FOR POINTERS -----
+C
+      IF(NGEOM.EQ.1) THEN
+C
+      CALL WREADW (ITAP30,ITEMP,MPOINT,IEND,JUNK)
+      I29 = ITEMP(29)
+      I30 = ITEMP(30)
+C
+      END IF
+      CALL WWRITW (ITAP30,ITEMP,MPOINT,IEND,IEND)
+C
+      IF(NGEOM.EQ.0) THEN
+C
+C     ----- ZERO POINTERS TO CALCULATIONS -----
+C
+        CALL WWRITW (ITAP30,ITEMP,MCALCS,IEND,IEND)
+C
+      ELSE
+C
+        IEND = IEND + MCALCS
+C
+      END IF
+C
+C     ----- START WRITING HONDO ARRAYS TO FILE, PUTTING ADDRESSES
+C               IN ITEMP AS WE GO
+C
+      ITEMP(1)=IEND
+      CALL WWRITW(ITAP30,ZAN,INTOWP(NAT),IEND,IEND)
+C
+C     ----- TRANSFORMATION TABLE OF ATOMS -----
+C
+      ITEMP(2)=IEND
+      DO 3 I=1,NT
+         CALL WWRITW(ITAP30,ICT(1,I),NAT,IEND,IEND)
+    3 CONTINUE
+C
+C    ----- NUMBER OF SHELLS PER ATOM -- NS(NAT) -----
+C
+      ITEMP(3)=IEND
+      CALL WWRITW(ITAP30,NS,NAT,IEND,IEND)
+C
+C     ----- POINTER TO SHELLS ON ATOM -- KS(NAT) -----
+C
+      ITEMP(4)=IEND
+      CALL WWRITW(ITAP30,KS,NAT,IEND,IEND)
+C
+C     ----- EXPONENTS OF PRIMITIVE GAUSSIANS -- EX(MXPR) -----
+C
+      ITEMP(5)=IEND
+      CALL WWRITW(ITAP30,EX,INTOWP(MXPR),IEND,IEND)
+C
+C     ----- S,P AND D CONTRACTION COEFFICIENTS -- CSPD(MXPR,3) -----
+C
+      ITEMP(6)=IEND
+      DO 4 I=1,3
+         CALL WWRITW(ITAP30,CSPD(1,I),INTOWP(MXPR),IEND,IEND)
+    4 CONTINUE
+C
+C     ----- POINTER TO PRIMITIVES FOR A SHELL -- KSTART(NSHELL) -----
+C
+      ITEMP(7)=IEND
+      CALL WWRITW(ITAP30,KSTART,NSHELL,IEND,IEND)
+C
+C     ----- ATOM ON WHICH NTH SHELL IS CENTRED -- KATOM(NSHELL) -----
+C
+      ITEMP(8)=IEND
+      CALL WWRITW(ITAP30,KATOM,NSHELL,IEND,IEND)
+C
+C     ----- TYPE (S,P,D...) OF NTH SHELL -- KTYPE(NSHELL) -----
+C
+      ITEMP(9)=IEND
+      CALL WWRITW(ITAP30,KTYPE,NSHELL,IEND,IEND)
+C
+C     ----- NUMBER OF CONTRACTED FUNCTIONS IN NTH SHELL -- KNG(NSHELL))
+C
+      ITEMP(10)=IEND
+      CALL WWRITW(ITAP30,KNG,NSHELL,IEND,IEND)
+C
+C     ----- POINTER TO FIRST BASIS FNCT IN SHELL --- KLOC(NSHELL) ----
+C
+      ITEMP(11)=IEND
+      CALL WWRITW(ITAP30,KLOC,NSHELL,IEND,IEND)
+C
+C     ----- FIRST FUNCTION (S,X,Y,Z,XX...) IN SHELL -- KMIN(NSHELL) --
+C
+      ITEMP(12)=IEND
+      CALL WWRITW(ITAP30,KMIN,NSHELL,IEND,IEND)
+C
+C     ----- LAST FUNCTION IN SHELL -- KMAX(NSHELL) -----
+C
+      ITEMP(13)=IEND
+      CALL WWRITW(ITAP30,KMAX,NSHELL,IEND,IEND)
+C
+C     ----- PACKED SO TRANSFORMATION MATRICES -- ISC(NSHELL,NPSYM)
+C
+      ITEMP(14)=IEND
+      NPSYM=(NIRRED+3)/4
+      DO 5 I=1,NPSYM
+         CALL WWRITW(ITAP30,ISC(1,I),NSHELL,IEND,IEND)
+    5 CONTINUE
+C
+C     ----- PACKED SO TRANSFORMATION INFORMATION -- IPC(NSHELL,NPSYM)
+C
+      ITEMP(15)=IEND
+      DO 6 I=1,NPSYM
+         CALL WWRITW(ITAP30,IPC(1,I),NSHELL,IEND,IEND)
+    6 CONTINUE
+C
+C     ----- LABELS OF IRREPS -- SB(NIRRED) -----
+C
+      ITEMP(16)=IEND
+      CALL WWRITW(ITAP30,SB,NIRRED,IEND,IEND)
+C
+C     ----- COEFFICIENTS OF SO'S -- CC(MXCF) -----
+C
+      ITEMP(17)=IEND
+      CALL WWRITW(ITAP30,CC,INTOWP(MXCF),IEND,IEND)
+C
+C     ----- LABELS OF SO MATRICES -- LAB(MXCF) -----
+C
+      ITEMP(18)=IEND
+CCCCC WRITE(IOUT,*) ' LAB SHOULD BE AT =',ITEMP(18),' LAB ',LAB
+      CALL WWRITW(ITAP30,LAB,MXCF,IEND,IEND)
+C
+C     ----- POINTER TO BEGINNING OF SO MATRIX -- LOC(NAT,3) -----
+C
+      ITEMP(19)=IEND
+      DO 7 I=1,3
+         CALL WWRITW(ITAP30,LOC(1,I),NAT,IEND,IEND)
+    7 CONTINUE
+C
+C     ----- POINTER TO END OF SO MATRIX -- LOC2(NAT,3) -----
+C
+      ITEMP(20)=IEND
+      DO 8 I=1,3
+         CALL WWRITW(ITAP30,LOC2(1,I),NAT,IEND,IEND)
+    8 CONTINUE
+C
+C     ----- CLASS AN ATOM BELONGS TO -- KLASS(NAT) -----
+C
+      ITEMP(21)=IEND
+      CALL WWRITW(ITAP30,KLASS,NAT,IEND,IEND)
+C
+C     ----- DEGENERACY OF NTH IRREP -- LAMBDA(NIRRED) -----
+C
+      ITEMP(22)=IEND
+      CALL WWRITW(ITAP30,LAMBDA,NIRRED,IEND,IEND)
+C
+C     ----- POINTER TO START OF NTH SOS ? -- IADDR(NIRRED) -----
+C
+      ITEMP(23)=IEND
+      CALL WWRITW(ITAP30,IADDR,NIRRED,IEND,IEND)
+C
+C     ----- NUMBER OF SOS OF NTH SYMMETRY ? -- IPP(NIRRED) -----
+C
+      ITEMP(24)=IEND
+      CALL WWRITW(ITAP30,IPP,NIRRED,IEND,IEND)
+C
+C     ----- TRANSFORMATION MATRICES -- T(MXT) -----
+C
+      MXT=9*NT
+      ITEMP(25)=IEND
+      CALL WWRITW(ITAP30,T,INTOWP(MXT),IEND,IEND)
+C
+C     ----- INVERSE OF SYMMETRY OPERATION -- INVT(NT)
+C
+      ITEMP(26)=IEND
+      CALL WWRITW(ITAP30,INVT,NT,IEND,IEND)
+C
+C     ----- PACKED TRANSFORMATION MATRIX FOR SHELLS -- ISO(NSHELL,MXISO)
+C
+      ITEMP(27)=IEND
+      NISO=(NT+3)/4
+      DO 9 I=1,NISO
+         CALL WWRITW(ITAP30,ISO(1,I),NSHELL,IEND,IEND)
+    9 CONTINUE
+C
+C     ----- LABEL OF ATOMS -- LBLAT(2,NAT)
+C
+      ITEMP(28)=IEND
+      CALL WWRITW(ITAP30,LBLAT,2*NAT,IEND,IEND)
+C
+C     ----- TRANSFORMATION MATRICES FOR P FUNCTIONS -- PTR(3,3,NT)
+C
+      ITEMP(31)=IEND
+      CALL WWRITW(ITAP30,PTR,INTOWP(3*3*NT),IEND,IEND)
+C
+C     ----- TRANSFORMATION MATRICES FOR D FUNCTIONS -- DTR(6,6,NT)
+C
+      ITEMP(32)=IEND
+      CALL WWRITW(ITAP30,DTR,INTOWP(6*6*NT),IEND,IEND)
+C
+C     ----- WRITE POINTERS TO ARRAYS ON FILE -----
+C
+      IF(NGEOM.EQ.1) THEN
+C
+      ITEMP(29) = I29
+      ITEMP(30) = I30
+C
+      END IF
+C
+      CALL WWRITW (ITAP30,ITEMP,MPOINT,301,JUNK)
+C
+C     ----- WRITE OUT DIRECTORY TO CALCULATIONS -----
+C
+      IF(NGEOM.EQ.0) THEN
+C
+        DO 14 I=1,MCALCS
+          ITEMP(I)=0
+   14   CONTINUE
+        ITEMP(1)=IEND
+C
+        CALL WWRITW (ITAP30,ITEMP,MCALCS,501,JUNK)
+C
+C     ----- WRITE OUT DIRECTORY FOR FIRST CALCULATION -----
+C
+        DO 11 I=1,20
+          ITEMP(I)=0
+   11   CONTINUE
+C
+      END IF
+C
+      CALL WWRITW (ITAP30,TITLE,20,IEND,IEND)
+      DO 12 I=1,2
+         CALL WWRITW (ITAP30,ITEMP,20,IEND,IEND)
+   12 CONTINUE
+C
+C     ----- ZERO POINTERS TO VECTORS ETC. -----
+C
+      IF(NGEOM.EQ.0) THEN
+C
+        CALL WWRITW (ITAP30,ITEMP,20,IEND,IEND)
+C
+      ELSE
+C
+        IEND = IEND + 20
+C
+      END IF
+C
+C     ----- WRITE OUT GEOMETRY -----
+C
+      CALL WWRITW(ITAP30,C,INTOWP(3*NAT),IEND,IEND)
+C
+C     ----- ZERO ENERGIES FOR LATER USE -----
+C
+      IF(NGEOM.EQ.0) THEN
+C
+        DO 13 I=1,10
+           TEMP(I)=0.0D+00
+   13   CONTINUE
+C
+        CALL WWRITW (ITAP30,ITEMP,INTOWP(10),IEND,IEND)
+C
+      ELSE
+C
+        IEND = IEND + INTOWP(10)
+C
+      END IF
+C
+C     ----- PUT ALL CONSTANTS INTO ITEMP TO PUT ON FILE -----
+C
+      DO 10 I=1,MCONST
+        ITEMP(I)=0
+   10 CONTINUE
+C
+      ITEMP(1) = IEND
+      ITEMP(2)  = MPOINT
+      ITEMP(3)  = MCONST
+      ITEMP(4)  = MCALCS
+      ITEMP(5)  = 1
+      ITEMP(6)  = MSU
+      ITEMP(7)  = KAORDS
+      ITEMP(8)  = MCONSU
+      ITEMP(9)  = MGCSU
+      ITEMP(10) = MSTU
+      ITEMP(11) = MRU
+      ITEMP(12) = MCSU
+      ITEMP(13) = MCTU
+      ITEMP(14) = MCONU
+      ITEMP(15) = MCU
+      ITEMP(16) = MSFU
+      ITEMP(17) = MGU
+      ITEMP(18) = MSFRU
+      ITEMP(19) = NAT
+      ITEMP(20) = ICH
+      ITEMP(21) = MUL
+      ITEMP(22) = NUM
+      ITEMP(23) = NQ
+      ITEMP(24) = NX
+      ITEMP(25) = NE
+      ITEMP(26) = NB
+      ITEMP(27) = NSHELL
+      ITEMP(28) = NIRRED
+      ITEMP(29) = NT
+      ITEMP(30) = MXAT
+      ITEMP(31) = MXTRN
+      ITEMP(32) = MXPR
+      ITEMP(33) = MXSH
+      ITEMP(34) = MXSYM
+      ITEMP(35) = MXCF
+      ITEMP(36) = MXT
+      ITEMP(37) = MXISO
+      ITEMP(38) = MXPSYM
+      ITEMP(39) = NPSYM
+      ITEMP(40) = NISO
+C
+      IF(NGEOM.EQ.1) THEN
+C
+        ITEMP(1) = IEND0
+        ITEMP(41) = NSYMHF
+        ITEMP(42) = MXCOEF
+        ITEMP(43) = IOPEN
+C
+      ELSE
+C
+        ITEMP(41) = 0
+        ITEMP(42) = 0
+        ITEMP(43) = 0
+C
+      END IF
+C
+      CALL WWRITW (ITAP30,ITEMP,43,101,JUNK)
+C
+      WRITE(IOUT,90) IEND,I2SEC(IEND)
+   90 FORMAT (//,' TAPE30 USED ',I8,' WORDS OR ',I5,' SECTORS')
+C
+      RETURN
+      END
+      SUBROUTINE PRINT2(N1,N2,X)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 X(3,3,MXTRN)
+C
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+C
+      NR=(N2-N1+1)/4+1
+      NL=(N2-N1+1)-4*(NR-1)
+      INC=4
+      NS=N1
+      DO 10  I=1,NR
+         IF(I.EQ.NR)INC=NL
+         NLAST=NS+INC
+         DO 5 J=1,3
+    5    WRITE(IW,1000)((X(J,L,M),L=1,3),M=NS,NLAST)
+         WRITE(IW,1001)
+   10 NS=NLAST+1
+ 1000 FORMAT(4X,4(3F10.5,2H *))
+ 1001 FORMAT(/)
+      RETURN
+      END
+      SUBROUTINE PTGRP(T,C,D,INVT)
+C
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 T(MXT),C(3,3,MXTRN),D(9,MXTRN)
+C            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ IMPLICITLY EQUIVALENCED
+C
+      INTEGER INVT(MXTRN)
+C
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /PSIZE/  MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU,MNSFU,MPRU,MCXU,
+     #MCCU,MBLU
+      COMMON /OUTPUT/ NPRINT,NGEOM,NORMF,NORMP
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /SYMTRY/ NT
+      COMMON /TRANSF/ XSMAL,YSMAL,ZSMAL,XNEW,YNEW,ZNEW,XP,YP,ZP
+      COMMON /FRAME/  U1,U2,U3,V1,V2,V3,W1,W2,W3,X0,Y0,Z0
+      COMMON /SMORB/  GROUP,INDEX,NAXIS
+C
+      DIMENSION GRP(19),DRC(3)
+      DIMENSION TI(3,3),UI(9),VI(3,3),WI(9)
+C
+      EQUIVALENCE (TI(1,1),UI(1))
+      EQUIVALENCE (VI(1,1),WI(1))
+C
+      DATA GRP /5HC1   ,5HCS   ,5HCI   ,5HCN   ,5HS2N  ,5HCNH  ,
+     15HCNV  ,5HDN   ,5HDNH  ,5HDND  ,5HCINFV,5HDINFH,5HT    ,
+     15HTH   ,5HTD   ,5HO    ,5HOH   ,5HI    ,5HIH   /
+      DATA DRC /8HNORMAL  ,8HPARALLEL,8HTHREE   /
+      DATA ZERO,PT5,ONE /0.0D+00,0.5D+00,1.0D+00/
+      DATA TOL /1.0D-10/
+      DATA PI2 /6.2831853071796D+00/
+C
+ 9999 FORMAT (A5,I5)
+ 9997 FORMAT(9F10.5)
+ 9996 FORMAT(3F10.5,A8)
+ 9995 FORMAT(' LINEAR MOLECULE , POINT GROUP IS CINFV OR DINFH ',/,
+     1' PLEASE USE GROUP CNV OR DNH...')
+C9993 FORMAT(10A8)
+ 9991 FORMAT(/,' THE POINT GROUP OF THE MOLECULE IS ...',A8,/,
+     1' THE ORDER OF THE PRINCIPAL AXIS IS ...',I5)
+ 9990 FORMAT(/,' THE ORIGIN OF THE LOCAL FRAME IS AT X =  ',F10.5,
+     1' Y = ',F10.5,' Z = ',F10.5,/,
+     1' DIRECTOR COSINES OF THE NEW AXES ',/,34X,3(5X,F10.5),/,34X,
+     13(5X,F10.5),/,34X,3(5X,F10.5))
+ 9989 FORMAT(' ROTATIONS ABOUT PRINCIPAL AXIS')
+ 9988 FORMAT(' SIGMA-H FOLLOWED BY ROTATIONS')
+ 9987 FORMAT(' C2 FOLLOWED BY ROTATIONS ')
+ 9986 FORMAT(' SIGMA-D FOLLOWED BY ROTATIONS')
+ 9985 FORMAT(' SIGMA-V FOLLOWED BY ROTATIONS')
+ 9984 FORMAT(/,10X,' CENTER OF SYMMETRY AT X = ',F10.5,' Y = ',F10.5,
+     1' Z = ',F10.5)
+ 9983 FORMAT(/,' PLANE OF SYMMETRY DEFINED BY ITS NORMAL U = ',F10.5,
+     1' V = ',F10.5,' W = ',F10.5)
+ 9982 FORMAT(/,10X,3F15.9,/,10X,3F15.9,/,10X,3F15.9)
+ 9981 FORMAT(' C2 FOLLOWED BY SIGMA-H FOLLOWED BY ROTATIONS')
+ 9980 FORMAT(' SIGMA-D FOLLOWED BY C2 FOLLOWED BY ROTATIONS')
+ 9979 FORMAT(' S2N ROTATION FOLLOWED BY ROTATIONS')
+      READ(IR,9999) GROUP,NAXIS
+      IF(NPRINT.EQ.7) WRITE(IP,9999) GROUP,NAXIS
+      DO 2 I=1,19
+    2 IF(GROUP.EQ.GRP(I)) INDEX=I
+      WRITE(IW,9991) GRP(INDEX),NAXIS
+      IF(INDEX.LE.3) GO TO 200
+      IF(INDEX.EQ.11.OR.INDEX.EQ.12) GO TO 200
+C
+C     DEFINE LOCAL FRAME
+C     READ IN PRINCIPAL AXIS   ( 1 CARD )
+C     READ IN X-LOCAL AXIS   ( 1 CARD )
+C     DEFAULT OPTION : LOCAL FRAME IDENTICAL TO MASTER FRAME
+C
+      READ(IR,9997) X0,Y0,Z0,X1,Y1,Z1
+      IF(NPRINT.EQ.7) WRITE(IP,9997) X0,Y0,Z0,X1,Y1,Z1
+      RHO=DSQRT((X1-X0)**2+(Y1-Y0)**2+(Z1-Z0)**2)
+      IF(RHO.GT.TOL) GO TO 6
+      X0=ZERO
+      Y0=ZERO
+      Z0=ZERO
+      X1=ZERO
+      Y1=ZERO
+      Y2=ZERO
+      Z2=ZERO
+      Z1=ONE
+      X2=ONE
+      DIRECT=DRC(2)
+      RHO=ONE
+      GO TO 7
+    6 READ(IR,9996) X2,Y2,Z2,DIRECT
+      IF(NPRINT.EQ.7) WRITE(IP,9996) X2,Y2,Z2,DIRECT
+    7 CONTINUE
+      W1=(X1-X0)/RHO
+      W2=(Y1-Y0)/RHO
+      W3=(Z1-Z0)/RHO
+      WW=W1*W1+W2*W2+W3*W3
+      X02=X2-X0
+      Y02=Y2-Y0
+      Z02=Z2-Z0
+      RHO=(W1*X02+W2*Y02+W3*Z02)/WW
+      DUM=RHO*W1
+      X0=X0+DUM
+      X02=X02-DUM
+      DUM=RHO*W2
+      Y0=Y0+DUM
+      Y02=Y02-DUM
+      DUM=RHO*W3
+      Z0=Z0+DUM
+      Z02=Z02-DUM
+      UU=(X02*X02+Y02*Y02+Z02*Z02)
+      U=DSQRT(UU)
+      U1=X02/U
+      U2=Y02/U
+      U3=Z02/U
+      V3=W1*U2-W2*U1
+      V2=W3*U1-W1*U3
+      V1=W2*U3-W3*U2
+      IF(DIRECT.NE.DRC(1)) GO TO 8
+      DUM=U1
+      U1=V1
+      V1=-DUM
+      DUM=U2
+      U2=V2
+      V2=-DUM
+      DUM=U3
+      U3=V3
+      V3=-DUM
+    8 CONTINUE
+      IF(NPRINT.NE.1) GO TO 9
+      WRITE(IW,9990) X0,Y0,Z0,U1,V1,W1,U2,V2,W2,U3,V3,W3
+    9 CONTINUE
+      IF(INDEX.GE.13) GO TO 200
+C
+C     ROTATION ABOUT PRINCIPAL AXIS
+C
+      NN=0
+      N=NAXIS
+      ALPHA=ZERO
+      ALPH=PI2/DBLE(N)
+   10 NN=NN+1
+      IF(NN.GT.N) GO TO 20
+      COSA=DCOS(ALPHA)
+      SINA=DSIN(ALPHA)
+      I=9*(NN-1)
+      T(I+1)=COSA
+      T(I+5)=COSA
+      T(I+2)=-SINA
+      T(I+4)=SINA
+      T(I+3)=ZERO
+      T(I+6)=ZERO
+      T(I+7)=ZERO
+      T(I+8)=ZERO
+      T(I+9)=ONE
+      ALPHA=ALPHA+ALPH
+      GO TO 10
+C
+C     END OF GROUP 4
+C
+   20 NT=N
+      II=9*NT
+      IF(NPRINT.NE.1) GO TO 24
+      WRITE(IW,9989)
+      N1=1
+      N2=NAXIS
+      CALL PRINT2(N1,N2,T)
+   24 CONTINUE
+      IF(INDEX.EQ.4) GO TO 1000
+      IF(INDEX.EQ.5) GO TO 500
+      IF(INDEX.EQ.7) GO TO 115
+      IF(INDEX.NE.6.AND.INDEX.NE.9) GO TO 55
+C
+C     SIGMA-H PLANE  EQUATION (Z=0) IN LOCAL FRAME
+C
+      NN=0
+   30 NN=NN+1
+      IF(NN.GT.NT) GO TO 50
+C
+C     GROUP 6 0R 9
+C
+      I=II+9*(NN-1)
+      DO 40 J=1,8
+   40 T(I+J)=T(I+J-II)
+      T(I+9)=-T(I+9-II)
+      GO TO 30
+   50 NT=NT+NT
+      II=9*NT
+      IF(NPRINT.NE.1) GO TO 54
+      WRITE(IW,9988)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+   54 CONTINUE
+C
+C     END OF GROUP 6
+C
+      IF(INDEX.EQ.6) GO TO 1000
+C
+C     ONE CP2 AXIS IS THE X-AXIS OF THE LOCAL FRAME
+C     GROUP 8 , 9 ,10
+C
+   55 CONTINUE
+      NN=0
+   60 NN=NN+1
+      IF(NN.GT.NT) GO TO 70
+      I=II+9*(NN-1)
+      T(I+1)=T(I+1-II)
+      T(I+2)=-T(I+2-II)
+      T(I+3)=-T(I+3-II)
+      T(I+4)=T(I+4-II)
+      T(I+5)=-T(I+5-II)
+      T(I+6)=-T(I+6-II)
+      T(I+7)=T(I+7-II)
+      T(I+8)=-T(I+8-II)
+      T(I+9)=-T(I+9-II)
+      GO TO 60
+   70 NT=NT+NT
+      II=9*NT
+      IF(NPRINT.NE.1) GO TO 99
+      WRITE(IW,9987)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+      IF(INDEX.NE.9) GO TO 99
+      WRITE(IW,9981)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+   99 CONTINUE
+C
+C     END OF GROUP 8 AND 9
+C
+      IF(INDEX.EQ.8.OR.INDEX.EQ.9) GO TO 1000
+C
+C     DND GROUP . EQUATION OF PLANE SIGMA-D IS :
+C     DSIN(ALPH/4)*X-DCOS(ALPH/4)*Y=0
+C     THE X-AXIS IS THE CP2 AXIS.
+C
+C     GROUP 10
+C
+      BETA=PT5*ALPH
+      COSA=DCOS(BETA)
+      SINA=DSIN(BETA)
+      NN=0
+  100 NN=NN+1
+      IF(NN.GT.NT) GO TO 110
+      I=II+9*(NN-1)
+      T(I+1)=COSA*T(I+1-II) + SINA*T(I+2-II)
+      T(I+2)=SINA*T(I+1-II) - COSA*T(I+2-II)
+      T(I+3)=     T(I+3-II)
+      T(I+4)=COSA*T(I+4-II) + SINA*T(I+5-II)
+      T(I+5)=SINA*T(I+4-II) - COSA*T(I+5-II)
+      T(I+6)=     T(I+6-II)
+      T(I+7)=COSA*T(I+7-II) + SINA*T(I+8-II)
+      T(I+8)=SINA*T(I+7-II) - COSA*T(I+8-II)
+      T(I+9)=     T(I+9-II)
+      GO TO 100
+  110 NT=NT+NT
+      II=9*NT
+      IF(NPRINT.NE.1) GO TO 114
+      WRITE(IW,9986)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+      WRITE(IW,9980)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+  114 CONTINUE
+C
+C     END OF GROUP 10
+C
+      GO TO 1000
+C
+C     GROUP 7
+C     SIGMA-V IS THE (X-Z) PLANE OF LOCAL FRAME
+C
+  115 CONTINUE
+      NN=0
+  120 NN=NN+1
+      IF(NN.GT.NT) GO TO 130
+      I=II+9*(NN-1)
+      T(I+1)=T(I+1-II)
+      T(I+2)=-T(I+2-II)
+      T(I+3)=T(I+3-II)
+      T(I+4)=T(I+4-II)
+      T(I+5)=-T(I+5-II)
+      T(I+6)=T(I+6-II)
+      T(I+7)=T(I+7-II)
+      T(I+8)=-T(I+8-II)
+      T(I+9)=T(I+9-II)
+      GO TO 120
+  130 NT=NT+NT
+      II=9*NT
+C
+C     END OF GROUP 7
+C
+      IF(NPRINT.NE.1) GO TO 1000
+      WRITE(IW,9985)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+      GO TO 1000
+  200 CONTINUE
+      T(1)=ONE
+      T(5)=ONE
+      T(9)=ONE
+      T(2)=ZERO
+      T(3)=ZERO
+      T(4)=ZERO
+      T(6)=ZERO
+      T(7)=ZERO
+      T(8)=ZERO
+      IF(INDEX.EQ.1) GO TO 210
+      IF(INDEX.EQ.2) GO TO 250
+      IF(INDEX.EQ.3) GO TO 300
+      IF(INDEX.EQ.11.OR.INDEX.EQ.12) GO TO 400
+      IF(INDEX.GE.18) GO TO 800
+      GO TO 600
+  210 NT=1
+      X0=ZERO
+      Y0=ZERO
+      Z0=ZERO
+      U1=ONE
+      V2=ONE
+      W3=ONE
+      U2=ZERO
+      U3=ZERO
+      V1=ZERO
+      V3=ZERO
+      W1=ZERO
+      W2=ZERO
+      GO TO 1000
+C
+C     CS SYMMETRY GROUP
+C     THE 3 POINTS 1,2,3 DEFINE SIGMA-H PLANE
+C
+  250 READ(IR,9997) X1,Y1,Z1,X2,Y2,Z2
+      RHO=(X2-X1)**2+(Y2-Y1)**2+(Z2-Z1)**2
+      IF(RHO.GT.TOL) GO TO 251
+C     DEFAULT OPTION : PLANE IS THE (X,Y) PLANE
+      X1=ZERO
+      Y1=ZERO
+      Z1=ZERO
+      Y2=ZERO
+      Z2=ZERO
+      X3=ZERO
+      Z3=ZERO
+      X2=ONE
+      Y3=ONE
+      GO TO 252
+  251 READ(IR,9997) X3,Y3,Z3
+  252 CONTINUE
+      NT=2
+      W1=(Y2-Y1)*(Z3-Z1)-(Y3-Y1)*(Z2-Z1)
+      W2=(Z2-Z1)*(X3-X1)-(Z3-Z1)*(X2-X1)
+      W3=(X2-X1)*(Y3-Y1)-(X3-X1)*(Y2-Y1)
+      RHO=DSQRT(W1*W1+W2*W2+W3*W3)
+      W1=W1/RHO
+      W2=W2/RHO
+      W3=W3/RHO
+      U1=X2-X1
+      U2=Y2-Y1
+      U3=Z2-Z1
+      RHO=DSQRT(U1*U1+U2*U2+U3*U3)
+      U1=U1/RHO
+      U2=U2/RHO
+      U3=U3/RHO
+      V1=W2*U3-W3*U2
+      V2=W3*U1-W1*U3
+      V3=W1*U2-W2*U1
+      X0=X1
+      Y0=Y1
+      Z0=Z1
+      T(10)=ONE
+      T(14)=ONE
+      T(18)=-ONE
+      T(11)=ZERO
+      T(12)=ZERO
+      T(13)=ZERO
+      T(15)=ZERO
+      T(16)=ZERO
+      T(17)=ZERO
+      IF(NPRINT.NE.1) GO TO 1000
+      WRITE(IW,9983) W1,W2,W3
+      WRITE(IW,9982) U1,V1,W1,U2,V2,W2,U3,V3,W3
+      GO TO 1000
+C
+C     CI SYMMETRY GROUP
+C     CENTER OF INVERSION IS (X0,Y0,Z0)
+C
+  300 READ(IR,9997) X0,Y0,Z0
+      IF(NPRINT.EQ.3) WRITE(IW,9984) X0,Y0,Z0
+      T(10)=-ONE
+      T(14)=-ONE
+      T(18)=-ONE
+      T(11)=ZERO
+      T(12)=ZERO
+      T(13)=ZERO
+      T(15)=ZERO
+      T(16)=ZERO
+      T(17)=ZERO
+      NT=2
+      U1=ONE
+      V2=ONE
+      W3=ONE
+      U2=ZERO
+      U3=ZERO
+      V1=ZERO
+      V3=ZERO
+      W1=ZERO
+      W2=ZERO
+      GO TO 1000
+  400 WRITE(IW,9995)
+      STOP
+  500 NN=0
+      BETA=PT5*ALPH
+      COSB=DCOS(BETA)
+      SINB=DSIN(BETA)
+  510 NN=NN+1
+      IF(NN.GT.NT) GO TO 520
+C
+C     S2N GROUP
+C     THE PLANE OF SYMMETRY FOR THE IMPROPER ROTATION
+C     IS THE (X,Y) PLANE OF THE LOCAL FRAME
+C
+      I=II+9*(NN-1)
+      T(I+1)= COSB*T(I+1-II)+SINB*T(I+2-II)
+      T(I+2)=-SINB*T(I+1-II)+COSB*T(I+2-II)
+      T(I+3)=     -T(I+3-II)
+      T(I+4)= COSB*T(I+4-II)+SINB*T(I+5-II)
+      T(I+5)=-SINB*T(I+4-II)+COSB*T(I+5-II)
+      T(I+6)=     -T(I+6-II)
+      T(I+7)= COSB*T(I+7-II)+SINB*T(I+8-II)
+      T(I+8)=-SINB*T(I+7-II)+COSB*T(I+8-II)
+      T(I+9)=     -T(I+9-II)
+      GO TO 510
+  520 NT=NT+NT
+      II=9*NT
+      IF(NPRINT.NE.1) GO TO 1000
+      WRITE(IW,9979)
+      N1=N2+1
+      N2=N2+NAXIS
+      CALL PRINT2(N1,N2,T)
+      GO TO 1000
+C
+C     T GROUP AND OTHERS CONTAINING A SUBGROUP T :
+C     LOCAL X,Y,Z ARE THE C2 AXES
+C
+  600 DO 610 I=10,36
+  610 T(I)=ZERO
+      T(10)=ONE
+      T(23)=ONE
+      T(36)=ONE
+      T(14)=-ONE
+      T(18)=-ONE
+      T(19)=-ONE
+      T(27)=-ONE
+      T(28)=-ONE
+      T(32)=-ONE
+      DO 620 II=5,12
+         I=9*(II-1)
+         J=9*(II-5)
+         T(I+1)=T(J+7)
+         T(I+2)=T(J+8)
+         T(I+3)=T(J+9)
+         T(I+4)=T(J+1)
+         T(I+5)=T(J+2)
+         T(I+6)=T(J+3)
+         T(I+7)=T(J+4)
+         T(I+8)=T(J+5)
+  620 T(I+9)=T(J+6)
+      NT=12
+      IF(INDEX.EQ.13) GO TO 1000
+      IF(INDEX.EQ.14) GO TO 650
+      IF(INDEX.EQ.15) GO TO 680
+      GO TO 670
+C
+C     TH GROUP
+C     EXPAND GROUP BY TAKING DIRECT PRODUCT WITH CI
+C
+  650 I=9*NT
+      DO 660 J=1,I
+  660 T(J+I)=-T(J)
+      NT=NT+NT
+      GO TO 1000
+C
+C     OCTAHEDRAL GROUP IS DIRECT PRODUCT OF T AND A C4 ROTATION
+C     ABOUT Z AXIS
+C
+  670 SIGN=-ONE
+      GO TO 685
+C
+C     TD GROUP IS DIRECT PRODUCT OF T AND A REFLECTION IN A
+C     PLANE ( EQUATION OF THE PLANE   X=Y  )
+C
+  680 SIGN=ONE
+  685 DO 690 II=13,24
+         I=9*(II-1)
+         J=9*(II-13)
+         T(I+1)=T(J+4)*SIGN
+         T(I+2)=T(J+5)*SIGN
+         T(I+3)=T(J+6)*SIGN
+         T(I+4)=T(J+1)
+         T(I+5)=T(J+2)
+         T(I+6)=T(J+3)
+         T(I+7)=T(J+7)
+         T(I+8)=T(J+8)
+  690 T(I+9)=T(J+9)
+      NT=24
+      IF(INDEX.NE.17) GO TO 1000
+C
+C     OH GROUP IS DIRECT PRODUCT OF O AND CI
+C
+      I=9*NT
+      DO 700 J=1,I
+  700 T(J+I)=-T(J)
+      NT=48
+      GO TO 1000
+  800 CONTINUE
+C
+C     ICOSAHEDRAL GROUPS I AND IH
+C
+      DO 801 I=1,27
+  801 T(I)=ZERO
+      NT=3
+      S5=DSQRT(5.0D+00)
+      S3=DSQRT(3.0D+00)
+      SIN3=S3/2.0
+      COS3=-1./2.
+      COS5=DCOS(1.2566370614359D+00)
+      SIN5=DSIN(1.2566370614359D+00)
+      IF(DIRECT.NE.DRC(3))GO TO 880
+      SINA=SIN5
+      COSA=COS5
+      SIN5=SIN3
+      COS5=COS3
+      SIN3=SINA
+      COS3=COSA
+  880 A=0.6070619982066862231
+      B=DSQRT(1.0-A*A)
+      D(1,1)=ONE
+      D(5,1)=ONE
+      D(9,1)=ONE
+      D(1,2)=COS5
+      D(2,2)=-SIN5
+      D(4,2)=-D(2,2)
+      D(5,2)=D(1,2)
+      D(9,2)=ONE
+      D(1,3)=A*A*(1.0-COS3)+COS3
+      D(2,3)=B*SIN3
+      D(3,3)=A*B*(1.0-COS3)
+      D(4,3)=-D(2,3)
+      D(5,3)=COS3
+      D(6,3)=A*SIN3
+      D(7,3)=D(3,3)
+      D(8,3)=-D(6,3)
+      D(9,3)=B*B*(1.0-COS3)+COS3
+      KMIN=2
+  802 IN=2
+      NTOLD=NT
+  803 DO 804 I=1,9
+  804 UI(I)=D(I,IN)
+      KN=KMIN
+  805 DO 807 I=1,3
+         DO 807 K=1,3
+            SUM=0.0
+            DO 806 J=1,3
+  806       SUM=SUM+C(I,J,KN)*TI(J,K)
+  807 VI(I,K)=SUM
+      J1=1
+  808 DO 809 I=1,9
+         Q=DABS(D(I,J1)-WI(I))
+         IF(Q.GT.TOL) GO TO  810
+  809 CONTINUE
+      GO TO 813
+  810 IF(J1.EQ.NT) GO TO 811
+      J1=J1+1
+      GO TO 808
+  811 NT=NT+1
+      DO 812 I=1,9
+  812 D(I,NT)=WI(I)
+  813 KN=KN+1
+      IF(KN.LE.NT)GO TO 805
+      IN=IN+1
+      IF(IN.LE.3)GO TO 803
+      IF(NT.EQ.NTOLD) GO TO 814
+      KMIN=NTOLD+1
+      GO TO 802
+  814 CONTINUE
+      IF(INDEX.NE.19) GO TO 850
+C
+C     IH GROUP IS DIRECT PRODUCT OF I AND CI
+C
+      DO 815 I=1,540
+  815 T(540+I)=-T(I)
+      NT=120
+  850 IF(NPRINT.NE.1) GO TO 1000
+      N1=1
+      N2=NT
+      CALL PRINT2(N1,N2,T)
+C
+C     END OF ICOSAHEDRAL GROUPS
+C
+ 1000 CONTINUE
+C
+C     FIND THE INVERSE TRANSFORMATIONS
+C
+      DO 1002 ITR=1,NT
+         NN=9*(ITR-1)
+         DO 1001 IT=1,NT
+            II=9*(IT-1)
+            TEST= T(NN+1)*T(II+1)+T(NN+2)*T(II+4)+T(NN+3)*T(II+7)
+     1      +T(NN+4)*T(II+2)+T(NN+5)*T(II+5)+T(NN+6)*T(II+8)
+     1      +T(NN+7)*T(II+3)+T(NN+8)*T(II+6)+T(NN+9)*T(II+9)
+     1      -3.0D+00
+            IF(DABS(TEST).GT.TOL) GO TO 1001
+            INVT(ITR)=IT
+            GO TO 1002
+ 1001    CONTINUE
+ 1002 CONTINUE
+C
+      MGU=NT
+C
+      RETURN
+      END
+      SUBROUTINE ROT
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     CALCULATE THE COORDINATES (XP,YP,ZP) OF A POINT IN THE MASTER
+C     FRAME GIVEN THE COORDINATES (XNEW,YNEW,ZNEW) IN THE LOCAL FRAME
+C
+      COMMON/TRANSF/XOLD,YOLD,ZOLD,XNEW,YNEW,ZNEW,XP,YP,ZP
+      COMMON/FRAME/U1,U2,U3,V1,V2,V3,W1,W2,W3,X0,Y0,Z0
+      XP=X0+U1*XNEW+V1*YNEW+W1*ZNEW
+      YP=Y0+U2*XNEW+V2*YNEW+W2*ZNEW
+      ZP=Z0+U3*XNEW+V3*YNEW+W3*ZNEW
+      RETURN
+      END
+      SUBROUTINE SALC(KLASS,KTYPE,KMIN,KATOM,LOC,LOC2,LAB,CC,
+     #LAMBDA,SLAB,ISC,IPC,ICT)
+C
+C     ----- SUBROUTINE SALC PRINTS SYMMETRY ADAPTED
+C           LINEAR COMBINATIONS -----
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 CC(MXCF)
+      INTEGER KLASS(MXAT),KTYPE(MXSH),KMIN(MXSH),KATOM(MXSH)
+      INTEGER LOC(MXAT,3),LOC2(MXAT,3),LAB(MXCF),LAMBDA(MXSYM)
+      INTEGER ISC(MXSH,MXPSYM),IPC(MXSH,MXPSYM),ICT(MXAT,MXTRN)
+      INTEGER SLAB(MXSYM)
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /NSHEL/  NSHELL
+      COMMON /SALCS/  NIRRED
+      COMMON /SYMTRY/ NT
+      COMMON /IOFILE/ IR,IW
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /INFOA/  NAT
+      COMMON /PACKQ/   I1,I2,I3,I4,I5
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+C
+      DIMENSION II(30),CA(30,18),IA(3),A(10)
+C
+      DATA IA/0,1,4/
+      DATA A/3H S ,3H X ,3H Y ,3H Z ,3H XX,3H YY,3H ZZ,
+     13H XY,3H XZ,3H YZ/
+C
+      ITM=NT
+      NTSAVE=NT
+      NT=NIRRED
+      NTD=(NT+3)/4
+      WRITE(IW,502)
+  502 FORMAT('0-- SYMMETRY ADAPTED LINEAR COMBINATIONS --'/)
+      DO 300 NATOM=1,NAT
+         DO 10 IT=1,ITM
+            IF(ICT(NATOM,IT).GT.NATOM) GO TO 300
+   10    CONTINUE
+         ICLASS=KLASS(NATOM)
+         DO 20 I=1,NAT
+   20    II(I)=0
+         DO 30 IT=1,ITM
+            JCEN=ICT(NATOM,IT)
+   30    II(JCEN)=1
+         NP=0
+         DO 200 KT=1,3
+            NP=NP+KT
+            DO 32 I=1,NSHELL
+               J=KATOM(I)
+               IF(J.NE.NATOM) GO TO 32
+               IF(KTYPE(I).EQ.KT) GO TO 35
+               IF(KT.EQ.1.AND.KTYPE(I).EQ.2.AND.KMIN(I).EQ.1) GO TO 34
+   32       CONTINUE
+            GO TO 200
+   34       CONTINUE
+            DO 334 IQ=1,NTD
+               INDOUT(IQ)=ISC(I,IQ)
+  334       CONTINUE
+            GO TO 36
+   35       CONTINUE
+            DO 335 IQ=1,NTD
+               INDOUT(IQ)=IPC(I,IQ)
+  335       CONTINUE
+C
+   36       CALL ISOOUT
+            ID=IA(KT)
+            KA=LOC(ICLASS,KT)
+            KAA=KA
+            KB=LOC2(ICLASS,KT)
+   25       I5=LAB(KA+1)
+            CALL UNPAK
+            IRP=I3
+            IPA=I2+INDIN(IRP)-1
+   40       LL=LAMBDA(IRP)
+            MAX=NP*LL
+            DO 50 I=1,MAX
+   50       CA(NATOM,I)=CC(KA+I)
+            DO 100 JCEN=1,NAT
+               IF(II(JCEN).EQ.0) GO TO 100
+               IF(JCEN.EQ.NATOM) GO TO 100
+               JCLASS=KLASS(JCEN)
+               KC=LOC(JCLASS,KT)+KA-KAA
+               DO 70 I=1,MAX
+   70          CA(JCEN,I)=CC(KC+I)
+  100       CONTINUE
+            K=0
+            DO 140 L=1,LL
+               WRITE(IW,500) IPA,SLAB(IRP),L
+               DO 120 N=1,NAT
+                  IF(II(N).EQ.0) GO TO 120
+                  WRITE(IW,501) (CA(N,K+I),A(ID+I),N,I=1,NP)
+  120          CONTINUE
+  140       K=K+NP
+  500       FORMAT(/ ' PSI(',I2,A4,',',I1,')=')
+  501       FORMAT(12X,7(F10.6,A3,I2))
+            KA=KA+MAX
+            IF(KA.LT.KB) GO TO 25
+  200    CONTINUE
+  300 CONTINUE
+      NT=NTSAVE
+      RETURN
+      END
+      SUBROUTINE SHMIDT(N)
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON/SCHMDT/ A(18,18),DD(18)
+C
+      DATA TOL/1.0D-10/
+      DATA ZERO / 0.0D+00 /
+    1 FORMAT(2X,' D (FIRST TIME)= ',D20.10)
+    2 FORMAT(2X,' D (SECOND TIME)= ',D20.10)
+      D=ZERO
+CCCCC WRITE(IOUT,*) ' INSIDE SHMIDT '
+C     CALL MATOUT(A,18,18,N,N,IOUT)
+      DO 10 I=1,N
+C     WRITE(IOUT,1)D
+   10 D=D+A(I,1)**2
+C     IF(D .LT. TOL) GO TO 20
+      D=DSQRT(D)
+      IF(D.LT.TOL) GO TO 20
+      DO 15 I=1,N
+   15 A(I,1)=A(I,1)/D
+   20 DD(1)=D
+      IF(N.EQ.1) RETURN
+      DO 100 J=2,N
+         KMAX=J-1
+         DO 30 K=1,KMAX
+            DUM=ZERO
+            DO 25 L=1,N
+   25       DUM=DUM+A(L,J)*A(L,K)
+            DO 30 I=1,N
+   30    A(I,J)=A(I,J)-DUM*A(I,K)
+         D=ZERO
+         DO 40 I=1,N
+         IF (DABS(A(I,J)).LT. TOL ) A(I,J)=ZERO
+   40    D=D+A(I,J)**2
+C     IF(D .LT. TOL) GO TO 90
+         D=DSQRT(D)
+         IF(D.LT.TOL) GO TO 90
+         DO 50 I=1,N
+   50    A(I,J)=A(I,J)/D
+   90    DD(J)=D
+  100 CONTINUE
+      RETURN
+      END
+      SUBROUTINE START(A,IA,MAXCOR)
+C
+C     ----- BEGINNING OF RUN -----
+C     1. READ IN BASIS SET + OPTIONS
+C
+      IMPLICIT INTEGER(A-Z)
+C
+C
+      INTEGER IA(MAXCOR)
+      REAL*8   A(1)
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /PSIZE/  MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU,MNSFU,MPRU,MCXU,
+     #MCCU,MBLU
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQW,NX,NE,NA,NB
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+C
+C     ----- ALLOCATE CORE FOR MOLE -----
+C
+      ZAN=1
+      C=ZAN+MXAT
+      EX=C+3*MXAT
+      CSPD=EX+MXPR
+      KSTART=WPADTI(CSPD+MXPR*3)
+      KATOM=KSTART+MXSH
+      KTYPE=KATOM+MXSH
+      KNG=KTYPE+MXSH
+      KLOC=KNG+MXSH
+      KMIN=KLOC+MXSH
+      KMAX=KMIN+MXSH
+      NEWSH=KMAX+MXSH
+      TITLE=NEWSH+MXSH*MXTRN
+      T=IADTWP(TITLE+20)
+      INVT=WPADTI(T+MXT)
+      ISO=INVT+MXTRN
+      ICT=ISO+MXSH*MXISO
+      NS=ICT+MXAT*MXTRN
+      KS=NS+MXAT
+      LBLAT=KS+MXAT
+      CSINP=IADTWP(LBLAT+2*MXAT)
+      NEED=WPADTI(CSINP+MXPR*3)
+CTEMP
+      WRITE(IOUT,546) NEED,MAXCOR
+  546 FORMAT(//,' NEDD=',I12,'   MAXCOR=',I12,//)
+CEND
+C
+      IF (NEED.GT.MAXCOR) STOP ' NOT ENOUGH CORE FOR MOLE'
+C
+      NTOZER=NEED-WPADTI(ZAN)+1
+      CALL IZERO(A(WPADTI(ZAN)),NTOZER)
+C
+      CALL MOLE( A(ZAN), A(C), A(EX), A(CSPD),IA(KSTART),IA(KATOM),
+     #IA(KTYPE),IA(KNG),IA(KLOC),IA(KMIN),IA(KMAX),IA(NEWSH),
+     #IA(TITLE), A(T),IA(INVT),IA(ISO),IA(ICT),IA(NS),IA(KS),
+     #IA(LBLAT), A(CSINP))
+C
+      LFBCOM=14+(NUM+1)*NUM*2
+      CALL INTR(A(C))
+C
+C     ----- GENERATE SYMMETRY ADAPTED BASIS FUNCTIONS -----
+C
+      PTR=IADTWP(NEED)
+      DTR=PTR+3*3*MXTRN
+      ISC=WPADTI(DTR+6*6*MXTRN)
+      IPC=ISC+MXSH*MXPSYM
+      SB=IPC+MXSH*MXPSYM
+      CC=IADTWP(SB+MXSYM)
+      LAB=WPADTI(CC+MXCF)
+      LOC1=LAB+MXCF
+      LOC2=LOC1+MXAT*3
+      KLASS=LOC2+MXAT*3
+      LAMBDA=KLASS+MXAT
+      IADDR=LAMBDA+MXSYM
+      IPA=IADDR+MXSYM
+      GEN1=IADTWP(IPA+MXSYM)
+      GEN2=GEN1+MXSYM*3*3
+      GEN3=GEN2+MXSYM*3*3
+      GAM=GEN3+MXSYM*3*3
+      TRACEP=GAM+MXTRN**2
+      TRACED=TRACEP+MXTRN
+      CHARR=TRACED+MXTRN
+      NEED=WPADTI(CHARR+MXTRN*MXSYM)
+C
+      IF (NEED.GT.MAXCOR) STOP '  NOT ENOUGH CORE FOR SYMORB'
+C
+      NTOZER=NEED-WPADTI(PTR)+1
+      CALL IZERO(IA(WPADTI(PTR)),NTOZER)
+C
+C
+      CALL SYMORB( A(T),IA(INVT),IA(ISO), A(PTR), A(DTR),IA(KATOM),
+     #IA(KTYPE),IA(ISC),IA(IPC),IA(SB), A(CC),IA(LAB),
+     #IA(LOC1),IA(LOC2),IA(KLASS),IA(LAMBDA),IA(IADDR),
+     #IA(IPA), A(GEN1), A(GEN2), A(GEN3),IA(KMIN),
+     #IA(ICT), A(GAM), A(TRACEP), A(TRACED), A(CHARR))
+C
+C
+C
+C
+      WRITE (IW,85) MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU
+   85 FORMAT(//,'    MSU:',I5,/,' KAORDS:',I5,/,' MCONSU:',I5,/,
+     #'  MGCSU:',I5,/,'   MSTU:',I5,/,'    MRU:',I5,/,
+     #'   MCSU:',I5,/,'   MCTU:',I5,/,'  MCONU:',I5,/,
+     #'    MCU:',I5,/,'   MSFU:',I5,/,'    MGU:',I5,/,
+     #'  MSFRU:',I5,///)
+C
+C     ----- WRITE OUT HONDO ARRAYS TO FILE 10 -----
+C
+C     ----- SET UP ADDRESSES FOR REAL VARIABLES IN INTEGER ARRAYS
+C           THE SEL-87 REQUIRES USE OF INTEGER ARRAYS FOR WORD-
+C           ADDRESSABLE RANDOM ACCESS I/O
+C
+      RZAN=WPADTI(ZAN)
+      RC=WPADTI(C)
+      REX=WPADTI(EX)
+      RCSPD=WPADTI(CSPD)
+      RCC=WPADTI(CC)
+      RT=WPADTI(T)
+      RPTR=WPADTI(PTR)
+      RDTR=WPADTI(DTR)
+C
+      MXPRD=INTOWP(MXPR)
+C
+      CALL OUT(IA(RZAN),IA(RC),IA(ICT),IA(NS),IA(KS),IA(REX),IA(RCSPD),
+     #IA(KSTART),IA(KATOM),IA(KTYPE),IA(KNG),IA(KLOC),IA(KMIN),
+     #IA(KMAX),IA(ISC),IA(IPC),IA(RCC),IA(LAB),IA(LOC1),
+     #IA(LOC2),IA(KLASS),IA(LAMBDA),IA(IADDR),IA(IPA),IA(RT),
+     #IA(INVT),IA(ISO),IA(TITLE),IA(LBLAT),IA(SB),IA(RPTR),IA(RDTR),
+     #MXPRD)
+C
+      RETURN
+      END
+      SUBROUTINE SYMBOL(S,IGROUP,NAXIS)
+      IMPLICIT INTEGER (A-Z)
+C
+C
+      DIMENSION S(14)
+CIBM  DATA BLANK/4H    /
+C
+      DATA A,AP,APP,A1,A2,AG,AU,A1P,A2P,A1PP,A2PP,A1G,A2G,A1U,A2U
+     1/4HA   ,4HA'  ,4HA"  ,4HA1  ,4HA2  ,4HAG  ,4HAU  ,4HA1' ,4HA2'
+     2,4HA1" ,4HA2" ,4HA1G ,4HA2G ,4HA1U ,4HA2U /
+C
+      DATA B,BG,BU,B1,B2,B3,B1G,B2G,B3G,B1U,B2U,B3U
+     1/4HB   ,4HBG  ,4HBU  ,4HB1  ,4HB2  ,4HB3  ,4HB1G ,4HB2G ,4HB3G
+     2,4HB1U ,4HB2U ,4HB3U /
+C
+      DATA E,E1,E2,E3,EG,EU,EP,EPP,E1P,E2P,E1PP,E2PP,E1G,E2G,E1U,E2U
+     1,E4,E5,E3G,E3U
+     2/4HE   ,4HE1  ,4HE2  ,4HE3  ,4HEG  ,4HEU  ,4HE'  ,4HE"  ,4HE1'
+     3,4HE2' ,4HE1" ,4HE2" ,4HE1G ,4HE2G ,4HE1U ,4HE2U ,4HE4  ,4HE5
+     4,4HE3G ,4HE3U /
+C
+      DATA F,FG,FU,F1,F2,F1G,F1U,F2G,F2U,G,H,GG,GU,HG,HU/4HF   ,
+     14HFG  ,4HFU  ,4HF1  ,4HF2  ,4HF1G ,4HF1U ,4HF2G ,4HF2U ,
+     24HG   ,4HH   ,4HGG  ,4HGU  ,4HHG  ,4HHU  /
+      IF(IGROUP.GE.13)GO TO 2000
+      GO TO (100,200,300,400,500,600,700,800,900,1000),IGROUP
+C
+C     -- C1 -
+C
+  100 S(1)=A
+      GO TO 5000
+C
+C     -- CS -
+C
+  200 S(1)=AP
+      S(2)=APP
+      GO TO 5000
+C
+C     -- CI -
+C
+  300 S(1)=AG
+      S(2)=AU
+      GO TO 5000
+C
+C     -- CN -
+C
+  400 S(1)=A
+      GO TO (100,420,430,440,450,460,470,480),NAXIS
+  420 S(2)=B
+      GO TO 5000
+  430 S(2)=E
+      GO TO 5000
+  440 S(2)=B
+      S(3)=E
+      GO TO 5000
+  450 S(2)=E1
+      S(3)=E2
+      GO TO 5000
+  460 S(2)=B
+      S(3)=E1
+      S(4)=E2
+      GO TO 5000
+  470 S(2)=E1
+      S(3)=E2
+      S(4)=E3
+      GO TO 5000
+  480 S(2)=B
+      S(3)=E1
+      S(4)=E2
+      S(5)=E3
+      GO TO 5000
+C
+C     -- S2N -
+C
+  500 S(1)=A
+      GO TO (300,520,530,540),NAXIS
+  520 S(2)=B
+      S(3)=E
+      GO TO 5000
+  530 S(1)=AG
+      S(2)=AU
+      S(3)=EG
+      S(4)=EU
+      GO TO 5000
+  540 S(2)=B
+      S(3)=E1
+      S(4)=E2
+      S(5)=E3
+      GO TO 5000
+C
+C     -- CNH -
+C
+  600 GO TO (200,620,630,640,650,660),NAXIS
+  620 S(1)=AG
+      S(2)=BG
+      S(3)=AU
+      S(4)=BU
+      GO TO 5000
+  630 S(1)=AP
+      S(2)=APP
+      S(3)=EP
+      S(4)=EPP
+      GO TO 5000
+  640 S(1)=AG
+      S(2)=BG
+      S(3)=AU
+      S(4)=BU
+      S(5)=EG
+      S(6)=EU
+      GO TO 5000
+  650 S(1)=AP
+      S(2)=APP
+      S(3)=E1P
+      S(4)=E2P
+      S(5)=E1PP
+      S(6)=E2PP
+      GO TO 5000
+  660 S(1)=AG
+      S(2)=BG
+      S(3)=AU
+      S(4)=BU
+      S(5)=E1G
+      S(6)=E2G
+      S(7)=E1U
+      S(8)=E2U
+      GO TO 5000
+C
+C     -- CNV -
+C
+  700 S(1)=A1
+      S(2)=A2
+      GO TO (200,720,730,740,750,760),NAXIS
+  720 S(3)=B1
+      S(4)=B2
+      GO TO 5000
+  730 S(3)=E
+      GO TO 5000
+  740 S(3)=B1
+      S(4)=B2
+      S(5)=E
+      GO TO 5000
+  750 S(3)=E1
+      S(4)=E2
+      GO TO 5000
+  760 S(3)=B1
+      S(4)=B2
+      S(5)=E1
+      S(6)=E2
+      GO TO 5000
+C
+C     -- DN -
+C
+  800 S(1)=A1
+      S(2)=A2
+      GO TO (420,820,830,840,850,860),NAXIS
+  820 S(2)=B1
+      S(3)=B2
+      S(4)=B3
+      GO TO 5000
+  830 S(3)=E
+      GO TO 5000
+  840 S(3)=B1
+      S(4)=B2
+      S(5)=E
+      GO TO 5000
+  850 S(3)=E1
+      S(4)=E2
+      GO TO 5000
+  860 S(3)=B1
+      S(4)=B2
+      S(5)=E1
+      S(6)=E2
+      GO TO 5000
+C
+C     -- DNH -
+C
+  900 GO TO (720,920,930,940,950,960,970,980),NAXIS
+  920 S(1)=AG
+      S(2)=B1G
+      S(3)=B2G
+      S(4)=B3G
+      S(5)=AU
+      S(6)=B1U
+      S(7)=B2U
+      S(8)=B3U
+      GO TO 5000
+  930 S(1)=A1P
+      S(2)=A2P
+      S(3)=A1PP
+      S(4)=A2PP
+      S(5)=EP
+      S(6)=EPP
+      GO TO 5000
+  940 S(1)=A1G
+      S(2)=A2G
+      S(3)=B1G
+      S(4)=B2G
+      S(5)=A1U
+      S(6)=A2U
+      S(7)=B1U
+      S(8)=B2U
+      S(9)=EG
+      S(10)=EU
+      GO TO 5000
+  950 S(1)=A1P
+      S(2)=A2P
+      S(3)=A1PP
+      S(4)=A2PP
+      S(5)=E1P
+      S(6)=E2P
+      S(7)=E1PP
+      S(8)=E2PP
+      GO TO 5000
+  960 S(1)=A1G
+      S(2)=A2G
+      S(3)=B1G
+      S(4)=B2G
+      S(5)=A1U
+      S(6)=A2U
+      S(7)=B1U
+      S(8)=B2U
+      S(9)=E1G
+      S(10)=E2G
+      S(11)=E1U
+      S(12)=E2U
+      GO TO 5000
+  970 STOP
+  980 S(1)=A1G
+      S(2)=A2G
+      S(3)=B1G
+      S(4)=B2G
+      S(5)=A1U
+      S(6)=A2U
+      S(7)=B1U
+      S(8)=B2U
+      S(9)=E1G
+      S(10)=E2G
+      S(11)=E3G
+      S(12)=E1U
+      S(13)=E2U
+      S(14)=E3U
+      GO TO 5000
+C
+C     -- DND -
+C
+ 1000 GO TO (620,1020,1030,1040,1050,1060),NAXIS
+ 1020 S(1)=A1
+      S(2)=A2
+      S(3)=B1
+      S(4)=B2
+      S(5)=E
+      GO TO 5000
+ 1030 S(1)=A1G
+      S(2)=A2G
+      S(3)=A1U
+      S(4)=A2U
+      S(5)=EG
+      S(6)=EU
+      GO TO 5000
+ 1040 S(1)=A1
+      S(2)=A2
+      S(3)=B1
+      S(4)=B2
+      S(5)=E1
+      S(6)=E2
+      S(7)=E3
+      GO TO 5000
+ 1050 S(1)=A1G
+      S(2)=A2G
+      S(3)=A1U
+      S(4)=A2U
+      S(5)=E1G
+      S(6)=E2G
+      S(7)=E1U
+      S(8)=E2U
+      GO TO 5000
+ 1060 S(1)=A1
+      S(2)=A2
+      S(3)=B1
+      S(4)=B2
+      S(5)=E1
+      S(6)=E2
+      S(7)=E3
+      S(8)=E4
+      S(9)=E5
+      GO TO 5000
+ 2000 NDEX=IGROUP-12
+      GO TO (2100,2200,2300,2400,2500,2600,2700)NDEX
+C
+C
+C   ---  TETRAHEDRAL GROUPS  ---
+C
+C        --- T ---
+C
+ 2100 S(1)=A
+      S(2)=E
+      S(3)=F
+      GO TO 5000
+C
+C       --- TH ---
+C
+ 2200 S(1)=AG
+      S(2)=EG
+      S(3)=FG
+      S(4)=AU
+      S(5)=EU
+      S(6)=FU
+      GO TO 5000
+C
+C       --- TD ---
+C
+ 2300 S(1)=A1
+      S(2)=A2
+      S(3)=E
+      S(4)=F1
+      S(5)=F2
+      GO TO 5000
+C
+C
+C   ---  OCTAHEDRAL GROUPS  ---
+C
+C       --- O ---
+ 2400 S(1)=A1
+      S(2)=A2
+      S(3)=E
+      S(4)=F1
+      S(5)=F2
+      GO TO 5000
+C
+C       --- OH ---
+C
+ 2500 S(1)=A1G
+      S(2)=A2G
+      S(3)=EG
+      S(4)=F1G
+      S(5)=F2G
+      S(6)=A1U
+      S(7)=A2U
+      S(8)=EU
+      S(9)=F1U
+      S(10)=F2U
+      GO TO 5000
+C
+C
+C   ---  ICOSAHEDRAL GROUPS  ---
+C
+C       --- I ---
+ 2600 S(1)=A
+      S(2)=F1
+      S(3)=F2
+      S(4)=G
+      S(5)=H
+      GO TO 5000
+C
+C       --- IH ---
+ 2700 S(1)=AG
+      S(2)=F1G
+      S(3)=F2G
+      S(4)=GG
+      S(5)=HG
+      S(6)=AU
+      S(7)=F1U
+      S(8)=F2U
+      S(9)=GU
+      S(10)=HU
+ 5000 CONTINUE
+      RETURN
+      END
+      SUBROUTINE SYMORB(T,INVT,ISO,PTR,DTR,KATOM,KTYPE,ISC,IPC,
+     #SB,CC,LAB,LOC1,LOC2,KLASS,LAMBDA,IADDR,
+     #IPA,GEN1,GEN2,GEN3,KMIN,ICT,GAM,TRACEP,
+     #TRACED,CHARR)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 T(MXT),CC(MXCF),PTR(3,3,MXTRN)
+      REAL*8 DTR(6,6,MXTRN),GEN1(MXSYM,3,3),GEN2(MXSYM,3,3)
+      REAL*8 GEN3(MXSYM,3,3),GAM(MXTRN,MXTRN)
+      REAL*8 TRACEP(MXTRN),TRACED(MXTRN),CHARR(MXTRN,MXSYM)
+      INTEGER INVT(MXTRN),ISO(MXSH,MXISO),KATOM(MXSH),KTYPE(MXSH)
+      INTEGER ISC(MXSH,MXPSYM),IPC(MXSH,MXPSYM),LAB(MXCF)
+      INTEGER KLASS(MXAT),LAMBDA(MXSYM),IADDR(MXSYM),IPA(MXSYM)
+      INTEGER LOC1(MXAT,3),LOC2(MXAT,3),KMIN(MXSH),ICT(MXAT,MXTRN)
+      INTEGER SB(MXSYM)
+      LOGICAL NODD
+C
+      COMMON /MAXDIM/ MXAT,MXTRN,MXPR,MXSH,MXSYM,MXCF,MXT,MXISO,
+     #MXPSYM
+      COMMON /PSIZE/  MSU,KAORDS,MCONSU,MGCSU,MSTU,MRU,MCSU,MCTU,
+     #MCONU,MCU,MSFU,MGU,MSFRU,MNSFU,MPRU,MCXU,
+     #MCCU,MBLU
+      COMMON /SCHMDT/ P(18,18),PNORM(18)
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /SYMTRY/ NT
+      COMMON /SMORB/  GRP,IGROUP,NAXIS
+      COMMON /NSHEL/  NSHELL
+      COMMON /INFOA/  NAT,ICH,MUL,NUM,NQW,NX,NE,NA,NB
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+      COMMON /SALCS/  NIRR
+      COMMON /CIPAS/  NIRRED
+      COMMON /OUTPUT/ NPRINT
+C
+      DIMENSION MUD(5),NUD(5),FF(4),JUD(5),NIR(5),NKL(10,5)
+      DIMENSION NGNRTR(19)
+      DATA MUD/5,19,15,6,30/,NUD/1,1,2,2,2/,FF/1.,1.,-1.,-1./
+C
+      DATA JUD/1,5,6,15,39/,NIR/3,6,5,5,10/
+      DATA NKL/1,2,3,7*0,1,2,3,1,2,3,4*0,1,1,2,3,3,5*0,1,1,2,3,3,5*0,
+     11,1,2,3,3,1,1,2,3,3/
+      DATA ZERO,ONE,TWO/0.0D+00,1.0D+00,2.0D+00/
+      DATA PIX2/6.2831853071796D+00/
+      DATA NGNRTR/4*1,4*2,2*3,9*0/
+      DATA BLANK/8H          /
+ 9999 FORMAT(1H1,20X,'THE POINT GROUP IS NO.',I2,', ',A3,', N=',
+     1I2,', ORDER=',I2//' -- GENERATORS OF THE GROUP AND',
+     2' IRREDUCIBLE REPRESENTATIONS --'//
+     3' REPRESENTATION',3(A10,'GENERATOR',I2,4X))
+ 9998 FORMAT(I5,1X,A4,3(15X,F10.6))
+ 9997 FORMAT(/I5,1X,A4,10X,2F10.6/20X,2F10.6)
+ 9996 FORMAT(/I5,1X,A4,10X,2F10.6,5X,2F10.6/20X,2F10.6,5X,2F10.6)
+ 9995 FORMAT(/I5,1X,A4,5X,3(5X,2F10.6)/15X,3(5X,2F10.6))
+ 9994 FORMAT(4(/),5X,5(A10,'R',I2,12X))
+ 9993 FORMAT(1X,A4,5(F15.6,10X))
+ 9992 FORMAT(/1X,A4,5(2F10.6,5X))
+ 7772 FORMAT(/1X,A4,3(3F12.8,3X))
+ 7771 FORMAT(5X,3(3F12.8,3X))
+ 9991 FORMAT(5X,5(2F10.6,5X))
+C
+C     CALCULATE TRANSFORMATION MATRICES PTR AND DTR
+C
+      CALL TRMAT6(PTR,DTR,t)
+      N=NAXIS
+      IF(IGROUP.GT.10)GO TO 5
+      IF(N.NE.0) THETA=PIX2/DBLE(N)
+      NODD=.TRUE.
+      IF(N.EQ.2*(N/2)) NODD=.FALSE.
+      GEN1(1,1,1)=ONE
+      LAMBDA(1)=1
+      NGEN=NGNRTR(IGROUP)
+      GEN2(1,1,1)=ONE
+      GEN1(2,1,1)=ONE
+      GEN2(2,1,1)=-ONE
+      LAMBDA(2)=1
+    5 CONTINUE
+C***  IF(IGROUP.GT.17) CALL ABORT(8,
+C*** 161HSUBROUTINE SYMORB--CURRENTLY DOES NOT HANDLE THIS POINT GROUP)
+      CALL SYMBOL(SB,IGROUP,NAXIS)
+      GO TO (10,20,20,40,50,60,70,70,80,90,6,6,6,6,6,6,6),IGROUP
+    6 GO TO 600
+C
+C     -- C1 --
+C
+   10 IADDR(1)=0
+      IPA(1)=NUM
+      NIRR=1
+      LAMBDA(1)=1
+CIBM  SB(1)=BLANK
+      NIRRED=1
+      KB=1
+      GO TO 200
+C     GO TO 9000
+C
+C     -- CS,CI --
+C
+   20 NIRRED=2
+      GEN1(2,1,1)=-ONE
+      KB=2
+      GO TO 200
+C
+C     -- CN --
+C
+   40 IF(N.EQ.1) GO TO 10
+      IF(NODD) GO TO 45
+      GEN1(2,1,1)=-ONE
+      NIRRED=N/2+1
+      KB=2
+      IF(N-2) 170,200,170
+   45 KB=1
+      NIRRED=(N+1)/2
+      GO TO 170
+C
+C     -- S2N --
+C
+   50 IF(N.EQ.1) GO TO 20
+      NIRRED=N+1
+      KB=2
+      MAXK=NIRRED-KB
+      DO 55 KK=1,MAXK
+         K=KK+KB
+         ARG=DBLE(KK)*THETA/TWO
+         GEN2(K,1,1)=DCOS(ARG)
+         GEN2(K,2,2)=DCOS(ARG)
+         DUM=DSIN(ARG)
+         GEN2(K,1,2)=-DUM
+         GEN2(K,2,1)=DUM
+   55 CONTINUE
+      GO TO 170
+C
+C     -- CNH --
+C
+   60 IF(N.EQ.1) GO TO 20
+      IF(NODD) GO TO 62
+C***************  CHANGED BY TJL TO COTTON ORDERING *******************
+      GEN2(2,1,1)=-ONE
+      GEN1(2,1,1)=-ONE
+      GEN2(4,1,1)=ONE
+      GEN1(3,1,1)=ONE
+      GEN1(4,1,1)=-ONE
+      GEN2(3,1,1)=-ONE
+      LAMBDA(3)=1
+      LAMBDA(4)=1
+      NIRRED=N+2
+      KB=4
+      IF(N-2) 150,200,150
+   62 KB=2
+      NIRRED=N+1
+      GO TO 150
+C
+C     -- CNV,DN --
+C
+   70 IF(NODD) GO TO 72
+      GEN1(3,1,1)=-ONE
+      GEN1(4,1,1)=-ONE
+      GEN2(4,1,1)=-ONE
+      GEN2(3,1,1)=ONE
+      LAMBDA(3)=1
+      LAMBDA(4)=1
+      NIRRED=N/2+3
+      KB=4
+      IF(N-2) 160,200,160
+   72 KB=2
+      NIRRED=(N+3)/2
+      GO TO 160
+C
+C     -- DNH --
+C
+   80 GEN3(1,1,1)=ONE
+      GEN3(2,1,1)=-ONE
+      GEN2(2,1,1)=ONE
+      LAMBDA(3)=1
+      LAMBDA(4)=1
+      GEN2(3,1,1)=-ONE
+      GEN2(4,1,1)=-ONE
+      IF(NODD) GO TO 82
+      GEN3(3,1,1)=-ONE
+      GEN3(4,1,1)=ONE
+      GEN3(5,1,1)=ONE
+      GEN3(6,1,1)=-ONE
+      GEN3(7,1,1)=-ONE
+      GEN3(8,1,1)=ONE
+      LAMBDA(5)=1
+      LAMBDA(6)=1
+      LAMBDA(7)=1
+      LAMBDA(8)=1
+      GEN2(5,1,1)=-ONE
+      GEN2(7,1,1)=ONE
+      GEN2(6,1,1)=-ONE
+      GEN2(8,1,1)=ONE
+      GEN1(3,1,1)=-ONE
+      GEN1(4,1,1)=-ONE
+      GEN1(7,1,1)=-ONE
+      GEN1(8,1,1)=-ONE
+      GEN1(5,1,1)=ONE
+      GEN1(6,1,1)=ONE
+      NIRRED=N+6
+      KB=8
+      IF(N-2) 84,200,84
+   82 GEN3(3,1,1)=-ONE
+      GEN3(4,1,1)=-ONE
+      GEN1(3,1,1)=ONE
+      GEN1(4,1,1)=ONE
+      NIRRED=N+3
+      KB=4
+   84 MAXK=NIRRED-KB
+      DO 86 KK=1,MAXK
+         K=KK+KB
+         GEN3(K,1,1)=ONE
+         GEN3(K,2,2)=-ONE
+         GEN3(K,1,2)=ZERO
+         GEN3(K,2,1)=ZERO
+   86 CONTINUE
+      GO TO 150
+C
+C     -- DND --
+C
+   90 NIRRED=N+3
+      KB=4
+      GEN3(1,1,1)=ONE
+      GEN3(2,1,1)=ONE
+      GEN3(3,1,1)=-ONE
+      GEN3(4,1,1)=-ONE
+      LAMBDA(3)=1
+      LAMBDA(4)=1
+      GEN1(3,1,1)=ONE
+      GEN1(4,1,1)=ONE
+      GEN2(3,1,1)=ONE
+      GEN2(4,1,1)=-ONE
+      MAXK=NIRRED-KB
+      DO 92 KK=1,MAXK
+         K=KK+KB
+         ARG=DBLE(KK)*THETA/TWO
+         DUM=DCOS(ARG)
+         GEN3(K,1,1)=DUM
+         GEN3(K,2,2)=-DUM
+         GEN3(K,1,2)=DSIN(ARG)
+         GEN3(K,2,1)=DSIN(ARG)
+   92 CONTINUE
+      GO TO 160
+  150 MAXK=NIRRED-KB
+      DO 155 KK=1,MAXK
+         K=KK+KB
+         LAMBDA(K)=2
+         M=(KK+1)/2
+         ARG=DBLE(M)*THETA
+         GEN1(K,1,1)=DCOS(ARG)
+         GEN1(K,2,2)=DCOS(ARG)
+         DUM=DSIN(ARG)
+         GEN1(K,1,2)=-DUM
+         GEN1(K,2,1)=DUM
+  155 CONTINUE
+      S=ONE
+      DO 157 KK=1,MAXK
+         S=-S
+         K=KK+KB
+         GEN2(K,1,1)=S
+         GEN2(K,2,2)=S
+         GEN2(K,1,2)=ZERO
+         GEN2(K,2,1)=ZERO
+  157 CONTINUE
+      GO TO 200
+  160 MAXK=NIRRED-KB
+      DO 165 KK=1,MAXK
+         K=KK+KB
+         GEN2(K,1,1)=ONE
+         GEN2(K,2,2)=-ONE
+         GEN2(K,1,2)=ZERO
+         GEN2(K,2,1)=ZERO
+  165 CONTINUE
+      IF(IGROUP.EQ.9) GO TO 200
+  170 MAXK=NIRRED-KB
+      DO 175 KK=1,MAXK
+         K=KK+KB
+         LAMBDA(K)=2
+         ARG=DBLE(KK)*THETA
+         GEN1(K,1,1)=DCOS(ARG)
+         GEN1(K,2,2)=DCOS(ARG)
+         DUM=DSIN(ARG)
+         GEN1(K,1,2)=-DUM
+         GEN1(K,2,1)=DUM
+  175 CONTINUE
+  200 IB=0
+      DO 250 IRP=1,NIRRED
+         LL=LAMBDA(IRP)
+         DO 210 I=1,LL
+            K1=IB+LL*(I-1)
+            DO 205 J=1,LL
+  205       GAM(1,K1+J)=ZERO
+  210    GAM(1,K1+I)=ONE
+         NMAX=NAXIS
+         IF (IGROUP.EQ.1) NMAX=1
+         IF(IGROUP.EQ.2) NMAX=2
+         IF(IGROUP.EQ.3) NMAX=2
+         DO 220 N=2,NMAX
+            DO 220 I=1,LL
+               K1=IB+LL*(I-1)
+               DO 220 J=1,LL
+                  DUM=ZERO
+                  DO 215 K=1,LL
+  215             DUM=DUM+GAM(N-1,K1+K)*GEN1(IRP,K,J)
+                  GAM(N,K1+J)=DUM
+  220    CONTINUE
+         IF(NGEN.EQ.1) GO TO 250
+         DO 230 N=1,NMAX
+            DO 230 I=1,LL
+               K1=IB+LL*(I-1)
+               DO 230 J=1,LL
+                  DUM=ZERO
+                  DO 225 K=1,LL
+  225             DUM=DUM+GAM(N,K1+K)*GEN2(IRP,K,J)
+                  GAM(NMAX+N,K1+J)=DUM
+  230    CONTINUE
+         IF(NGEN.EQ.2) GO TO 250
+         NMAX=NMAX+NMAX
+         DO 240 N=1,NMAX
+            DO 240 I=1,LL
+               K1=IB+LL*(I-1)
+               DO 240 J=1,LL
+                  DUM=ZERO
+                  DO 235 K=1,LL
+  235             DUM=DUM+GAM(N,K1+K)*GEN3(IRP,K,J)
+                  GAM(NMAX+N,K1+J)=DUM
+  240    CONTINUE
+  250 IB=IB+LL*LL
+      IF (NPRINT.NE.1) GO TO 461
+      WRITE(IW,9999) IGROUP,GRP,NAXIS,NT,(BLANK,I,I=1,NGEN)
+      DO 340 IRP=1,KB
+         GO TO (310,320,330),NGEN
+  310    WRITE(IW,9998) IRP,SB(IRP),GEN1(IRP,1,1)
+         GO TO 340
+  320    WRITE(IW,9998) IRP,SB(IRP),GEN1(IRP,1,1),GEN2(IRP,1,1)
+         GO TO 340
+  330    WRITE(IW,9998)IRP,SB(IRP),GEN1(IRP,1,1),GEN2(IRP,1,1)
+     1   ,GEN3(IRP,1,1)
+  340 CONTINUE
+      IF(KB.EQ.NIRRED) GO TO 410
+      MIN=KB+1
+      DO 400 IRP=MIN,NIRRED
+         GO TO (350,360,370),NGEN
+  350    WRITE(IW,9997)IRP,SB(IRP),((GEN1(IRP,I,J),J=1,2),I=1,2)
+         GO TO 400
+  360    WRITE(IW,9996)IRP,SB(IRP),((GEN1(IRP,I,J),J=1,2),(GEN2(IRP,I,J)
+     *   ,J=1,2),I=1,2)
+         GO TO 400
+  370    WRITE(IW,9995)IRP,SB(IRP),((GEN1(IRP,I,J),J=1,2),(GEN2(IRP,I,J)
+     *   ,J=1,2),(GEN3(IRP,I,J),J=1,2),I=1,2)
+  400 CONTINUE
+      GO TO 410
+  600 CONTINUE
+      DO 605 I=1,NT
+  605 GAM(I,1)=ONE
+      INDEXG=IGROUP-12
+      IF(INDEXG.GT.5)GO TO 800
+      MX=0
+      NXX=MUD(INDEXG)
+      DO 615 I=1,NT
+         DO 610 J=1,9
+  610    GAM(I,NXX+J)=T(MX+J)
+  615 MX=MX+9
+      CEE=-1./2.
+      ESS=DSQRT(3.0D+00)/2.0D+00
+      MX=0
+      NXX=NUD(INDEXG)
+      DO 620 I=1,4
+         GAM(I,NXX+1)=1.
+         GAM(I,NXX+2)=0.
+         GAM(I,NXX+3)=0.
+  620 GAM(I,NXX+4)=1.
+      DO 625 I=5,8
+         GAM(I,NXX+1)=CEE
+         GAM(I,NXX+2)=-ESS
+         GAM(I,NXX+3)=ESS
+  625 GAM(I,NXX+4)=CEE
+      DO 630 I=9,12
+         GAM(I,NXX+1)=CEE
+         GAM(I,NXX+2)=ESS
+         GAM(I,NXX+3)=-ESS
+  630 GAM(I,NXX+4)=CEE
+      GO TO (750,660,650,650,650) INDEXG
+  650 DO 655 I=13,24
+         DO 655 J=1,4
+  655 GAM(I,NXX+J)=GAM(I-12,NXX+J)*FF(J)
+      IF(INDEXG.LT.5) GO TO 680
+  660 CONTINUE
+      IB=NT/2+1
+      IE=NT/2
+      MX=15
+      IF(INDEXG.EQ.5)MX=26
+      DO 665 I=IB,NT
+         DO 665 J=1,4
+  665 GAM(I,NXX+J)=GAM(I-IB,NXX+J)
+      DO 670 I=1,IE
+         DO 670 J=1,4
+  670 GAM(I,MX+J)=GAM(I,NXX+J)
+      DO 675 I=IB,NT
+         DO 675 J=1,4
+  675 GAM(I,MX+J)=-GAM(I,NXX+J)
+  680 LX=2
+      IF(INDEXG.EQ.2)LX=15
+      DO 690 I=1,12
+         GAM(I,LX)=1.
+  690 GAM(I+12,LX)=-1.
+      IF(INDEXG.LT.5) GO TO 700
+      DO 695 I=1,24
+         GAM(I+24,2)=GAM(I,2)
+         GAM(I,25)=1.
+         GAM(I+24,25)=-1.
+         GAM(I,26)=GAM(I,2)
+  695 GAM(I+24,26)=-GAM(I,2)
+  700 IF(INDEXG.EQ.2)GO TO 730
+      IX=JUD(INDEXG)
+      JX=MUD(INDEXG)
+      DO 705 I=1,12
+         DO 705 J=1,9
+            GAM(I,IX+J)=GAM(I,JX+J)
+  705 GAM(I+12,IX+J)=-GAM(I+12,JX+J)
+      IF(INDEXG.LT.5) GO TO 750
+      DO 710 I=1,24
+         DO 710 J=1,9
+            GAM(I+24,39+J)=-GAM(I,39+J)
+            GAM(I,6+J)=GAM(I,30+J)
+            GAM(I,15+J)=GAM(I,39+J)
+            GAM(I+24,6+J)=GAM(I,30+J)
+  710 GAM(I+24,15+J)=GAM(I,39+J)
+      GO TO 750
+  730 DO 735 I=1,12
+         DO 735 J=1,9
+            GAM(I,5+J)=GAM(I,19+J)
+  735 GAM(I+12,5+J)=GAM(I,19+J)
+  750 CONTINUE
+      NIRRED=NIR(INDEXG)
+      DO 760 I=1,NIRRED
+  760 LAMBDA(I)=NKL(I,INDEXG)
+  800 CONTINUE
+C
+C
+  410 CONTINUE
+      MAX=0
+  420 MIN=MAX+1
+      MAX=MAX+3
+      IF(MAX.GT.NT) MAX=NT
+      WRITE(IW,9994) (BLANK,M,M=MIN,MAX)
+      IB=0
+      DO 460 IRP=1,NIRRED
+         LL=LAMBDA(IRP)
+         GO TO (430,440,450),LL
+  430    WRITE(IW,9993) SB(IRP),(GAM(M,IB+1),M=MIN,MAX)
+         GO TO 460
+  440    WRITE(IW,9992) SB(IRP),(GAM(M,IB+1),GAM(M,IB+2),M=MIN,MAX)
+         WRITE(IW,9991) (GAM(M,IB+3),GAM(M,IB+4),M=MIN,MAX)
+         GO TO 460
+  450    WRITE(IW,7772)SB(IRP),(GAM(M,IB+1),GAM(M,IB+2),GAM(M,IB+3),
+     1   M=MIN,MAX)
+         WRITE(IW,7771)(GAM(M,IB+4),GAM(M,IB+5),GAM(M,IB+6),M=MIN,MAX)
+         WRITE(IW,7771)(GAM(M,IB+7),GAM(M,IB+8),GAM(M,IB+9),M=MIN,MAX)
+  460 IB=IB+LL*LL
+      IF(MAX.LT.NT) GO TO 420
+C
+C     GET CHARACTERS OF IRREDUCIBLE REPRESENTATIONS.
+C
+  461 CONTINUE
+      L=0
+      DO 465 I=1,NSHELL
+         J=KATOM(I)
+         IF(J.EQ.L) GO TO 465
+         L=J
+         DO 463 IT=1,15
+  463    INDOUT(IT)=ISO(I,IT)
+         CALL ISOOUT
+         DO 464 IT=1,NT
+            K=INDIN(IT)
+  464    ICT(J,IT)=KATOM(K)
+  465 CONTINUE
+      DO 490 IT=1,NT
+         IB=0
+         DO 480 IRP=1,NIRRED
+            LL=LAMBDA(IRP)
+            DUM=ZERO
+            DO 470 L=1,LL
+  470       DUM=DUM+GAM(IT,IB+LL*(L-1)+L)
+            CHARR(IT,IRP)=DUM
+  480    IB=IB+LL*LL
+  490 CONTINUE
+C
+C     CALCULATE TRACE OF PTR AND DTR FOR EACH OPERATION.
+C
+      DO 495 IT=1,NT
+         TRACEP(IT)=PTR(1,1,IT)+PTR(2,2,IT)+PTR(3,3,IT)
+         TRACED(IT)=DTR(1,1,IT)+DTR(2,2,IT)+DTR(3,3,IT)+DTR(4,4,IT)+
+     #   DTR(5,5,IT)+DTR(6,6,IT)
+  495 CONTINUE
+C
+      MSTU=NIRRED
+C
+      CALL CIPA(PTR,DTR,KATOM,KTYPE,ISC,IPC,CC,LAB,LOC1,LOC2,
+     #KLASS,LAMBDA,IPA,KMIN,SB,IADDR,ISO,ICT,GAM,
+     #TRACEP,TRACED,CHARR)
+C
+C
+C
+ 9000 CONTINUE
+      RETURN
+      END
+      SUBROUTINE TRMAT6(PTR,DTR,t)
+C
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 PTR(3,1),DTR(6,1),t(*)
+C
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV
+      COMMON /INOUT/  IOUT,ICHECK,ITAP30
+      COMMON /OUTPUT/ NPRINT,NGEOM,NORMF,NORMP
+      COMMON /SYMTRY/ NT
+      COMMON /TRANSF/ XSMAL,YSMAL,ZSMAL,XNEW,YNEW,ZNEW,XP,YP,ZP
+      COMMON /FRAME/  U1,U2,U3,V1,V2,V3,W1,W2,W3,X0,Y0,Z0
+C
+      DIMENSION PNAME(3),DNAME(6)
+C
+      DATA PNAME /4HX   ,4HY   ,4HZ   /
+      DATA DNAME /4HXX  ,4HYY  ,4HZZ  ,4HXY  ,4HXZ  ,4HYZ  /
+      DATA DSQRT3 /1.73205080756888D+00/
+      DATA ONE /1.0D+00/
+C
+ 8869 FORMAT(//)
+ 8863 FORMAT(/,' TRANSFORMATION OF THE BASIS FUNCTIONS',/)
+ 8862 FORMAT(8X,10(3X,A4,3X))
+ 8861 FORMAT(2X,A4,2X,10F10.6)
+ 8860 FORMAT(1H1)
+ 8858 FORMAT(/,21X,'TRANSFORMATION NUMBER',I4,/)
+ 8855 FORMAT(/)
+C
+C     ----- CALCULATE TRANSFORMS OF P AND D FUNCTIONS
+C           FOR ALL SYMETRY OPERATIONS.
+C
+      X=X0+ONE
+      Y=Y0
+      Z=Z0
+      CALL LOCAL(X,Y,Z,XS,YS,ZS)
+      XSMAL=XS
+      YSMAL=YS
+      ZSMAL=ZS
+      DO 1760 IT=1,NT
+         NN=9*(IT-1)
+         CALL TRANS(NN,T)
+         CALL ROT
+         N=3*(IT-1)
+         PTR(1,N+1)=XP-X0
+         PTR(2,N+1)=YP-Y0
+         PTR(3,N+1)=ZP-Z0
+ 1760 CONTINUE
+      X=X0
+      Y=Y0+ONE
+      Z=Z0
+      CALL LOCAL(X,Y,Z,XS,YS,ZS)
+      XSMAL=XS
+      YSMAL=YS
+      ZSMAL=ZS
+      DO 1770 IT=1,NT
+         NN=9*(IT-1)
+         CALL TRANS(NN,t)
+         CALL ROT
+         N=3*(IT-1)
+         PTR(1,N+2)=XP-X0
+         PTR(2,N+2)=YP-Y0
+         PTR(3,N+2)=ZP-Z0
+ 1770 CONTINUE
+      X=X0
+      Y=Y0
+      Z=Z0+ONE
+      CALL LOCAL(X,Y,Z,XS,YS,ZS)
+      XSMAL=XS
+      YSMAL=YS
+      ZSMAL=ZS
+      DO 1780 IT=1,NT
+         NN=9*(IT-1)
+         CALL TRANS(NN,t)
+         CALL ROT
+         N=3*(IT-1)
+         PTR(1,N+3)=XP-X0
+         PTR(2,N+3)=YP-Y0
+         PTR(3,N+3)=ZP-Z0
+ 1780 CONTINUE
+      DO 1820 IT=1,NT
+         NP=3*(IT-1)
+         ND=6*(IT-1)
+         DO 1788 I=1,6
+            GO TO (1781,1782,1783,1784,1785,1786) ,I
+ 1781       J=1
+            K=1
+            GO TO 1787
+ 1782       J=2
+            K=2
+            GO TO 1787
+ 1783       J=3
+            K=3
+            GO TO 1787
+ 1784       J=1
+            K=2
+            GO TO 1787
+ 1785       J=1
+            K=3
+            GO TO 1787
+ 1786       J=2
+            K=3
+ 1787       DTR(1,ND+I)=PTR(1,NP+J)*PTR(1,NP+K)
+            DTR(2,ND+I)=PTR(2,NP+J)*PTR(2,NP+K)
+            DTR(3,ND+I)=PTR(3,NP+J)*PTR(3,NP+K)
+            DTR(4,ND+I)=PTR(1,NP+J)*PTR(2,NP+K)
+     1      +PTR(2,NP+J)*PTR(1,NP+K)
+            DTR(5,ND+I)=PTR(1,NP+J)*PTR(3,NP+K)
+     1      +PTR(3,NP+J)*PTR(1,NP+K)
+            DTR(6,ND+I)=PTR(2,NP+J)*PTR(3,NP+K)
+     1      +PTR(3,NP+J)*PTR(2,NP+K)
+ 1788    CONTINUE
+ 1820 CONTINUE
+      IF(NORMF.EQ.1.AND.NORMP.EQ.1) GO TO 1831
+      DO 1830 IT=1,NT
+         ND=6*(IT-1)
+         DO 1822 I=1,6
+            IF(I.GT.3) GO TO 1821
+            DTR(4,ND+I)=DTR(4,ND+I)/DSQRT3
+            DTR(5,ND+I)=DTR(5,ND+I)/DSQRT3
+            DTR(6,ND+I)=DTR(6,ND+I)/DSQRT3
+            GO TO 1822
+ 1821       DTR(1,ND+I)=DTR(1,ND+I)*DSQRT3
+            DTR(2,ND+I)=DTR(2,ND+I)*DSQRT3
+            DTR(3,ND+I)=DTR(3,ND+I)*DSQRT3
+ 1822    CONTINUE
+ 1830 CONTINUE
+ 1831 CONTINUE
+C
+C     ----- PRINT MATRICES IF NPRINT.EQ.5 -----
+C
+      IF(NPRINT.NE.5) GO TO 2500
+      WRITE(IW,8863)
+      DO 2155 IT=1,NT
+         WRITE(IW,8860)
+         WRITE(IW,8858) IT
+         NP=3*(IT-1)
+         WRITE(IW,8862) (PNAME(J),J=1,3)
+         WRITE(IW,8855)
+         DO 2150 I=1,3
+ 2150    WRITE(IW,8861) PNAME(I),(PTR(I,NP+J),J=1,3)
+         WRITE(IW,8869)
+         ND=6*(IT-1)
+         WRITE(IW,8862) (DNAME(J),J=1,6)
+         WRITE(IW,8855)
+         DO 2151 I=1,6
+ 2151    WRITE(IW,8861) DNAME(I),(DTR(I,ND+J),J=1,6)
+         WRITE(IW,8869)
+ 2155 CONTINUE
+ 2500 CONTINUE
+      RETURN
+      END

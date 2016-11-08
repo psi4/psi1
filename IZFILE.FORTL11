@@ -1,0 +1,8 @@
+      SUBROUTINE IZFILE(unit,nint)
+      implicit integer (a-z)
+      common /iobuff/ buff(1024)
+      do 101 i = 1, nint/1024
+ 101    call swrit(unit,buff,1024)
+      call swrit(unit,buff,nint - (nint/1024)*1024)
+      return
+      END

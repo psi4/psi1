@@ -1,0 +1,34 @@
+************************************************************************************************************************            
+ tstart called:                                                                                                                     
+ Timing turned off.                                                                                                                 
+ SR MATRIX FOR COORDINATE    1 WRITTEN ON FILE   92 AT LOCATION        1                                                            
+ X  MATRIX FOR COORDINATE    1 WRITTEN ON FILE   92 AT LOCATION      163                                                            
+ SR MATRIX FOR COORDINATE    2 WRITTEN ON FILE   92 AT LOCATION      325                                                            
+ X  MATRIX FOR COORDINATE    2 WRITTEN ON FILE   92 AT LOCATION      487                                                            
+ SR MATRIX FOR COORDINATE    3 WRITTEN ON FILE   92 AT LOCATION      649                                                            
+ X  MATRIX FOR COORDINATE    3 WRITTEN ON FILE   92 AT LOCATION      811                                                            
+ X  MATRIX FOR COORDINATE    1 READ FROM  FILE   92 AT LOCATION      163                                                            
+ X  MATRIX FOR COORDINATE    2 READ FROM  FILE   92 AT LOCATION      487                                                            
+ X  MATRIX FOR COORDINATE    1 WRITTEN ON FILE   91 AT LOCATION      163                                                            
+ X  MATRIX FOR COORDINATE    3 READ FROM  FILE   92 AT LOCATION      811                                                            
+ X  MATRIX FOR COORDINATE    2 WRITTEN ON FILE   91 AT LOCATION      487                                                            
+ X  MATRIX FOR COORDINATE    1 READ FROM  FILE   92 AT LOCATION      163                                                            
+ X  MATRIX FOR COORDINATE    2 READ FROM  FILE   92 AT LOCATION      487                                                            
+ X  MATRIX FOR COORDINATE    3 WRITTEN ON FILE   91 AT LOCATION      811                                                            
+ SR MATRIX FOR COORDINATE    1 READ FROM  FILE   92 AT LOCATION        1                                                            
+ SR MATRIX FOR COORDINATE    2 READ FROM  FILE   92 AT LOCATION      325                                                            
+ SR MATRIX FOR COORDINATE    1 WRITTEN ON FILE   91 AT LOCATION        1                                                            
+ SR MATRIX FOR COORDINATE    3 READ FROM  FILE   92 AT LOCATION      649                                                            
+ SR MATRIX FOR COORDINATE    2 WRITTEN ON FILE   91 AT LOCATION      325                                                            
+ SR MATRIX FOR COORDINATE    1 READ FROM  FILE   92 AT LOCATION        1                                                            
+ SR MATRIX FOR COORDINATE    2 READ FROM  FILE   92 AT LOCATION      325                                                            
+ SR MATRIX FOR COORDINATE    3 WRITTEN ON FILE   91 AT LOCATION      649                                                            
+ SR MATRIX FOR COORDINATE    1 READ FROM  FILE   91 AT LOCATION        1                                                            
+ SR MATRIX FOR COORDINATE    2 READ FROM  FILE   91 AT LOCATION      325                                                            
+ SR MATRIX FOR COORDINATE    3 READ FROM  FILE   91 AT LOCATION      649                                                            
+ tstop called:                                                                                                                      
+ Timing turned off.                                                                                                                 
+ Elapsed total time =           0 seconds                                                                                           
+ Elapsed user time =   0.000000000E+00 seconds                                                                                      
+ Elapsed system time = 0.000000000E+00 seconds                                                                                      
+************************************************************************************************************************            

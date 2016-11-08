@@ -1,0 +1,3 @@
+/* */
+arg fn ft fm
+copy fn ft fm '(replace recfm f lrecl 80'

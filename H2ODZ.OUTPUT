@@ -1,0 +1,1171 @@
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+   THE DERIVATIVE PROGRAM
+ 
+ 
+ 
+   CLSCF     SCF       SECOND            
+ 
+   H2O DZ LMO TEST CASE                                                            
+ 
+   NUCLEAR REPULSION ENERGY:        9.2342186558
+                 SCF ENERGY:      -76.0110023991
+ 
+ 
+         NUCLEAR CONTRIBUTION TO FIRST DERIVATIVES           
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000      2.749686759653
+ 
+    2      0.000000000000     -2.170094059480     -1.374843379827
+ 
+    3      0.000000000000      2.170094059480     -1.374843379827
+ 
+ 
+         NUCLEAR CONTRIBUTION TO SECOND DERIVATIVES          
+ 
+                         1                             2                             3
+ 
+               X         Y         Z         X         Y         Z         X         Y         Z
+ 
+    1X     -2.753564  0.000000  0.000000  1.376782  0.000000  0.000000  1.376782  0.000000  0.000000
+ 
+    1Y      0.000000  2.958482  0.000000  0.000000 -1.479241 -1.907746  0.000000 -1.479241  1.907746
+ 
+    1Z      0.000000  0.000000 -0.204919  0.000000 -1.907746  0.102459  0.000000  1.907746  0.102459
+ 
+    2X      1.376782  0.000000  0.000000 -1.414195  0.000000  0.000000  0.037413  0.000000  0.000000
+ 
+    2Y      0.000000 -1.479241 -1.907746  0.000000  1.554067  1.907746  0.000000 -0.074826  0.000000
+ 
+    2Z      0.000000 -1.907746  0.102459  0.000000  1.907746 -0.139872  0.000000  0.000000  0.037413
+ 
+    3X      1.376782  0.000000  0.000000  0.037413  0.000000  0.000000 -1.414195  0.000000  0.000000
+ 
+    3Y      0.000000 -1.479241  1.907746  0.000000 -0.074826  0.000000  0.000000  1.554067 -1.907746
+ 
+    3Z      0.000000  1.907746  0.102459  0.000000  0.000000  0.037413  0.000000 -1.907746 -0.139872
+ 
+ 
+         ONE-ELECTRON CONTRIBUTION TO FIRST DERIVATIVES      
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000     -6.045888679054
+ 
+    2      0.000000000000      4.561712440672      3.022944339526
+ 
+    3      0.000000000000     -4.561712440672      3.022944339526
+ 
+ 
+         ONE-ELECTRON CONTRIBUTION TO SECOND DERIVATIVES     
+ 
+                         1                             2                             3
+ 
+               X         Y         Z         X         Y         Z         X         Y         Z
+ 
+    1X      8.042061  0.000000  0.000000 -4.021030  0.000000  0.000000 -4.021030  0.000000  0.000000
+ 
+    1Y      0.000000 -1.678149  0.000000  0.000000  0.839074  3.241766  0.000000  0.839074 -3.241766
+ 
+    1Z      0.000000  0.000000  3.987720  0.000000  3.143915 -1.993860  0.000000 -3.143915 -1.993860
+ 
+    2X     -4.021030  0.000000  0.000000  3.974523  0.000000  0.000000  0.046508  0.000000  0.000000
+ 
+    2Y      0.000000  0.839074  3.143915  0.000000 -0.702842 -3.192840  0.000000 -0.136232  0.048925
+ 
+    2Z      0.000000  3.241766 -1.993860  0.000000 -3.192840  1.921674  0.000000 -0.048925  0.072185
+ 
+    3X     -4.021030  0.000000  0.000000  0.046508  0.000000  0.000000  3.974523  0.000000  0.000000
+ 
+    3Y      0.000000  0.839074 -3.143915  0.000000 -0.136232 -0.048925  0.000000 -0.702842  3.192840
+ 
+    3Z      0.000000 -3.241766 -1.993860  0.000000  0.048925  0.072185  0.000000  3.192840  1.921674
+ 
+ 
+         OVERLAP CONTRIBUTION TO FIRST DERIVATIVES           
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000      0.378940797331
+ 
+    2      0.000000000000     -0.249263745872     -0.189470398665
+ 
+    3      0.000000000000      0.249263745872     -0.189470398665
+ 
+ 
+         OVERLAP CONTRIBUTION TO SECOND DERIVATIVES          
+ 
+                         1                             2                             3
+ 
+               X         Y         Z         X         Y         Z         X         Y         Z
+ 
+    1X     -0.606176  0.000000  0.000000  0.303088  0.000000  0.000000  0.303088  0.000000  0.000000
+ 
+    1Y      0.000000 -0.196752  0.000000  0.000000  0.098376 -0.137737  0.000000  0.098376  0.137737
+ 
+    1Z      0.000000  0.000000 -0.420838  0.000000 -0.137737  0.210419  0.000000  0.137737  0.210419
+ 
+    2X      0.303088  0.000000  0.000000 -0.290739  0.000000  0.000000 -0.012350  0.000000  0.000000
+ 
+    2Y      0.000000  0.098376 -0.137737  0.000000 -0.119682  0.137737  0.000000  0.021307  0.000000
+ 
+    2Z      0.000000 -0.137737  0.210419  0.000000  0.137737 -0.198069  0.000000  0.000000 -0.012350
+ 
+    3X      0.303088  0.000000  0.000000 -0.012350  0.000000  0.000000 -0.290739  0.000000  0.000000
+ 
+    3Y      0.000000  0.098376  0.137737  0.000000  0.021307  0.000000  0.000000 -0.119682 -0.137737
+ 
+    3Z      0.000000  0.137737  0.210419  0.000000  0.000000 -0.012350  0.000000 -0.137737 -0.198069
+ 
+ 
+         TWO-ELECTRON CONTRIBUTION TO FIRST DERIVATIVES      
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000      2.917261101680
+ 
+    2      0.000000000000     -2.142354674095     -1.458630550840
+ 
+    3      0.000000000000      2.142354674095     -1.458630550840
+ 
+ 
+         TWO-ELECTRON CONTRIBUTION TO SECOND DERIVATIVES     
+ 
+                         1                             2                             3
+ 
+               X         Y         Z         X         Y         Z         X         Y         Z
+ 
+    1X     -4.706901  0.000000  0.000000  2.353450  0.000000  0.000000  2.353450  0.000000  0.000000
+ 
+    1Y      0.000000 -0.662772  0.000000  0.000000  0.331386 -1.307956  0.000000  0.331386  1.307956
+ 
+    1Z      0.000000  0.000000 -3.034576  0.000000 -1.317656  1.517288  0.000000  1.317656  1.517288
+ 
+    2X      2.353450  0.000000  0.000000 -2.302921  0.000000  0.000000 -0.050530  0.000000  0.000000
+ 
+    2Y      0.000000  0.331386 -1.317656  0.000000 -0.452433  1.312806  0.000000  0.121047  0.004850
+ 
+    2Z      0.000000 -1.307956  1.517288  0.000000  1.312806 -1.456718  0.000000 -0.004850 -0.060570
+ 
+    3X      2.353450  0.000000  0.000000 -0.050530  0.000000  0.000000 -2.302921  0.000000  0.000000
+ 
+    3Y      0.000000  0.331386  1.317656  0.000000  0.121047 -0.004850  0.000000 -0.452433 -1.312806
+ 
+    3Z      0.000000  1.307956  1.517288  0.000000  0.004850 -0.060570  0.000000 -1.312806 -1.456718
+ 
+ 
+         -----TOTAL SCF FIRST DERIVATIVES-----               
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000     -0.000000020390
+ 
+    2      0.000000000000     -0.000000038774      0.000000010194
+ 
+    3      0.000000000000      0.000000038774      0.000000010194
+ 
+ 
+         -----TOTAL SCF SECOND DERIVATIVES (AO PART)-----    
+ 
+                         1                             2                             3
+ 
+               X         Y         Z         X         Y         Z         X         Y         Z
+ 
+    1X     -0.024580  0.000000  0.000000  0.012290  0.000000  0.000000  0.012290  0.000000  0.000000
+ 
+    1Y      0.000000  0.420810  0.000000  0.000000 -0.210405 -0.111673  0.000000 -0.210405  0.111673
+ 
+    1Z      0.000000  0.000000  0.327387  0.000000 -0.219224 -0.163694  0.000000  0.219224 -0.163694
+ 
+    2X      0.012290  0.000000  0.000000 -0.033331  0.000000  0.000000  0.021041  0.000000  0.000000
+ 
+    2Y      0.000000 -0.210405 -0.219224  0.000000  0.279110  0.165448  0.000000 -0.068704  0.053775
+ 
+    2Z      0.000000 -0.111673 -0.163694  0.000000  0.165448  0.127014  0.000000 -0.053775  0.036679
+ 
+    3X      0.012290  0.000000  0.000000  0.021041  0.000000  0.000000 -0.033331  0.000000  0.000000
+ 
+    3Y      0.000000 -0.210405  0.219224  0.000000 -0.068704 -0.053775  0.000000  0.279110 -0.165448
+ 
+    3Z      0.000000  0.111673 -0.163694  0.000000  0.053775  0.036679  0.000000 -0.165448  0.127014
+ tstop called:
+ Timing turned off.      
+ Elapsed total time =           0 seconds
+ Elapsed user time =   0.000000000E+00 seconds
+ Elapsed system time = 0.000000000E+00 seconds
+************************************************************************************************************************
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+ 
+                    ********************************************************************************************
+                    *                                                                                          *
+                    *                       INPUT PROGRAM FOR HFS PROGRAMS (HONDO-LIKE)                        *
+                    *                                                                                          *
+                    *                                   KING-DUPUIS-RYS-SAXE                                   *
+                    *                                                                                          *
+                    *     H2O DZ LMO TEST CASE                                                                 *
+                    *                                                                                          *
+                    ********************************************************************************************
+ 
+ 
+ TIME LIMIT   (NOT IN EFFECT)                =  20000.000
+ OUTPUT OPTION                               =     0
+ OPTION TO PRESERVE M.O. COEFFICIENTS        =     0
+ OPTION FOR NORMALIZATION OF BASIS FUNCTIONS =     0
+ OPTION FOR UNNORMALIZATION OF PRIMATIVES    =     0
+ 
+ THE POINT GROUP OF THE MOLECULE IS ...CNV     
+ THE ORDER OF THE PRINCIPAL AXIS IS ...    2
+ 
+                    ********************
+ 
+                    MOLECULAR BASIS SET
+ 
+                    ********************
+ 
+ THE CONTRACTED PRIMITIVE FUNCTIONS HAVE BEEN UNNORMALIZED
+ THE CONTRACTED BASIS FUNCTIONS ARE NOW NORMALIZED TO UNITY
+ 
+ 
+             * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ 
+                ATOM   ATOMIC                COORDINATES                 NUMBER OF
+                       CHARGE       X             Y              Z       SHELLS
+ 
+             * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ 
+           * OXYGEN      8.0   0.0000000      0.0000000      0.0000000       6          *
+                                                                              S   S   S
+                                                                              S   P   P
+ 
+           * HYDROGEN    1.0   0.0000000      1.4949590      0.9985921       2          *
+                                                                              S   S
+ 
+           * HYDROGEN    1.0   0.0000000     -1.4949590      0.9985921       2          *
+                                                                              S   S
+ 
+           ******************************************************************************
+ 
+         CONTRACTED PRIMITIVE FUNCTIONS
+ 
+       ATOM       SHELL TYPE PRIM      EXPONENTS            CONTRACTION COEFFICIENTS
+ 
+    OXYGEN  
+ 
+ 
+                    1    S     1     7816.540000       1.203318  (    0.002031  )
+                    1    S     2     1175.820000       2.209022  (    0.015436  )
+                    1    S     3      273.188000       3.532983  (    0.073771  )
+                    1    S     4       81.169600       4.772170  (    0.247606  )
+                    1    S     5       27.183600       5.191252  (    0.611832  )
+                    1    S     6        3.413600       0.431723  (    0.241205  )
+ 
+ 
+                    2    S     7        9.532200       3.866384  (    1.000000  )
+ 
+ 
+                    3    S     8        0.939800       0.680278  (    1.000000  )
+ 
+ 
+                    4    S     9        0.284600       0.277707  (    1.000000  )
+ 
+ 
+                    5    P    10       35.183200       2.391506  (    0.019580  )
+                    5    P    11        7.904000       2.346019  (    0.124189  )
+                    5    P    12        2.305100       1.598081  (    0.394727  )
+                    5    P    13        0.717100       0.590122  (    0.627375  )
+ 
+ 
+                    6    P    14        0.213700       0.207107  (    1.000000  )
+ 
+    HYDROGEN
+ 
+ 
+                    9    S    15       19.240600       0.214941  (    0.032828  )
+                    9    S    16        2.899200       0.366119  (    0.231208  )
+                    9    S    17        0.653400       0.423296  (    0.817238  )
+ 
+ 
+                   10    S    18        0.177600       0.194981  (    1.000000  )
+ 
+ TOTAL NUMBER OF SHELLS              =   10
+ TOTAL NUMBER OF BASIS FUNCTIONS     =   14
+ NUMBER OF ELECTRONS                 =   10
+ CHARGE OF MOLECULE                  =    0
+ STATE MULTIPLICITY                  =    0
+ NUMBER OF OCCUPIED ORBITALS (ALPHA) =    4
+ NUMBER OF OCCUPIED ORBITALS (BETA ) =    5
+ TOTAL NUMBER OF ATOMS               =    3
+ 
+ 
+ 
+          INTERNUCLEAR DISTANCES (BOHRS)
+          ------------------------------
+       
+ 
+             1              2              3
+       
+    1      0.0000000      1.7978010      1.7978010
+    2      1.7978010      0.0000000      2.9899180
+    3      1.7978010      2.9899180      0.0000000
+ 
+ 
+ 
+          INTERNUCLEAR DISTANCES (ANGSTROMS)
+          ----------------------------------
+       
+ 
+             1              2              3
+       
+    1      0.0000000      0.9513551      0.9513551
+    2      0.9513551      0.0000000      1.5821960
+    3      0.9513551      1.5821960      0.0000000
+ 
+ 
+ 
+          INTERNUCLEAR ANGLES  (DEGREES)
+          ------------------------------
+ 
+     I   J   K    ANGLE      J   I   K    ANGLE      I   K   J    ANGLE   
+ 
+     1   2   3    33.742     2   1   3   112.516     1   3   2    33.742
+ 
+ 
+ 
+          INTERNUCLEAR ANGLES  (RADIANS)
+          ------------------------------
+ 
+     I   J   K    ANGLE      J   I   K    ANGLE      I   K   J    ANGLE   
+ 
+     1   2   3  0.588906     2   1   3  1.963780     1   3   2  0.588906
+ 
+ 
+ 
+ 
+ 
+    MSU:    2
+ KAORDS:    3
+ MCONSU:    8
+  MGCSU:    3
+   MSTU:    4
+    MRU:    3
+   MCSU:    3
+   MCTU:    3
+  MCONU:    6
+    MCU:    2
+   MSFU:    8
+    MGU:    4
+  MSFRU:   14
+ 
+ 
+ 
+0AFB151I VDIOS : 100 RECORDS OF LENGTH 4096 FORMATTED ON FILE FT30F001.
+         VDIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM RFILE AT ISN 16 (OFFSET 0002DA).
+ 
+ 
+ TAPE30 USED     1508 WORDS OR     2 SECTORS
+ tstop called:
+ Timing turned off.      
+ Elapsed total time =           0 seconds
+ Elapsed user time =   0.000000000E+00 seconds
+ Elapsed system time = 0.000000000E+00 seconds
+************************************************************************************************************************
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+0AFB151I VDIOS : 100 RECORDS OF LENGTH 4096 FORMATTED ON FILE FT34F001.
+         VDIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM RFILE AT ISN 16 (OFFSET 0002DA).
+ 
+             THIS PROGRAM COMPUTES INTEGRALS OVER SYMMETRY ORBITALS.
+              THE ATOMIC ORBITALS ARE CONTRACTED GAUSSIAN ORBITALS.
+              THE POINT GROUPS ARE LIMITED TO D2H AND ITS SUBGROUPS.
+ 
+                                   R. M. PITZER
+                                  H. F. SCHAEFER
+ 
+ 
+ 
+ INTEGRAL LABEL:   H2O DZ LMO TEST CASE                                                            
+ 
+ 
+ 
+ NUCLEAR REPULSION ENERGY       9.234218655808
+ 
+ 
+ IRREDUCIBLE REPRESENTATION   1       2       3       4
+ DEGENERACY                   1       1       1       1
+ LABEL                       A1      A2      B1      B2 
+ 
+ 
+         **********************
+         **  OXYGEN   ATOMS  **
+         **********************
+ 
+ NUCLEAR CHARGE   8.00
+ 
+ CENTER            X               Y               Z
+   1             0.00000000      0.00000000      0.00000000
+ 
+ 
+          1S ORBITALS
+ ORBITAL EXPONENTS          7816.540       1175.820       273.1880       81.16960       27.18360       3.413600    
+ CONTRACTION COEFFICIENTS  2.0309982E-03  1.5435986E-02  7.3770933E-02  0.2476058      0.6118314      0.2412048    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   1A1  1
+    1    1S   1.0000
+ 
+ 
+          1S ORBITALS
+ ORBITAL EXPONENTS          9.532200    
+ CONTRACTION COEFFICIENTS   1.000000    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   2A1  1
+    1    1S   1.0000
+ 
+ 
+          1S ORBITALS
+ ORBITAL EXPONENTS         0.9398000    
+ CONTRACTION COEFFICIENTS   1.000000    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   3A1  1
+    1    1S   1.0000
+ 
+ 
+          1S ORBITALS
+ ORBITAL EXPONENTS         0.2846000    
+ CONTRACTION COEFFICIENTS   1.000000    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   4A1  1
+    1    1S   1.0000
+ 
+ 
+          2P ORBITALS
+ ORBITAL EXPONENTS          35.18320       7.904000       2.305100      0.7171000    
+ CONTRACTION COEFFICIENTS  1.9579983E-02  0.1241889      0.3947266      0.6273744    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   5A1  1  1B1  1  1B2  1
+    1     X   0.0000  1.0000  0.0000
+    1     Y   0.0000  0.0000  1.0000
+    1     Z   1.0000  0.0000  0.0000
+ 
+ 
+          2P ORBITALS
+ ORBITAL EXPONENTS         0.2137000    
+ CONTRACTION COEFFICIENTS   1.000000    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   6A1  1  2B1  1  2B2  1
+    1     X   0.0000  1.0000  0.0000
+    1     Y   0.0000  0.0000  1.0000
+    1     Z   1.0000  0.0000  0.0000
+ 
+ 
+         **********************
+         **  HYDROGEN ATOMS  **
+         **********************
+ 
+ NUCLEAR CHARGE   1.00
+ 
+ CENTER            X               Y               Z
+   1             0.00000000      1.49495900      0.99859206
+   2             0.00000000     -1.49495900      0.99859206
+ 
+ 
+          1S ORBITALS
+ ORBITAL EXPONENTS          19.24060       2.899200      0.6534000    
+ CONTRACTION COEFFICIENTS  3.2828077E-02  0.2312085      0.8172399    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   7A1  1  3B2  1
+    1    1S   1.0000 -1.0000
+    2    1S   1.0000  1.0000
+ 
+ 
+          1S ORBITALS
+ ORBITAL EXPONENTS         0.1776000    
+ CONTRACTION COEFFICIENTS   1.000000    
+ 
+           SYMMETRY ORBITALS 
+ 
+ Center  AO   8A1  1  4B2  1
+    1    1S   1.0000 -1.0000
+    2    1S   1.0000  1.0000
+ 
+ 
+          INTERNUCLEAR DISTANCES ( A.U.)
+          ------------------------------
+ 
+             1              2              3
+ 
+    1      0.0000000      1.7978010      1.7978010
+    2      1.7978010      0.0000000      2.9899180
+    3      1.7978010      2.9899180      0.0000000
+ 
+ 
+          INTERNUCLEAR DISTANCES (ANGS.)
+          ------------------------------
+ 
+             1              2              3
+ 
+    1      0.0000000      0.9513551      0.9513551
+    2      0.9513551      0.0000000      1.5821960
+    3      0.9513551      1.5821960      0.0000000
+ 
+                 41 S INTEGRALS IN         9 SECTORS
+                 41 T INTEGRALS IN         9 SECTORS
+                 49 V INTEGRALS IN         9 SECTORS
+                1709  INTEGRALS IN         9 SECTORS     0 ACTUALLY
+ 
+ TOTAL OF       1840  INTEGRALS IN        47 SECTORS ARE WRITTEN ON TAPE   34
+ tstop called:
+ Timing turned off.      
+ Elapsed total time =           0 seconds
+ Elapsed user time =   0.000000000E+00 seconds
+ Elapsed system time = 0.000000000E+00 seconds
+************************************************************************************************************************
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+   THE DERIVATIVE PROGRAM
+ 
+ 
+ 
+   CLSCF     SCF       SECOND            
+ 
+   H2O DZ LMO TEST CASE                                                            
+ 
+   NUCLEAR REPULSION ENERGY:        9.2342186558
+                 SCF ENERGY:      -76.0110023991
+ 
+ 
+         NUCLEAR CONTRIBUTION TO FIRST DERIVATIVES           
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000      2.749686759653
+ 
+    2      0.000000000000     -2.170094059480     -1.374843379827
+ 
+    3      0.000000000000      2.170094059480     -1.374843379827
+ 
+ 
+         NUCLEAR CONTRIBUTION TO SECOND DERIVATIVES          
+ 
+                         1                             2                             3
+ 
+               X         Y         Z         X         Y         Z         X         Y         Z
+ 
+    1X     -2.753564  0.000000  0.000000  1.376782  0.000000  0.000000  1.376782  0.000000  0.000000
+ 
+    1Y      0.000000  2.958482  0.000000  0.000000 -1.479241 -1.907746  0.000000 -1.479241  1.907746
+ 
+    1Z      0.000000  0.000000 -0.204919  0.000000 -1.907746  0.102459  0.000000  1.907746  0.102459
+ 
+    2X      1.376782  0.000000  0.000000 -1.414195  0.000000  0.000000  0.037413  0.000000  0.000000
+ 
+    2Y      0.000000 -1.479241 -1.907746  0.000000  1.554067  1.907746  0.000000 -0.074826  0.000000
+ 
+    2Z      0.000000 -1.907746  0.102459  0.000000  1.907746 -0.139872  0.000000  0.000000  0.037413
+ 
+    3X      1.376782  0.000000  0.000000  0.037413  0.000000  0.000000 -1.414195  0.000000  0.000000
+ 
+    3Y      0.000000 -1.479241  1.907746  0.000000 -0.074826  0.000000  0.000000  1.554067 -1.907746
+ 
+    3Z      0.000000  1.907746  0.102459  0.000000  0.000000  0.037413  0.000000 -1.907746 -0.139872
+0AFB151I VDIOS : 100 RECORDS OF LENGTH 4096 FORMATTED ON FILE FT40F001.
+         VDIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM RFILE AT ISN 16 (OFFSET 0002DA).
+0AFB232I VDIOS : RECORD NUMBER 0 OUT OF RANGE, FILE FT40F001
+         VDIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM WREADW AT ISN 14 (OFFSET 00140A).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVDIOS (5FAA40) CALLED BY VFRDU# (5EF746) FROM LOCATION 5EFAFE.
+ -----------------------------------------------------------------------------
+  VFRDU# (5EF746) CALLED BY WREADW (50DC18) AT ISN 14 AT OFFSET 00140A.
+ -----------------------------------------------------------------------------
+  WREADW (50DC18) CALLED BY RREAD (50F430) AT ISN 7 AT OFFSET 00021E.
+   ARGUMENT LIST AT 50F5D4.
+     ARG. NO.   ADDRESS          INTEGER        REAL        CHAR   HEXADECIMAL
+           1   0053E030 :             40    0.000021E-78   '....'   00000028
+           2   0053B020 :              0    0.000000E+00   '....'   00000000
+           3   00514A44 :              0    0.000000E+00   '....'   00000000
+           4   0050F5C8 :          -1023   -0.723656E+76   '....'   FFFFFC01
+           5   8050F5C4 :           1025    0.000528E-78   '....'   00000401
+ -----------------------------------------------------------------------------
+  RREAD (50F430) CALLED BY MWRIT (514878) AT ISN 15 AT OFFSET 000294.
+   ARGUMENT LIST AT 514A50.
+     ARG. NO.   ADDRESS          INTEGER        REAL        CHAR   HEXADECIMAL
+           1   0053E030 :             40    0.000021E-78   '....'   00000028
+           2   0053B020 :              0    0.000000E+00   '....'   00000000
+           3   00514A44 :              0    0.000000E+00   '....'   00000000
+           4   80514A48 :              0    0.000000E+00   '....'   00000000
+ -----------------------------------------------------------------------------
+  MREAD (514B6E) CALLED BY INITMF (5144F8) AT ISN 16 AT OFFSET 000266.
+   ARGUMENT LIST AT 5146C0.
+     ARG. NO.   ADDRESS          INTEGER        REAL        CHAR   HEXADECIMAL
+           1   0053B020 :              0    0.000000E+00   '....'   00000000
+           2   8051468C :              2    0.000001E-78   '....'   00000002
+ -----------------------------------------------------------------------------
+  INITMF (5144F8) CALLED BY READMF (4C0D40) AT ISN 20 AT OFFSET 0005A6.
+   ARGUMENT LIST AT 4C1128.
+     ARG. NO.   ADDRESS          INTEGER        REAL        CHAR   HEXADECIMAL
+           1   804C10AC :              1    0.000001E-78   '....'   00000001
+ -----------------------------------------------------------------------------
+  READMF (4C0D40) CALLED BY DERIVY (020000) AT ISN 216 AT OFFSET 4955EE.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  DERIVY (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+ wread:    file 40           0 words     first word   -1023
+ frec,lrec,irec=          0           0           0 
+ ioerr: error         232  encountered.
+0 MESSAGE SUMMARY: MESSAGE NUMBER - COUNT                                                                                           
+0                           232       1                                                                                             
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+   THE NORMAL COORDINATE ANALYSIS PROGRAM (VERSION OF 2/01/89)
+ 
+ 
+ 
+   PARAMETERS FOR THE CALCULATION
+ 
+   IFXGF  =     1
+   ISOTOP =     1
+   IDIPOL =     3
+   IPOLAR =     3
+   IGEOMT =     1
+   ITHERM =     1
+   IQELEC =     1
+   IZVLIM =    20
+   IPLOT  =     0
+   IPRNT  =     0
+   NATOM  =     3
+   N3N    =     9
+ 
+ 
+   SCF ENERGY =       -76.0110023991
+ 
+ 
+ 
+   MOLECULAR GEOMETRY (IN A.U.)
+      NO.              X                   Y                   Z                   W
+ 
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (R)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - READ34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (A)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0EAD34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (D)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0D34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (#)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0034 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (#)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0034 0#############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+        1             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        2        600000.0000000000        0.0000000000        0.0000000000        0.0000000000
+        3             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+ 
+ 
+   INTERATOMIC DISTANCE MATRIX
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2  ************   0.0000000
+   3     0.0000000************   0.0000000
+ 
+ 
+   MOLECULAR GEOMETRY (IN A)
+      NO.              X                   Y                   Z                   W
+ 
+        1             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        2        317506.2360000000        0.0000000000        0.0000000000        0.0000000000
+        3             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+ 
+ 
+   INTERATOMIC DISTANCE MATRIX
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2  ************   0.0000000
+   3     0.0000000************   0.0000000
+ 
+ 
+   FX MATRIX (IN HARTREE/BOHR+2)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1     0.0000001   0.0000000   0.0000000  -0.0000001   0.0000000   0.0000000  -0.0000001   0.0000000   0.0000000
+    2     0.0000000   0.8575391   0.0000000   0.0000000  -0.4287695  -0.2864064   0.0000000  -0.4287695   0.2864064
+    3     0.0000000   0.0000000   0.4395752   0.0000000  -0.2117077  -0.2197876   0.0000000   0.2117077  -0.2197876
+    4    -0.0000001   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000
+    5     0.0000000  -0.4287695  -0.2117077   0.0000000   0.4558991   0.2490571   0.0000000  -0.0271296  -0.0373494
+    6     0.0000000  -0.2864064  -0.2197876   0.0000000   0.2490571   0.2055496   0.0000000   0.0373494   0.0142379
+    7    -0.0000001   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000
+    8     0.0000000  -0.4287695   0.2117077   0.0000000  -0.0271296   0.0373494   0.0000000   0.4558991  -0.2490571
+    9     0.0000000   0.2864064  -0.2197876   0.0000000  -0.0373494   0.0142379   0.0000000  -0.2490571   0.2055496
+ 
+ 
+   FX MATRIX (IN MDYN/A)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1     0.0000018   0.0000000   0.0000000  -0.0000008   0.0000000   0.0000000  -0.0000008   0.0000000   0.0000000
+    2     0.0000000  13.3511852   0.0000000   0.0000000  -6.6755925  -4.4591149   0.0000000  -6.6755925   4.4591149
+    3     0.0000000   0.0000000   6.8438274   0.0000000  -3.2961164  -3.4219136   0.0000000   3.2961164  -3.4219136
+    4    -0.0000008   0.0000000   0.0000000   0.0000002   0.0000000   0.0000000   0.0000006   0.0000000   0.0000000
+    5     0.0000000  -6.6755925  -3.2961164   0.0000000   7.0979786   3.8776157   0.0000000  -0.4223861  -0.5814993
+    6     0.0000000  -4.4591149  -3.4219136   0.0000000   3.8776157   3.2002407   0.0000000   0.5814993   0.2216729
+    7    -0.0000008   0.0000000   0.0000000   0.0000006   0.0000000   0.0000000   0.0000002   0.0000000   0.0000000
+    8     0.0000000  -6.6755925   3.2961164   0.0000000  -0.4223861   0.5814993   0.0000000   7.0979786  -3.8776157
+    9     0.0000000   4.4591149  -3.4219136   0.0000000  -0.5814993   0.2216729   0.0000000  -3.8776157   3.2002407
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CC0, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 26 (OFFSET 000648).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CCC, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 27 (OFFSET 000654).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CD8, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 28 (OFFSET 000660).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+ 
+ 
+   CENTER OF MASS
+         CMX            CMY            CMZ
+ 
+        0.0000000      0.0000000      0.0000000
+ 
+ 
+ 
+   CARTESIAN COORDINATES W.R.T. CENTER OF MASS
+      NO.            X              Y              Z              W
+ 
+        1           0.0000000      0.0000000      0.0000000      0.0000000
+        2      317506.2360000      0.0000000      0.0000000      0.0000000
+        3           0.0000000      0.0000000      0.0000000      0.0000000
+ 
+ 
+   INERTIA TENSOR
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2     0.0000000   0.0000000
+   3     0.0000000   0.0000000   0.0000000
+ 
+ 
+   PRINCIPAL MOMENTS OF INERTIA
+   NO.        IN AMU.A+2        IN G.CM+2         IN CM-1           IN MHZ
+                                (*D+39)
+ 
+   1          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+   2          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+   3          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+ 
+ 
+   FIRST DERIVATIVES OF DIPOLE MOMENTS (IN DEBYE/A)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1    -4.7871129   0.0000000   0.0000000   2.3935564   0.0000000   0.0000000   2.3935564   0.0000000   0.0000000
+    2     0.0000000  -2.7628389   0.0000000   0.0000000   1.3814194  -0.6760795   0.0000000   1.3814194   0.6760795
+    3     0.0000000   0.0000000  -2.2488653   0.0000000  -0.4864458   1.1244326   0.0000000   0.4864458   1.1244326
+0AFB217I VSIOS : END OF DATA SET, FILE FT18F001
+         VSIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 174 (OFFSET 2C2EF2).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVSIOS (355780) CALLED BY AFBVCOMH (3441F0) AT OFFSET 000098.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFRSF# (348D4C) FROM LOCATION 349268.
+ -----------------------------------------------------------------------------
+  VFRSF# (348D4C) CALLED BY NORMCO (020000) AT ISN 174 AT OFFSET 2C2EF2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0AFB900I VEMGN : EXECUTION TERMINATING DUE TO ERROR COUNT FOR ERROR NUMBER 217
+0 MESSAGE SUMMARY: MESSAGE NUMBER - COUNT                                                                                           
+0                           209       3                                                                                             
+0                           215      20                                                                                             
+0                           217       1                                                                                             
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+   THE NORMAL COORDINATE ANALYSIS PROGRAM (VERSION OF 2/01/89)
+ 
+ 
+ 
+   PARAMETERS FOR THE CALCULATION
+ 
+   IFXGF  =     1
+   ISOTOP =     1
+   IDIPOL =     3
+   IPOLAR =     3
+   IGEOMT =     1
+   ITHERM =     1
+   IQELEC =     1
+   IZVLIM =    20
+   IPLOT  =     0
+   IPRNT  =     0
+   NATOM  =     3
+   N3N    =     9
+ 
+ 
+   SCF ENERGY =       -76.0110023991
+ 
+ 
+ 
+   MOLECULAR GEOMETRY (IN A.U.)
+      NO.              X                   Y                   Z                   W
+ 
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (R)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - READ34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (A)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0EAD34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (D)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0D34 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (#)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0034 ##############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB215I VCVTH : ILLEGAL DECIMAL CHARACTER (#)
+         VCVTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 142 (OFFSET 2C2CD2).
+0*** START OF BUFFER CONTENTS ***
+         - 0E0034 0#############                                                         
+0*** END OF BUFFER CONTENTS ***
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVCVTH (346A94) CALLED BY AFBVCOMH (3441F0) AT OFFSET 0001B2.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFIXF# (349286) FROM LOCATION 3492D6.
+ -----------------------------------------------------------------------------
+  VFIXF# (349286) CALLED BY NORMCO (020000) AT ISN 142 AT OFFSET 2C2CD2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+        1             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        2        600000.0000000000        0.0000000000        0.0000000000        0.0000000000
+        3             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+ 
+ 
+   INTERATOMIC DISTANCE MATRIX
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2  ************   0.0000000
+   3     0.0000000************   0.0000000
+ 
+ 
+   MOLECULAR GEOMETRY (IN A)
+      NO.              X                   Y                   Z                   W
+ 
+        1             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        2        317506.2360000000        0.0000000000        0.0000000000        0.0000000000
+        3             0.0000000000        0.0000000000        0.0000000000        0.0000000000
+ 
+ 
+   INTERATOMIC DISTANCE MATRIX
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2  ************   0.0000000
+   3     0.0000000************   0.0000000
+ 
+ 
+   FX MATRIX (IN HARTREE/BOHR+2)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1     0.0000001   0.0000000   0.0000000  -0.0000001   0.0000000   0.0000000  -0.0000001   0.0000000   0.0000000
+    2     0.0000000   0.8575391   0.0000000   0.0000000  -0.4287695  -0.2864064   0.0000000  -0.4287695   0.2864064
+    3     0.0000000   0.0000000   0.4395752   0.0000000  -0.2117077  -0.2197876   0.0000000   0.2117077  -0.2197876
+    4    -0.0000001   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000
+    5     0.0000000  -0.4287695  -0.2117077   0.0000000   0.4558991   0.2490571   0.0000000  -0.0271296  -0.0373494
+    6     0.0000000  -0.2864064  -0.2197876   0.0000000   0.2490571   0.2055496   0.0000000   0.0373494   0.0142379
+    7    -0.0000001   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000   0.0000000
+    8     0.0000000  -0.4287695   0.2117077   0.0000000  -0.0271296   0.0373494   0.0000000   0.4558991  -0.2490571
+    9     0.0000000   0.2864064  -0.2197876   0.0000000  -0.0373494   0.0142379   0.0000000  -0.2490571   0.2055496
+ 
+ 
+   FX MATRIX (IN MDYN/A)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1     0.0000018   0.0000000   0.0000000  -0.0000008   0.0000000   0.0000000  -0.0000008   0.0000000   0.0000000
+    2     0.0000000  13.3511852   0.0000000   0.0000000  -6.6755925  -4.4591149   0.0000000  -6.6755925   4.4591149
+    3     0.0000000   0.0000000   6.8438274   0.0000000  -3.2961164  -3.4219136   0.0000000   3.2961164  -3.4219136
+    4    -0.0000008   0.0000000   0.0000000   0.0000002   0.0000000   0.0000000   0.0000006   0.0000000   0.0000000
+    5     0.0000000  -6.6755925  -3.2961164   0.0000000   7.0979786   3.8776157   0.0000000  -0.4223861  -0.5814993
+    6     0.0000000  -4.4591149  -3.4219136   0.0000000   3.8776157   3.2002407   0.0000000   0.5814993   0.2216729
+    7    -0.0000008   0.0000000   0.0000000   0.0000006   0.0000000   0.0000000   0.0000002   0.0000000   0.0000000
+    8     0.0000000  -6.6755925   3.2961164   0.0000000  -0.4223861   0.5814993   0.0000000   7.0979786  -3.8776157
+    9     0.0000000   4.4591149  -3.4219136   0.0000000  -0.5814993   0.2216729   0.0000000  -3.8776157   3.2002407
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CC0, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 26 (OFFSET 000648).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CCC, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 27 (OFFSET 000654).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+0AFB209I VFNTH : PROGRAM INTERRUPT - FLOATING-POINT DIVIDE EXCEPTION
+         VFNTH : PSW FFE4000F802E5CD8, REGISTER CONTAINS 00000000000000000000000000000000
+         VFNTH : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM MOMENT AT ISN 28 (OFFSET 000660).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  MOMENT (2E5678) CALLED BY NORMCO (020000) AT ISN 163 AT OFFSET 2C2E60.
+   NO ARGUMENTS PASSED TO SUBROUTINE.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0STANDARD CORRECTIVE ACTION TAKEN. EXECUTION CONTINUING.
+ 
+ 
+   CENTER OF MASS
+         CMX            CMY            CMZ
+ 
+        0.0000000      0.0000000      0.0000000
+ 
+ 
+ 
+   CARTESIAN COORDINATES W.R.T. CENTER OF MASS
+      NO.            X              Y              Z              W
+ 
+        1           0.0000000      0.0000000      0.0000000      0.0000000
+        2      317506.2360000      0.0000000      0.0000000      0.0000000
+        3           0.0000000      0.0000000      0.0000000      0.0000000
+ 
+ 
+   INERTIA TENSOR
+ 
+             1           2           3
+  ------------------------------------------
+   1     0.0000000
+   2     0.0000000   0.0000000
+   3     0.0000000   0.0000000   0.0000000
+ 
+ 
+   PRINCIPAL MOMENTS OF INERTIA
+   NO.        IN AMU.A+2        IN G.CM+2         IN CM-1           IN MHZ
+                                (*D+39)
+ 
+   1          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+   2          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+   3          0.00000D+00       0.00000D+00       0.00000D+00       0.00000D+00
+ 
+ 
+   FIRST DERIVATIVES OF DIPOLE MOMENTS (IN DEBYE/A)
+ 
+              1           2           3           4           5           6           7           8           9
+   ------------------------------------------------------------------------------------------------------------------
+    1    -4.7871129   0.0000000   0.0000000   2.3935564   0.0000000   0.0000000   2.3935564   0.0000000   0.0000000
+    2     0.0000000  -2.7628389   0.0000000   0.0000000   1.3814194  -0.6760795   0.0000000   1.3814194   0.6760795
+    3     0.0000000   0.0000000  -2.2488653   0.0000000  -0.4864458   1.1244326   0.0000000   0.4864458   1.1244326
+0AFB217I VSIOS : END OF DATA SET, FILE FT18F001
+         VSIOS : LAST EXECUTED FORTRAN STATEMENT IN PROGRAM NORMCO AT ISN 174 (OFFSET 2C2EF2).
+0TRACEBACK OF CALLING ROUTINES; MODULE ENTRY ADDRESS = 020000.
+ -----------------------------------------------------------------------------
+  AFBVSIOS (355780) CALLED BY AFBVCOMH (3441F0) AT OFFSET 000098.
+ -----------------------------------------------------------------------------
+  AFBVCOMH (3441F0) CALLED BY VFRSF# (348D4C) FROM LOCATION 349268.
+ -----------------------------------------------------------------------------
+  VFRSF# (348D4C) CALLED BY NORMCO (020000) AT ISN 174 AT OFFSET 2C2EF2.
+ -----------------------------------------------------------------------------
+  NORMCO (020000) CALLED BY OPERATING SYSTEM.
+ -----------------------------------------------------------------------------
+0AFB900I VEMGN : EXECUTION TERMINATING DUE TO ERROR COUNT FOR ERROR NUMBER 217
+0 MESSAGE SUMMARY: MESSAGE NUMBER - COUNT                                                                                           
+0                           209       3                                                                                             
+0                           215      20                                                                                             
+0                           217       1                                                                                             

@@ -1,0 +1,33 @@
+1LEVEL 2.3.0 (MAR  1988)        VS FORTRAN            NOV 06, 1989  10:21:23                                           PAGE:    1
+0REQUESTED OPTIONS (EXECUTE):  OPT(3)
+0OPTIONS IN EFFECT: NOLIST NOMAP NOXREF NOGOSTMT NODECK SOURCE TERM OBJECT FIXED TRMFLG SRCFLG NOSYM NORENT
+                    SDUMP(ISN) NOSXM NOVECTOR IL(DIM) NOTEST NODC NOICA NODIRECTIVE NODBCS NOSAA
+                       OPT(3) LANGLVL(77) NOFIPS   FLAG(I)  AUTODBL(NONE)  NAME(MAIN)    LINECOUNT(60)      CHARLEN(500)
+0 IF DO   ISN   *....*...1.........2.........3.........4.........5.........6.........7.*.......8
+0           1         program manpub                                                    MAN00010
+                                                                                        MAN00020
+                c     This is designed to read a formatted character file (in this case MAN00030
+                c     the PSI manual) and filter out those lines which have a "|" in    MAN00040
+                c     column 80.  (The aim of this is to create a public release        MAN00050
+                c     version of the manual.)                                           MAN00060
+                                                                                        MAN00070
+                c     Brian Yates      Saturday 4 February 1989                         MAN00080
+                                                                                        MAN00090
+            2         character*80 text                                                 MAN00100
+            3   10    continue                                                          MAN00110
+            4         read(5,20,err=100,end=200) text                                   MAN00120
+            5   20    format(a80)                                                       MAN00130
+            6         if (text(80:80).ne.'|') write(6,20) text                          MAN00140
+            8         go to 10                                                          MAN00150
+                                                                                        MAN00160
+            9   100   continue                                                          MAN00170
+           10         write(3,*) '  Error in reading input file'                        MAN00180
+                                                                                        MAN00190
+           11   200   continue                                                          MAN00200
+                                                                                        MAN00210
+           12         stop                                                              MAN00220
+           13         end                                                               MAN00230
+0*STATISTICS*   SOURCE STATEMENTS = 12, PROGRAM SIZE = 852 BYTES, PROGRAM NAME = MANPUB    PAGE:    1.
+0*STATISTICS*    NO DIAGNOSTICS GENERATED.
+0**MANPUB** END OF COMPILATION 1 ******                                                                   TIME STAMP: 89.31010.21.23
+ 

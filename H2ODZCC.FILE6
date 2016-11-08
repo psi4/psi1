@@ -1,0 +1,103 @@
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ 
+          THE GENERAL COUPLED PERTURBED HARTREE-FOCK PROGRAM
+                    BASED ON LUCK AND A GOOD GUESS         
+ 
+                      GRCPHF PROGRAM WRITTEN BY            
+                    PATIENT BUT FRUSTRATED PEOPLE          
+ 
+              MODIFIED FOR COUPLED CLUSTER GRADIENTS,     
+                    LARGE CI CASES AND MCSCF         
+                       BY GUSTAVO SCUSERIA         
+                     VERSION: OCTOBER 6, 1987.    
+ 
+ 
+  NBSET           2 
+ 
+  READING DATA FROM DRT TAPE, VERSION=  6.010184
+  LABEL FROM DRT: H2O DRT FOR USE WITH CC GRADIENTS                                             
+ 
+  DRT INFORMATION:
+  NBF=   14  NSYM=    1  NORBS=   14
+  NREFS=    1  ORBSYM=    9 NUMIJ=  105  NGROUP=    1  NMAX=13833
+  THE NUMBER OF FZCOR   ORBITALS IS          0 
+  THE NUMBER OF FZVIR   ORBITALS IS          0 
+  THE NUMBER OF EXTRA INDEPENDENT  PAIRS IS          0 
+ 
+  THE UNOCCUPIED ORBITALS:         1    9
+  THE DOUBLY OCCUPIED ORBITALS:   10   14
+ 
+  THE NUMBER OF INDEPENDENT PAIRS IS   45
+  PLUS THE TWO CI COEFFICIENTS MAKES   47
+ 
+ THE NUMBER OF INDEPENDENT COR-DOC ROTATIONS IS          0 
+ THE NUMBER OF INDEPENDENT VIR-UOC ROTATIONS IS          0 
+ 
+ NUMBER OF A TERMS IN A1 SYMMETRY        2025 
+ NUMBER OF TRANSITIONS NEEDED IS           45 
+ 
+  THE NUCLEAR REPULSION ENERGY FROM TAPE47 =        9.2342186558
+        
+ DIMENSION OF ZZ IS            45 
+ DIMENSION OF B LAMDA         405 
+ DIMENSION OF A MATRIX       2025 
+ DIMENSION OF Z VECTOR         45 
+ 
+  ELECTRONIC ENERGY:  -85.2452210549
+     NUCLEAR ENERGY:    9.2342186558
+   TOTAL SCF ENERGY:  -76.0110023991
+ 
+ 
+     THE CI DIPOLE MOMENT                   0.0000000000        0.0000000000        2.2357644346
+     CORRECTION TO CI D.M.                  0.0000000000        0.0000000000        0.0052023544
+     THE TOTAL CI DIPOLE MOMENT             0.0000000000        0.0000000000        2.2409667890
+ 
+ 
+     MAGNITUDE OF THE CI D.M.               2.2409667890     DEBYES
+ 
+           
+ Z VECTOR NO*NV PART
+              1           2           3           4           5
+   ------------------------------------------------------------------
+    1     0.0000000  -0.0000246   0.0000000   0.0000874  -0.0000316
+    2     0.0000000  -0.0009449   0.0000000   0.0001543  -0.0000057
+    3     0.0000000   0.0000000  -0.0023322   0.0000000   0.0000000
+    4     0.0000000  -0.0015787   0.0000000  -0.0003090  -0.0000078
+    5     0.0000000   0.0000000   0.0003477   0.0000000   0.0000000
+    6     0.0000000   0.0032979   0.0000000  -0.0013709   0.0000179
+    7    -0.0057242   0.0000000   0.0000000   0.0000000   0.0000000
+    8     0.0000000   0.0000000  -0.0036247   0.0000000   0.0000000
+    9     0.0000000   0.0030145   0.0000000   0.0021534  -0.0000329
+ 
+ 
+  NO INPUT TO MONGO HAS BEEN FOUND.
+ 
+ 
+  NUCLEAR REPULSION ENERGY =        9.2342186558
+  SCF ENERGY               =      -76.0110023991
+   + CORRELATION ENERGY    =      -76.1546994922
+ 
+ 
+ 
+          ---------- CC GRADIENTS PLUS CPHF TERMS ----------
+ 
+ CENTER       X                   Y                   Z
+ 
+    1      0.000000000000      0.000000000000      0.031729080717
+ 
+    2      0.000000000000     -0.021590553088     -0.015864540359
+ 
+    3      0.000000000000      0.021590553088     -0.015864540359
+ 
+ 
+ 
+           >>>>> GENERAL CPHF CALCULATION COMPLETED <<<<< 
+ tstop called:
+ Timing turned off.      
+ Elapsed total time =           0 seconds
+ Elapsed user time =   0.000000000E+00 seconds
+ Elapsed system time = 0.000000000E+00 seconds
+************************************************************************************************************************

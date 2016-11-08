@@ -1,0 +1,2899 @@
+C    LIBRARY 1 OF DERTFK
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+c Moved to PSI distribution disk on 020289 - clj.
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         SEARCH:  C3-24-88  *
+C*  DATE:  MARCH  24,  1988                                           *
+C*  REASON: MIGRATION TO RUN IN 7MB ON 9370                           *
+C**********************************************************************
+C  LAST UPDATED SEPTEMBER 21,1985 BY TJL FOR TCSCF-CI GRADIENTS       *
+C**********************************************************************
+C
+C
+      SUBROUTINE VSUB(A,B,C,N)
+C
+      REAL*8 A(N),B(N),C(N)
+C
+C     EXTENDED DUMMY A,B,C
+C
+      DO 1 I=1,N
+        A(I)=B(I)-C(I)
+    1 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE VADD(A,B,C,N)
+C
+      REAL*8 A(N),B(N),C(N)
+C
+C
+      DO 1 I=1,N
+        A(I)=B(I)+C(I)
+    1 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE BASIS(EX,CSPD,KATOM,KTYPE,KSTART,KLOC,KMIN,KMAX,
+     #KNG,ZAN,C,T,INVT,ISO,LBLAT,ICT,PTR,DTR,RCSPD)
+C
+C     EXTENDED DUMMY EX,CSPD,KATOM,KTYPE,KSTART,KLOC,KMIN,KMAX,
+C    #KNG,ZAN,C,T,INVT,ISO,LBLAT,ICT,PTR,RCSPD
+CSEL  REAL*8 EX(NPRIM),CSPD(NPRIM,3),ZAN(NAT),C(3,NAT),T(MXT)
+CSEL  REAL*8 A10(100),PTR(3,3,NT)
+C
+      REAL*8 RCSPD(NPRIM,3),A10(100),ESCF
+      INTEGER EX(1),CSPD(1),ZAN(1),C(1),T(1),PTR(1),DTR(1)
+      INTEGER KATOM(NSHELL),KTYPE(NSHELL),KSTART(NSHELL)
+      INTEGER KLOC(NSHELL),KMIN(NSHELL),KMAX(NSHELL),KNG(NSHELL)
+      INTEGER INVT(NT),ISO(NSHELL,NISO),LBLAT(2,NAT),ICT(NAT,NT)
+      LOGICAL OPEN
+      CHARACTER*5 CALTYP
+      CHARACTER*6 SCFTYP,DERTYP,CITYP
+C
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /ITAP30/ I10(200),ITAP30,IEND,MPOINT,MCONST,MCALCS,
+     #NCALCS
+      COMMON /CNTRL/  IPRINT,NDERIV,INTOUT,INFOUT,OPEN,SCFTYP,CALTYP
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /TYPES/  DERTYP,CITYP
+      COMMON /HOLL/   ESCF,FMTER(13),JL
+      COMMON /LABELS/ IALBEL(20),IBLBEL(20)
+C
+      EQUIVALENCE (I10,A10)
+C
+      ITAP11 = 11
+C
+C     ----- READ POINTERS FROM TAPE30 -----
+C
+      JUNK=101+MCONST
+      CALL WREADW(ITAP30,I10,MPOINT,JUNK,JUNK)
+C
+C     ----- NOW GO FOR THE GUSTO -----
+C
+      CALL WREADW(ITAP30,ZAN,INTOWP(NAT),I10(1),JUNK)
+      CALL WREADW(ITAP30,ICT,NAT*NT,I10(2),JUNK)
+      CALL WREADW(ITAP30,EX,INTOWP(NPRIM),I10(5),JUNK)
+      CALL WREADW(ITAP30,CSPD,INTOWP(NPRIM*3),I10(6),JUNK)
+      CALL WREADW(ITAP30,KSTART,NSHELL,I10(7),JUNK)
+      CALL WREADW(ITAP30,KATOM,NSHELL,I10(8),JUNK)
+      CALL WREADW(ITAP30,KTYPE,NSHELL,I10(9),JUNK)
+      CALL WREADW(ITAP30,KNG,NSHELL,I10(10),JUNK)
+      CALL WREADW(ITAP30,KLOC,NSHELL,I10(11),JUNK)
+      CALL WREADW(ITAP30,KMIN,NSHELL,I10(12),JUNK)
+      CALL WREADW(ITAP30,KMAX,NSHELL,I10(13),JUNK)
+      CALL WREADW(ITAP30,T,INTOWP(MXT),I10(25),JUNK)
+      CALL WREADW(ITAP30,INVT,NT,I10(26),JUNK)
+      CALL WREADW(ITAP30,ISO,NSHELL*NISO,I10(27),JUNK)
+      CALL WREADW(ITAP30,LBLAT,2*NAT,I10(28),JUNK)
+      CALL WREADW(ITAP30,PTR,INTOWP(3*3*NT),I10(31),JUNK)
+      CALL WREADW(ITAP30,DTR,INTOWP(6*6*NT),I10(32),JUNK)
+C
+C     ----- AND GET LOCATION OF INDIVIDUAL CALCULATION TO GET GEOM
+C
+      JUNK=101+MCONST+MPOINT+NCALCS-1
+      CALL WREADW(ITAP30,LOCCAL,1,JUNK,JUNK)
+C
+      CALL WREADW(ITAP30,I10,60,LOCCAL,LOCCAL)
+C
+      DO 200  ILBL=1,20
+         IALBEL(ILBL) =  I10(ILBL)
+CCCC     CALL ITC(I10(ILBL),0,ALABEL(ILBL))
+  200 CONTINUE
+C
+CC    WRITE(3,*) ' CITYP =',CITYP,' DERTYP = ',DERTYP
+CC    IF(CITYP.NE.'CI    ' .AND. DERTYP.EQ.'FIRST ') THEN
+CC    WRITE (ITAP11,899) (I10(I),I=1,20)
+C 899 FORMAT (20A4,/)
+      WRITE (IOUT,900) (I10(I),I=1,20)
+  900 FORMAT (/,(1X,20A4)/)
+CCCCC END IF
+C
+      LOCCAL=LOCCAL+20
+      CALL WREADW(ITAP30,C,INTOWP(3*NAT),LOCCAL,LOCCAL)
+C
+C     ----- GET ENERGIES AND WRITE OUT -----
+C
+      CALL WREADW(ITAP30,I10,INTOWP(10),LOCCAL,LOCCAL)
+C
+      ESCF = A10(2)
+C
+      WRITE (IOUT,901) A10(1)
+  901 FORMAT (' NUCLEAR REPULSION ENERGY:',F16.9)
+      IF (CALTYP.EQ.'SCF  ') WRITE (IOUT,902) ESCF
+  902 FORMAT ('               SCF ENERGY:',F16.9)
+      IF (CALTYP.EQ.'MCSCF') WRITE (IOUT,903) A10(3)
+  903 FORMAT ('             MCSCF ENERGY:',F15.9)
+C
+C     ----- COLLAPSE CONTRACTION COEFFICIENTS INTO ONE-D ARRAY -----
+C
+      DO 10 ISHELL=1,NSHELL
+        DO 9 I=KSTART(ISHELL),KSTART(ISHELL)+KNG(ISHELL)-1
+          RCSPD(I,1)=RCSPD(I,KTYPE(ISHELL))
+    9   CONTINUE
+   10 CONTINUE
+C
+C
+C
+      RETURN
+      END
+      SUBROUTINE SETNOS(NT,MXT,T,ISO,NISO,NSHELL)
+C
+C
+C
+C     EXTENDED DUMMY T,ISO
+C
+      REAL*8 T(MXT)
+      INTEGER ISO(NSHELL,NISO)
+C
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+C
+C
+C
+C         FORCE THE NO-SYMMETRY CALCULATION FOR CI SECOND DERIVATIVE
+C
+    1 FORMAT(/'   $$$$$ SET NO-SYMMETRY FLAG $$$$$'/
+     1,       '   VALUES BEFORE SETNOS    NTRANS=',I3)
+    2 FORMAT( '  TRANS=',9F10.6)
+    3 FORMAT( '   ISO =',10I10)
+    5 FORMAT(/'   %%%%%%%%%% AFTER SETNO  NTRANS=',I3)
+C
+      WRITE(ICHECK,1) NT
+      WRITE(ICHECK,2) (T(I),I=1,MXT)
+      WRITE(ICHECK,3) ((ISO(I,J),I=1,NSHELL),J=1,NISO)
+C
+      NT = 1
+      MXT=9
+      DO 101 I=1,9
+  101 T(I)=0.0
+      T(1)=1.0
+      T(5)=1.0
+      T(9)=1.0
+      DO 105 I=1,NSHELL
+        INDIN(1)=I
+        CALL ISOIN
+        ISO(I,1)=INDOUT(1)
+  105 CONTINUE
+      WRITE(ICHECK,5) NT
+      WRITE(ICHECK,2) (T(I),I=1,MXT)
+      WRITE(ICHECK,3) (ISO(I,1),I=1,NSHELL)
+C
+      RETURN
+      END
+      SUBROUTINE NUCONE(DNUC,ZAN,C)
+C
+C     ----- CALCULATE NUCLEAR REPULSION AND DERIVATIVES -----
+C
+C     MODIFIED 24 AUGUST 1983 AT BRL FOR VARIABLE DIMENSION ARRAYS
+C                                                           PWS
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY DNUC,ZAN,C
+C
+      REAL*8 DNUC(3,NAT),ZAN(NAT),C(3,NAT)
+C
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+C
+C
+    1 FORMAT (//,' INFINITE REPULSION, CENTRES',I3,' AND',I3)
+C
+      DO 11 I=1,NAT
+        DO 10 J=1,3
+          DNUC(J,I)=0.0D+00
+   10   CONTINUE
+   11 CONTINUE
+C
+C
+      DO 120 I=2,NAT
+        CHGI=ZAN(I)
+        IF (ABS(CHGI).GT.1.0E-7) THEN
+          XI=C(1,I)
+          YI=C(2,I)
+          ZI=C(3,I)
+          DO 110 J=1,I-1
+            CHGJ=ZAN(J)
+            IF (ABS(CHGJ).GT.1.0E-7) THEN
+              XJ=C(1,J)
+              YJ=C(2,J)
+              ZJ=C(3,J)
+              RR=(XI-XJ)**2+(YI-YJ)**2+(ZI-ZJ)**2
+              IF (RR.EQ.0.0D+00) THEN
+                IF (IOUT .GT.0) WRITE (IOUT ,1) I,J
+                IF (IFLAG.GT.0) WRITE (IFLAG,1) I,J
+                CALL EXIT
+              END IF
+              R=DSQRT(RR)
+              REP = CHGI*CHGJ/R
+              ENERGY=ENERGY + REP
+C
+              REP3S2=REP/RR
+              DNUC(1,I)=DNUC(1,I) - (XI-XJ)*REP3S2
+              DNUC(2,I)=DNUC(2,I) - (YI-YJ)*REP3S2
+              DNUC(3,I)=DNUC(3,I) - (ZI-ZJ)*REP3S2
+              DNUC(1,J)=DNUC(1,J) + (XI-XJ)*REP3S2
+              DNUC(2,J)=DNUC(2,J) + (YI-YJ)*REP3S2
+              DNUC(3,J)=DNUC(3,J) + (ZI-ZJ)*REP3S2
+C
+            END IF
+  110     CONTINUE
+        END IF
+  120 CONTINUE
+      RETURN
+      END
+      SUBROUTINE ONEONE(W,DE,DHF,DW,C,ZAN,EX,CS)
+C
+C  CALCULATE DERIVATIVE CONTRIBUTIONS FROM ONE-ELECTRON AND OVERLAP
+C     TERMS. TOTAL DENSITY MATRIX IS DT, LAGRANGIAN (OR ENERGY W
+C     WEIGHTED DENSITY MATRIX) IS W.
+C
+C     MODIFIED 24 AUGUST 1983 AT BRL FOR VARIABLE DIMENSIONS OF
+C        HONDO ARRAYS                                    PWS
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY W,DE,DHF,DW,C,ZAN,EX,CS
+C
+      REAL*8 C(3,NAT),ZAN(NAT),EX(NPRIM),CS(NPRIM)
+      LOGICAL DIAG,OPEN
+      CHARACTER*5 CALTYP,SCFTYP*6
+C
+      COMMON /CNTRL/  IPRINT,NDERIV,INTOUT,INFOUT,OPEN,SCFTYP,CALTYP
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /OUTPUT/ NPRINT,ITOL,ICUT,NORMF,NORMP,NOPK
+      COMMON /INDEX/  DENS(100),IJ,IJX(100),IJY(100),IJZ(100)
+     #,               IPOINT(100)
+      COMMON /ISHELL/  II,IATOM,XI,YI,ZI,IGMIN,IGMAX,LIT,MINI,MAXI,LOCI
+      COMMON /JSHELL/  JJ,JATOM,XJ,YJ,ZJ,JGMIN,JGMAX,LJT,MINJ,MAXJ,LOCJ
+     #,                RR
+      COMMON /DSTVP/  T,X0,Y0,Z0,NI,NJ,CX,CY,CZ,D0DI,D0DJ,VX,VY,VZ,UU
+     #,               D0DC,DVX,DVY,DVZ,               WIVX,WIVY,WIVZ
+     #,                                    WJVX,WJVY,WJVZ
+     #,               WIXDVX,WIYDVY,WIZDVZ
+     #,               DEXDXI,DEXDYI,DEXDZI,DEXDXJ,DEXDYJ,DEXDZJ
+     #,               DEXDII,DEXDIJ,DEXDJJ,DEXDIC,DEXDJC
+     #,               TAI,TAJ,TAA,ICATOM
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /ROOT/   XX,U(9),WT(9),NROOTS
+C
+      DIMENSION XIN(16),YIN(16),ZIN(16),DXC(16),DYC(16),DZC(16)
+      DIMENSION WXI(16),WYI(16),WZI(16),WXJ(16),WYJ(16),WZJ(16)
+      DIMENSION WXIDXC(16),WYIDYC(16),WZIDZC(16)
+      DIMENSION W(NNP)
+      DIMENSION DE(3,NAT),DW(3,NAT),DHF(3,NAT)
+C
+      DATA PI212 /1.1283791670955D+0/
+C
+C
+C
+      DO 2 I=1,NAT
+        DO 1 J=1,3
+          DE(J,I)=0.0D+00
+          DHF(J,I)=0.0D+00
+          DW(J,I)=0.0D+00
+    1   CONTINUE
+    2 CONTINUE
+C
+C
+C----------------------------------------------------------------
+      ITOL=20
+C THIS IS TOLERANCE (10**-ICUT) ON PREXPONENTIAL
+C----------------------------------------------------------------
+      TOL=ITOL*2.30258D+00
+C
+C     ----- I SHELL -----
+C
+      DO 5000 II=1,NSHELL
+C
+C     ----- J SHELL -----
+C
+        DO 5000 JJ=1,II
+C
+C     ----- PREPARE INDICES FOR PAIRS OF (I,J) FUNCTIONS -----
+C
+          CALL INDEXX
+          IPONT= (IATOM-1)*NNP
+          JPONT= (JATOM-1)*NNP
+C
+          IAPT = (IATOM-1)*3+1
+          JAPT = (JATOM-1)*3+1
+          IAPTT= IAPT*(IAPT+1)/2
+          JAPTT= JAPT*(JAPT+1)/2
+          MAPT = MAX(IAPT,JAPT)
+          NAPT = MIN(IAPT,JAPT)
+          IJAPT= MAPT*(MAPT-1)/2+NAPT
+C
+          XIMXJ=XI-XJ
+          YIMYJ=YI-YJ
+          ZIMZJ=ZI-ZJ
+C
+C     ----- CALCULATE CORRECT NUMBER OF ROOTS TO USE FOR RYS QUAD. -
+C
+          NROOTS=(LIT+LJT+NDERIV)/2
+C
+C     ----- ZERO TEMPORARY VARIABLES -----
+C
+          DVDXI=0.0D+00
+          DVDYI=0.0D+00
+          DVDZI=0.0D+00
+          DVDXJ=0.0D+00
+          DVDYJ=0.0D+00
+          DVDZJ=0.0D+00
+          DTDX  =0.0D+00
+          DTDY  =0.0D+00
+          DTDZ  =0.0D+00
+          DSDX  =0.0D+00
+          DSDY  =0.0D+00
+          DSDZ  =0.0D+00
+C
+C     ----- I PRIMITIVE -----
+C
+          DO 3000 IG=IGMIN,IGMAX
+            CI=CS(IG)
+            AI=EX(IG)
+            TAI=AI*2.0D+00
+            ARRI=AI*RR
+            AXI=AI*XI
+            AYI=AI*YI
+            AZI=AI*ZI
+C
+C     ----- J PRIMITIVE -----
+C
+            IF (II.EQ.JJ) JGMAX=IG
+            DO 3000 JG=JGMIN,JGMAX
+              AJ=EX(JG)
+              TAJ=AJ*2.0D+00
+              AA=AI+AJ
+              TAA=TAI+TAJ
+              RHO2=AI*AJ*2.0D+00/AA
+              TEMP=AJ*ARRI/AA
+C
+C     ----- IGNORE INTEGRAL IF PRE-EXPONENTIAL TOO SMALL -----
+C
+              IF (TEMP.LE.TOL) THEN
+C
+C     ----- DENSITY FACTOR -----
+C
+                DIJ=CI*CS(JG)*DEXP(-TEMP)
+                IF (II.EQ.JJ.AND.IG.NE.JG) DIJ=DIJ*2.0D+00
+                DIJPI=DIJ*PI212/AA
+                DIJ=-DIJ
+C
+                AAX=AXI+AJ*XJ
+                AAY=AYI+AJ*YJ
+                AAZ=AZI+AJ*ZJ
+                AX=AAX/AA
+                AY=AAY/AA
+                AZ=AAZ/AA
+C
+C     ----- CALCULATE DERIVATIVE CONTRIBUTIONS FROM -----
+C                KINETIC AND OVERLAP INTEGRALS
+C
+                IF (IATOM.NE.JATOM) THEN
+                  X0=AX
+                  Y0=AY
+                  Z0=AZ
+                  T=DSQRT(AA)
+                  ST=1.0/T
+                  IN=-4
+                  DO 1010 NI=1,LIT
+                    IN=IN+4
+                    DO 1010 NJ=1,LJT
+                      JN=IN+NJ
+                      CALL TDER
+                      XIN(JN)=VX             * ST
+                      YIN(JN)=VY             * ST
+                      ZIN(JN)=VZ*DIJ         * ST
+                      WXI(JN)=WIVX           * ST
+                      WYI(JN)=WIVY           * ST
+                      WZI(JN)=WIVZ*DIJ       * ST
+                      DXC(JN)=DVX            * ST
+                      DYC(JN)=DVY            * ST
+                      DZC(JN)=DVZ*DIJ        * ST
+                      WXIDXC(JN)=WIXDVX      * ST
+                      WYIDYC(JN)=WIYDVY      * ST
+                      WZIDZC(JN)=WIZDVZ*DIJ  * ST
+ 1010             CONTINUE
+C
+C     ----- COMBINE TWO-DIMENSIONAL INTEGRALS TO FORM INTEGRALS -----
+C
+                  DO 1050 I=1,IJ
+                    NX=IJX(I)
+                    NY=IJY(I)
+                    NZ=IJZ(I)
+                    D=DENS(I)*0.5
+                    X = XIN(NX)
+                    Y = YIN(NY)
+                    Z = ZIN(NZ)
+                    XY = X*Y
+                    XZ = X*Z
+                    YZ = Y*Z
+                    DX = DXC(NX)
+                    DY = DYC(NY)
+                    DZ = DZC(NZ)
+                    WX = WXI(NX)
+                    WY = WYI(NY)
+                    WZ = WZI(NZ)
+                    WDX = WXIDXC(NX)
+                    WDY = WYIDYC(NY)
+                    WDZ = WZIDZC(NZ)
+                    IP=IPOINT(I)
+                    WDENS=-W(IP) * 2.0D+00
+                    XTEMP=WX*YZ
+                    YTEMP=WY*XZ
+                    ZTEMP=WZ*XY
+                    DSDX=DSDX+XTEMP*WDENS
+                    DSDY=DSDY+YTEMP*WDENS
+                    DSDZ=DSDZ+ZTEMP*WDENS
+                    XTEMPT = WDX*YZ + WX * (DY*Z + Y*DZ)
+                    YTEMPT = WDY*XZ + WY * (DX*Z + X*DZ)
+                    ZTEMPT = WDZ*XY + WZ * (DX*Y + X*DY)
+                    DTDX = DTDX + XTEMPT*D
+                    DTDY = DTDY + YTEMPT*D
+                    DTDZ = DTDZ + ZTEMPT*D
+ 1050             CONTINUE
+                END IF
+C
+C     ----- LOOP OVER ATOMS IN POTENTIAL TERM -----
+C
+                DO 2000 IC=1,NAT
+                  ICATOM=IC
+C
+                  KAPT = (ICATOM-1)*3+1
+                  KAPTT= KAPT*(KAPT+1)/2
+                  MMAPT=MAX(IAPT,KAPT)
+                  NNAPT=MIN(IAPT,KAPT)
+                  IKAPT=MMAPT*(MMAPT-1)/2+NNAPT
+                  MMAPT=MAX(JAPT,KAPT)
+                  NNAPT=MIN(JAPT,KAPT)
+                  JKAPT=MMAPT*(MMAPT-1)/2+NNAPT
+C
+                  ZNUC=-ZAN(IC)*DIJPI
+                  CX=C(1,IC)
+                  CY=C(2,IC)
+                  CZ=C(3,IC)
+                  XX=AA*((AX-CX)**2+(AY-CY)**2+(AZ-CZ)**2)
+                  IF (NROOTS.LE.3) THEN
+                    CALL RT123
+                  ELSE IF (NROOTS.EQ.4) THEN
+                    CALL ROOT4
+                  ELSE IF (NROOTS.EQ.5) THEN
+                    CALL ROOT5
+                  ELSE
+                    STOP 'NOT ENOUGH ROOTS IN VDERIV'
+                  END IF
+                  HFDX=0.0
+                  HFDY=0.0
+                  HFDZ=0.0
+                  DO 1500 IROOT=1,NROOTS
+                    UU=AA*U(IROOT)
+                    WW=WT(IROOT)*ZNUC
+                    TT=AA+UU
+                    T=DSQRT(TT)
+                    X0=(AAX+UU*CX)/TT
+                    Y0=(AAY+UU*CY)/TT
+                    Z0=(AAZ+UU*CZ)/TT
+C
+C     ----- CALCULATE TWO-DIMENSIONAL INTEGRALS -----
+C
+                    IN=-4
+                    DO 1100 NI=1,LIT
+                      IN=IN+4
+                      DO 1100 NJ=1,LJT
+                        JN=IN+NJ
+                        CALL VDER
+                        XIN(JN)=VX
+                        YIN(JN)=VY
+                        ZIN(JN)=VZ*WW
+                        DXC(JN)=DVX
+                        DYC(JN)=DVY
+                        DZC(JN)=DVZ*WW
+                        WXI(JN)=WIVX
+                        WYI(JN)=WIVY
+                        WZI(JN)=WIVZ*WW
+                        WXJ(JN)=WJVX
+                        WYJ(JN)=WJVY
+                        WZJ(JN)=WJVZ*WW
+ 1100               CONTINUE
+C
+C     ----- COMBINE TWO-DIMENSIONAL INTEGRALS TO FORM INTEGRALS -----
+C
+                    ICPONT = (IC-1)*NNP
+                    IDIAG=2
+                    DO 1200 I=1,IJ
+                      NX=IJX(I)
+                      NY=IJY(I)
+                      NZ=IJZ(I)
+                      DENSTY=DENS(I)
+                      X = XIN(NX)
+                      Y = YIN(NY)
+                      Z = ZIN(NZ)
+                      XY = X*Y
+                      XZ = X*Z
+                      YZ = Y*Z
+                      XTEMP1 = DXC(NX)*YZ
+                      YTEMP1 = DYC(NY)*XZ
+                      ZTEMP1 = DZC(NZ)*XY
+                      HFDX  = HFDX + XTEMP1*DENSTY
+                      HFDY  = HFDY + YTEMP1*DENSTY
+                      HFDZ  = HFDZ + ZTEMP1*DENSTY
+                      XTEMP2 =  WXI(NX)*YZ
+                      YTEMP2 =  WYI(NY)*XZ
+                      ZTEMP2 =  WZI(NZ)*XY
+                      DVDXI = DVDXI + XTEMP2*DENSTY
+                      DVDYI = DVDYI + YTEMP2*DENSTY
+                      DVDZI = DVDZI + ZTEMP2*DENSTY
+                      XTEMP3 =  WXJ(NX)*YZ
+                      YTEMP3 =  WYJ(NY)*XZ
+                      ZTEMP3 =  WZJ(NZ)*XY
+                      DVDXJ = DVDXJ + XTEMP3*DENSTY
+                      DVDYJ = DVDYJ + YTEMP3*DENSTY
+                      DVDZJ = DVDZJ + ZTEMP3*DENSTY
+ 1200               CONTINUE
+ 1500             CONTINUE
+                  DHF(1,IC)=DHF(1,IC) + HFDX
+                  DHF(2,IC)=DHF(2,IC) + HFDY
+                  DHF(3,IC)=DHF(3,IC) + HFDZ
+ 2000           CONTINUE
+              END IF
+ 3000     CONTINUE
+C
+          DE(1,IATOM)=DE(1,IATOM) + DVDXI + DTDX
+          DE(2,IATOM)=DE(2,IATOM) + DVDYI + DTDY
+          DE(3,IATOM)=DE(3,IATOM) + DVDZI + DTDZ
+          DE(1,JATOM)=DE(1,JATOM) + DVDXJ - DTDX
+          DE(2,JATOM)=DE(2,JATOM) + DVDYJ - DTDY
+          DE(3,JATOM)=DE(3,JATOM) + DVDZJ - DTDZ
+          DW(1,IATOM)=DW(1,IATOM) + DSDX
+          DW(2,IATOM)=DW(2,IATOM) + DSDY
+          DW(3,IATOM)=DW(3,IATOM) + DSDZ
+          DW(1,JATOM)=DW(1,JATOM) - DSDX
+          DW(2,JATOM)=DW(2,JATOM) - DSDY
+          DW(3,JATOM)=DW(3,JATOM) - DSDZ
+ 5000 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE ININDX(C,KATOM,KSTART,KNG,KTYPE,KMIN,KMAX,KLOC,
+     #IA,DT)
+C
+C
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C
+      REAL*8 C(3,NAT),DT(NNP)
+      INTEGER KATOM(NSHELL),KSTART(NSHELL),KNG(NSHELL),KTYPE(NSHELL)
+      INTEGER KMIN(NSHELL),KMAX(NSHELL),KLOC(NSHELL),IA(NNP)
+      LOGICAL OPEN
+      CHARACTER*5 CALTYP
+      CHARACTER*6 SCFTYP
+C
+      COMMON /ISHELL/  II,IATOM,XI,YI,ZI,IGMIN,IGMAX,LIT,MINI,MAXI,LOCI
+      COMMON /JSHELL/  JJ,JATOM,XJ,YJ,ZJ,JGMIN,JGMAX,LJT,MINJ,MAXJ,LOCJ
+     #,                RR
+      COMMON /INDEX/  DENS(100),IJ,IJX(100),IJY(100),IJZ(100)
+     #,               IPOINT(100)
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /CNTRL/  IPRINT,NDERIV,INTOUT,INFOUT,OPEN,SCFTYP,CALTYP
+      COMMON /COUPLC/ FOCC(5),ALP(5,5),BET(5,5),NTYPES
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+C
+      DIMENSION IX(20),IY(20),IZ(20),JX(20),JY(20),JZ(20)
+C
+C                                         X  Y  Z  X  X  Y  Y  Z  Z  X
+C                       X  Y  Z  X  X  Y  X  Y  Z  X  X  Y  Y  Z  Z  Y
+C              S X Y Z  X  Y  Z  Y  Z  Z  X  Y  Z  Y  Z  X  Z  X  Y  Z
+C
+      DATA IX /1,5,1,1, 9, 1, 1, 5, 5, 1,13, 1, 1, 9, 9, 5, 1, 5, 1, 5/
+      DATA IY /1,1,5,1, 1, 9, 1, 5, 1, 5, 1,13, 1, 5, 1, 9, 9, 1, 5, 5/
+      DATA IZ /1,1,1,5, 1, 1, 9, 1, 5, 5, 1, 1,13, 1, 5, 1, 5, 9, 9, 5/
+      DATA JX /0,1,0,0, 2, 0, 0, 1, 1, 0, 3, 0, 0, 2, 2, 1, 0, 1, 0, 1/
+      DATA JY /0,0,1,0, 0, 2, 0, 1, 0, 1, 0, 3, 0, 1, 0, 2, 2, 0, 1, 1/
+      DATA JZ /0,0,0,1, 0, 0, 2, 0, 1, 1, 0, 0, 3, 0, 1, 0, 1, 2, 2, 1/
+C
+C
+C
+      DO 1 I=1,NNP
+        IA(I)=I*(I-1)/2
+    1 CONTINUE
+C
+      RETURN
+C
+C-----------------------------------------------------------INDEX
+C
+      ENTRY INDEXX
+C
+      IATOM=KATOM(II)
+      XI=C(1,IATOM)
+      YI=C(2,IATOM)
+      ZI=C(3,IATOM)
+      IGMIN=KSTART(II)
+      IGMAX=IGMIN+KNG(II)-1
+      LIT=KTYPE(II)
+      MINI=KMIN(II)
+      MAXI=KMAX(II)
+      LOCI=KLOC(II)-MINI
+C
+C     ----- J ATOM -----
+C
+      JATOM=KATOM(JJ)
+      XJ=C(1,JATOM)
+      YJ=C(2,JATOM)
+      ZJ=C(3,JATOM)
+      JGMIN=KSTART(JJ)
+      JGMAX=JGMIN+KNG(JJ)-1
+      LJT=KTYPE(JJ)
+      MINJ=KMIN(JJ)
+      MAXJ=KMAX(JJ)
+      LOCJ=KLOC(JJ)-MINJ
+C
+      RR=(XI-XJ)**2+(YI-YJ)**2+(ZI-ZJ)**2
+C
+C     ----- WORK OUT INDICES FOR COMBINING 2D INTEGRALS -----
+C
+      IJ=0
+      JMAX=MAXJ
+      DO 3 I=MINI,MAXI
+        NX=IX(I)
+        NY=IY(I)
+        NZ=IZ(I)
+        IF (II.EQ.JJ) JMAX=I
+        DO 2 J=MINJ,JMAX
+          IJ=IJ+1
+          IJX(IJ)=NX+JX(J)
+          IJY(IJ)=NY+JY(J)
+          IJZ(IJ)=NZ+JZ(J)
+          IPOINT(IJ)=IA(LOCI+I)+LOCJ+J
+          DENS(IJ)=DT(IA(LOCI+I)+LOCJ+J)
+          IF (II.NE.JJ.OR.I.NE.J) DENS(IJ)=DENS(IJ)*2.0D+00
+    2   CONTINUE
+    3 CONTINUE
+      RETURN
+      END
+      SUBROUTINE VDER
+C
+C
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+      LOGICAL OPEN
+      CHARACTER*5 CALTYP
+      CHARACTER*6 SCFTYP
+C
+      COMMON /CNTRL/  IPRINT,NDERIV,INTOUT,INFOUT,OPEN,SCFTYP,CALTYP
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /DSTVP/  T,X0,Y0,Z0,NI,NJ,CX,CY,CZ,D0DI,D0DJ,VX,VY,VZ,UU
+     #,               D0DC,DVX,DVY,DVZ,               WIVX,WIVY,WIVZ
+     #,                                    WJVX,WJVY,WJVZ
+     #,               WIXDVX,WIYDVY,WIZDVZ
+     #,               DEXDXI,DEXDYI,DEXDZI,DEXDXJ,DEXDYJ,DEXDZJ
+     #,               DEXDII,DEXDIJ,DEXDJJ,DEXDIC,DEXDJC
+     #,               TAI,TAJ,TAA,ICATOM
+      COMMON /ISHELL/  II,IATOM,XI,YI,ZI,IGMIN,IGMAX,LIT,MINI,MAXI,LOCI
+      COMMON /JSHELL/  JJ,JATOM,XJ,YJ,ZJ,JGMIN,JGMAX,LJT,MINJ,MAXJ,LOCJ
+     #,                RR
+C
+      DIMENSION H(21),W(21),MIN(6),MAX(6),COORD0(3),COORDI(3)
+      DIMENSION COORDJ(3),COORDC(3),V(3),DV(3),WIV(3)
+      DIMENSION WIDV(3),DEXDI(3),DEXDJ(3),WJV(3)
+C
+      EQUIVALENCE (V,VX),(DV,DVX),(WIV,WIVX)
+      EQUIVALENCE (WJV,WJVX)
+      EQUIVALENCE (WIDV,WIXDVX)
+      EQUIVALENCE (COORD0,X0),(COORDI,XI),(COORDJ,XJ),(COORDC,CX)
+      EQUIVALENCE (DEXDI,DEXDXI),(DEXDJ,DEXDXJ)
+C
+      DATA MIN /1,  2,  4,  7, 11, 16/
+      DATA MAX /1,  3,  6, 10, 15, 21/
+      DATA H   /0.0D+00
+     2,         -.707106781186548D+00,  0.707106781186548D+00
+     3,         -1.22474487139159D+00,0.0D+00,1.22474487139159D+00
+     4,         -1.65068012388578D+00, -0.524647623275290D+00
+     4,          0.524647623275290D+00, 1.65068012388578D+00
+     5,   -2.02018287045609D+00,-0.958572464613819D+00,0.0D+00
+     5,          0.958572464613819D+00, 2.02018287045609D+00
+     6,         -2.350604973674D+00  , -1.335849074014D+00
+     6,         -0.436077411928D+00  ,  0.436077411928D+00
+     6,          1.335849074014D+00  ,  2.350604973674D+00/
+      DATA W   /1.77245385090552D+00
+     2,         0.8862269254528D+00  ,  0.8862269254528D+00
+     3,         0.2954089751509D+00  ,  1.181635900604D+00
+     3,         0.2954089751509D+00
+     4,         8.131283544725D-02   ,  8.049140900055D-01
+     4,         8.049140900055D-01   ,  8.131283544725D-02
+     5,         1.995324205905D-02   ,  3.936193231522D-01
+     5,         9.453087204829D-01   ,  3.936193231522D-01
+     5,         1.995324205905D-02
+     6,         4.530009905509D-03   ,  1.570673203229D-01
+     6,         7.246295952244D-01   ,  7.246295952244D-01
+     6,         1.570673203229D-01   ,  4.530009905509D-03/
+C
+      TWOUU=2.0D+00*UU
+      NPTS=(NI+NJ+NDERIV)/2 + 1
+      IF (IATOM.EQ.JATOM) THEN
+        IF (IATOM.EQ.ICATOM) THEN
+          TWOAA  = TAA + 2.0D+00*UU
+          TWOUU=0.0
+        ELSE
+          TWOAA  = TAA
+        END IF
+        NA=NI+NJ-2
+        DO 110 IXYZ=1,3
+          V(IXYZ)=0.0
+          DV(IXYZ)=0.0
+          WIV(IXYZ)=0.0
+          WJV(IXYZ)=0.0
+C
+          DO 109 IPT=MIN(NPTS),MAX(NPTS)
+            PT=H(IPT)/T+COORD0(IXYZ)
+            A=PT-COORDI(IXYZ)
+            C=(PT-COORDC(IXYZ))*TWOUU
+            WT=W(IPT)
+            WTC=WT*C
+            WTCSQ=WTC*C
+            IF (NA.GT.1) THEN
+              ANAM1=A**(NA-1)
+              ANA  =ANAM1*A
+            ELSE IF (NA.EQ.1) THEN
+              ANAM1=1.0
+              ANA  =A
+            ELSE IF (NA.EQ.0) THEN
+              ANAM1=0.0
+              ANA  =1.0
+            ELSE
+              STOP 'NEGATIVE VALUE OF NA, FOR I=J, IN VDER'
+            END IF
+            ANAP1=ANA*A
+C
+            V(IXYZ)=V(IXYZ) + ANA *WT
+            DV(IXYZ)=DV(IXYZ) + ANA * WTC
+            WIV(IXYZ) = WIV(IXYZ) + (TWOAA*ANAP1 - NA*ANAM1) * WT
+  109     CONTINUE
+  110   CONTINUE
+      ELSE
+        IF (IATOM.EQ.ICATOM) THEN
+          TWOAI  = TAI + 2.0D+00*UU
+          TWOUU  = 0.0
+        ELSE
+          TWOAI  = TAI
+        END IF
+        IF (JATOM.EQ.ICATOM) THEN
+          TWOAJ  = TAJ + 2.0D+00*UU
+          TWOUU  = 0.0
+        ELSE
+          TWOAJ  = TAJ
+        END IF
+        NA=NI-1
+        NB=NJ-1
+        DO 120 IXYZ=1,3
+          V(IXYZ)=0.0
+          DV(IXYZ)=0.0
+          WIV(IXYZ)=0.0
+          WJV(IXYZ)=0.0
+C
+          DO 119 IPT=MIN(NPTS),MAX(NPTS)
+            PT=H(IPT)/T+COORD0(IXYZ)
+            A=PT-COORDI(IXYZ)
+            B=PT-COORDJ(IXYZ)
+            C=(PT-COORDC(IXYZ))*TWOUU
+            WT=W(IPT)
+            WTC=WT*C
+            WTCSQ=WTC*C
+            IF (NA.GT.1) THEN
+              ANAM1=A**(NA-1)
+              ANA  =ANAM1*A
+            ELSE IF (NA.EQ.1) THEN
+              ANAM1=1.0
+              ANA  =A
+            ELSE IF (NA.EQ.0) THEN
+              ANAM1=0.0
+              ANA  =1.0
+            ELSE
+              STOP 'NEGATIVE VALUE OF NA IN VDER'
+            END IF
+            IF (NB.GT.1) THEN
+              BNBM1=B**(NB-1)
+              BNB  =BNBM1*B
+            ELSE IF (NB.EQ.1) THEN
+              BNBM1=1.0
+              BNB  =B
+            ELSE IF (NB.EQ.0) THEN
+              BNBM1=0.0
+              BNB  =1.0
+            ELSE
+              STOP 'NEGATIVE VALUE OF NB IN VDER'
+            END IF
+            ANAP1=ANA*A
+            BNBP1=BNB*B
+C
+            ANABNB= ANA*BNB
+            V(IXYZ)=V(IXYZ) + ANABNB * WT
+            DV(IXYZ)=DV(IXYZ) + ANABNB * WTC
+            WIV(IXYZ)=WIV(IXYZ)+(TWOAI*ANAP1-NA*ANAM1)*BNB*WT
+            WJV(IXYZ)=WJV(IXYZ)+(TWOAJ*BNBP1-NB*BNBM1)*ANA*WT
+  119     CONTINUE
+  120   CONTINUE
+      END IF
+      RETURN
+C
+C------------------------------------------------------------TDER
+C
+      ENTRY TDER
+C
+      NPTS=(NI+NJ+NDERIV)/2 +1
+      TWOAI=TAI
+      TWOAJ=TAJ
+      NA=NI-1
+      NB=NJ-1
+      DO 130 IXYZ=1,3
+        V(IXYZ)=0.0
+        DV(IXYZ)=0.0
+        WIV(IXYZ)=0.0
+        WIDV(IXYZ)=0.0
+C
+        DO 129 IPT=MIN(NPTS),MAX(NPTS)
+          PT=H(IPT)/T+COORD0(IXYZ)
+          A=PT-COORDI(IXYZ)
+          B=PT-COORDJ(IXYZ)
+          WT=W(IPT)
+          IF (NA.GT.2) THEN
+            ANAM2=A**(NA-2)
+            ANAM1=ANAM2*A
+            ANA  =ANAM1*A
+          ELSE IF (NA.EQ.2) THEN
+            ANAM2=1.0
+            ANAM1=A
+            ANA  =A**2
+          ELSE IF (NA.EQ.1) THEN
+            ANAM2=0.0
+            ANAM1=1.0
+            ANA  =A
+          ELSE IF (NA.EQ.0) THEN
+            ANAM2=0.0
+            ANAM1=0.0
+            ANA  =1.0
+          ELSE
+            STOP 'NEGATIVE VALUE OF NA IN TDER'
+          END IF
+          IF (NB.GT.2) THEN
+            BNBM2=B**(NB-2)
+            BNBM1=BNBM2*B
+            BNB  =BNBM1*B
+          ELSE IF (NB.EQ.2) THEN
+            BNBM2=1.0
+            BNBM1=B
+            BNB  =B**2
+          ELSE IF (NB.EQ.1) THEN
+            BNBM2=0.0
+            BNBM1=1.0
+            BNB  =B
+          ELSE IF (NB.EQ.0) THEN
+            BNBM2=0.0
+            BNBM1=0.0
+            BNB  =1.0
+          ELSE
+            STOP 'NEGATIVE VALUE OF NB IN TDER'
+          END IF
+          ANAP1=ANA*A
+          BNBP1=BNB*B
+          ANAP2=ANAP1*A
+          BNBP2=BNBP1*B
+C
+          DELSQB=NB*(NB-1)*BNBM2-TWOAJ*(2*NB+1)*BNB+TWOAJ**2*BNBP2
+          V(IXYZ)=V(IXYZ) + ANA*BNB*WT
+          DV(IXYZ)=DV(IXYZ) + ANA*DELSQB*WT
+          WIV(IXYZ)=WIV(IXYZ) + (TWOAI*ANAP1-NA*ANAM1)*BNB*WT
+          WIDV(IXYZ)=WIDV(IXYZ) + (TWOAI*ANAP1-NA*ANAM1)*DELSQB*WT
+  129   CONTINUE
+  130 CONTINUE
+      RETURN
+      END
+      SUBROUTINE GLIMIT(KATOM,KLOC)
+C
+C
+C MODIFIED 25 AUGUST 1983 AT BRL TO HANDLE VARIABLE DIMENSIONING
+C OF HONDO ARRAYS                                          PWS
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY KATOM,KLOC
+C
+      INTEGER KATOM(NSHELL),KLOC(NSHELL)
+C
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /ALIM/  LIMINF(30),LIMSUP(30)
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+C
+      LIMINF(1)=1
+      LAT=1
+      J=1
+      DO 10 I=1,NSHELL
+        IAT=KATOM(I)
+        IF(LAT.EQ.IAT) GO TO 10
+        LAT=IAT
+        LIMSUP(J)=KLOC(I)-1
+        J=J+1
+        LIMINF(J)=KLOC(I)
+   10 CONTINUE
+      LIMSUP(J)=NUM
+      RETURN
+      END
+      SUBROUTINE DDEBUT(SCFTYP)
+C
+C
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+      LOGICAL OUT
+      CHARACTER*6 SCFTYP
+C
+      COMMON /OUTPUT/ NPRINT,ITOL,ICUT,NORMF,NORMP,NOPK
+      COMMON /DSHLT/  TOL,CUTOFF,OUT
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+C
+      DATA ONE,TEN,E /1.0E+00,1.0E+01,2.30258E+00/
+C
+      NPRINT=0
+      OUT=NPRINT.EQ.-4
+      ICUT0=IABS(ICUT)
+      IF(ICUT0.LE.0) ICUT0=9
+      CUTOFF=ONE/(TEN**ICUT0)
+      IF(ITOL.EQ.0) ITOL=20
+      TOL=E*ITOL
+      RETURN
+      END
+      SUBROUTINE ISOOUT
+C
+C
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+C
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /ISOPAC/ INDIN(120),INDOUT(30)
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+C
+      LOGICAL*4 TRANS(120)
+      LOGICAL*1 INDOUT
+      EQUIVALENCE (TRANS(1),INDIN(1))
+C
+CIBM  INTEGER*1 INDOUT
+C
+      DO 20 J=1,NT
+CIBM    INDIN(J)=INDOUT(J)
+        TRANS(J) = INDOUT(J)
+   20 CONTINUE
+      RETURN
+C
+C--ISOIN-------------------------------------------------ISOIN
+C
+      ENTRY ISOIN
+C
+      DO 40 J=1,NT
+CIBM    INDOUT(J)=INDIN(J)
+        INDOUT(J) = TRANS(J)
+   40 CONTINUE
+      RETURN
+      END
+      SUBROUTINE INSHEL(KATOM,C,KSTART,KNG,KTYPE,KMIN,KMAX,KLOC,
+     #EX,CS)
+C
+C
+C MODIFIED 25 AUGUST 1983 AT BRL TO ACCOMODATE VARIABLE DIMENSIONS
+C OF HONDO ARRAYS.                                        PWS
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY KATOM,C,KSTART,KNG,KTYPE,KMIN,KMAX,KLOC,EX,CS
+C
+      REAL*8 C(3,NAT),EX(NPRIM),CS(NPRIM)
+      INTEGER KATOM(NSHELL),KSTART(NSHELL),KNG(NSHELL),KTYPE(NSHELL)
+      INTEGER KMIN(NSHELL),KMAX(NSHELL),KLOC(NSHELL)
+      LOGICAL IANDJ,KANDL,SAME,XZERO,YZERO,ZZERO
+      LOGICAL KSKIP,IXCORD,IYCORD,IZCORD,ISSSS
+      LOGICAL IPSSS,IPSPS,IPPSS,IPPPP
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /LOCSYM/ NXYZ,IXCORD,IYCORD,IZCORD,ISSSS
+     1,               IPSSS,IPSPS,IPPSS,IPPPP,IWHICH
+      COMMON /OUTPUT/ NPRINT,ITOL,ICUT,NORMF,NORMP,NOPK
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /ROOT/   XX,U(9),W(9),NROOTS
+      COMMON /DSHLNO/ LIT,LJT,LKT,LLT,LOCI,LOCJ,LOCK,LOCL
+     1,               MINI,MINJ,MINK,MINL,MAXI,MAXJ,MAXK,MAXL
+     2,               NIJ,IJD,KLD,IJ,KL
+      COMMON /DINDEX/ IJGT(36),IJX(36),IJY(36),IJZ(36)
+     1,               KLGT(78),KLX(78),KLY(78),KLZ(78)
+     2,               IJDGT(36),KLDGT(36),KDG(10),LDG(10)
+      COMMON /DSHLNF/ GA(10),CSA(10),CPA(10),CDA(10)
+     1,               GB(10),CSB(10),CPB(10),CDB(10)
+     1,               GC(10),CSC(10),CPC(10),CDC(10)
+     1,               GD(10),CSD(10),CPD(10),CDD(10)
+     1,               AX,AY,AZ,BX,BY,BZ,RAB,CX,CY,CZ,DX,DY,DZ,RCD
+     1,               NGA,NGB,NGC,NGD
+      COMMON /DMISC/  IANDJ,KANDL,SAME
+      COMMON /SHELL/  ISH,JSH,KSH,LSH
+CIBM  COMMON /SHELLD/ NATOM(4),NPASS
+      COMMON /SHELLD/ XIDER,YIDER,ZIDER,XJDER,YJDER,ZJDER
+     2,               XKDER,YKDER,ZKDER,NATOM(4),NPASS
+      COMMON /GEOINF/ XIMXJ,YIMYJ,ZIMZJ,XKMXL,YKMYL,ZKMZL
+     1,               XAMXB,YAMYB,ZAMZB
+      COMMON /EXPNTS/ EIIA,EJIA,EKIB,EIJIA,EKLIB,RHO,RHOTSQ
+     1,               EI,EJ,EK,A,B
+C
+      DIMENSION IX(10),IY(10),IZ(10),LX(20),LY(20),LZ(20)
+     1,         KX(10),KY(10),KZ(10),JX(10),JY(10),JZ(10)
+C
+      DATA KX / 1,65, 1, 1,129, 1, 1,65,65, 1/
+      DATA KY / 1, 1,65, 1, 1,129, 1,65, 1,65/
+      DATA KZ / 1, 1, 1,65, 1, 1,129, 1,65,65/
+      DATA JX / 0,16, 0, 0,32, 0, 0,16,16, 0/
+      DATA JY / 0, 0,16, 0, 0,32, 0,16, 0,16/
+      DATA JZ / 0, 0, 0,16, 0, 0,32, 0,16,16/
+      DATA LX / 0, 4, 0, 0, 8, 0, 0, 4, 4, 0
+     1,        12, 0, 0, 8, 8, 4, 0, 4, 0, 4/
+      DATA LY / 0, 0, 4, 0, 0, 8, 0, 4, 0, 4
+     1,        0, 12, 0, 4, 0, 8, 8, 0, 4, 4/
+      DATA LZ / 0, 0, 0, 4, 0, 0, 8, 0, 4, 4
+     1,        0, 0, 12, 0, 4, 0, 4, 8, 8, 4/
+      DATA IX / 0, 1, 0, 0, 2, 0, 0, 1, 1, 0/
+      DATA IY / 0, 0, 1, 0, 0, 2, 0, 1, 0, 1/
+      DATA IZ / 0, 0, 0, 1, 0, 0, 2, 0, 1, 1/
+C
+C
+      RETURN
+C
+C-----------------------------------------------------------DSHELL
+C
+      ENTRY DSHELL
+C
+C
+C     ----- PERMUTE ISH AND JSH SHELLS, FOR THEIR TYPE
+C
+      IANDJ=ISH.EQ.JSH
+      INU=ISH
+      JNU=JSH
+C
+C     ----- ISHELL
+C
+      I=KATOM(INU)
+      AX=C(1,I)
+      AY=C(2,I)
+      AZ=C(3,I)
+      I1=KSTART(INU)
+      I2=I1+KNG(INU)-1
+      LIT=KTYPE(INU)
+      MINI=KMIN(INU)
+      MAXI=KMAX(INU)
+      LOCI=KLOC(INU)-MINI
+      NGA=0
+      DO 50 I=I1,I2
+        NGA=NGA+1
+        GA(NGA)=EX(I)
+        CSA(NGA)=CS(I)
+   50 CONTINUE
+C
+C     ----- JSHELL
+C
+      J=KATOM(JNU)
+      BX=C(1,J)
+      BY=C(2,J)
+      BZ=C(3,J)
+      XIMXJ=AX-BX
+      YIMYJ=AY-BY
+      ZIMZJ=AZ-BZ
+      J1=KSTART(JNU)
+      J2=J1+KNG(JNU)-1
+      LJT=KTYPE(JNU)
+      MINJ=KMIN(JNU)
+      MAXJ=KMAX(JNU)
+      LOCJ=KLOC(JNU)-MINJ
+      NGB=0
+      DO 100 J=J1,J2
+        NGB=NGB+1
+        GB(NGB)=EX(J)
+        CSB(NGB)=CS(J)
+  100 CONTINUE
+      RAB=((AX-BX)**2+(AY-BY)**2+(AZ-BZ)**2)
+C
+C     ----- PREPARE INDICES FOR PAIRS OF (I,J) FUNCTIONS
+C
+      IJ=0
+      IJD=0
+      JMAX=MAXJ
+      DO 150 I=MINI,MAXI
+        NX=IX(I)
+        NY=IY(I)
+        NZ=IZ(I)
+C     IF(IANDJ) JMAX=I
+        DO 150 J=MINJ,JMAX
+          IJ=IJ+1
+          IJX(IJ)=NX+JX(J)
+          IJY(IJ)=NY+JY(J)
+          IJZ(IJ)=NZ+JZ(J)
+  150 CONTINUE
+      CALL DPRIM
+      IF (NIJ.EQ.0) RETURN
+C
+C     ---- K AND L SHELLS -----
+C
+      KANDL=KSH.EQ.LSH
+      SAME=ISH.EQ.KSH.AND.JSH.EQ.LSH
+C
+C     ----- KSHELL
+C
+      K=KATOM(KSH)
+      CX=C(1,K)
+      CY=C(2,K)
+      CZ=C(3,K)
+      K1=KSTART(KSH)
+      K2=K1+KNG(KSH)-1
+      LKT=KTYPE(KSH)
+      MINK=KMIN(KSH)
+      MAXK=KMAX(KSH)
+      LOCK=KLOC(KSH)-MINK
+      NGC=0
+      DO 250 K=K1,K2
+        NGC=NGC+1
+        GC(NGC)=EX(K)
+        CSC(NGC)=CS(K)
+  250 CONTINUE
+C
+C     ----- LSHELL
+C
+      L=KATOM(LSH)
+      DX=C(1,L)
+      DY=C(2,L)
+      DZ=C(3,L)
+      XZERO=(ABS(AX).LT.1.0E-6).AND.(ABS(BX).LT.1.0E-6).AND.
+     1(ABS(CX).LT.1.0E-6).AND.(ABS(DX).LT.1.0E-6).AND.IXCORD
+      YZERO=(ABS(AY).LT.1.0E-6).AND.(ABS(BY).LT.1.0E-6).AND.
+     1(ABS(CY).LT.1.0E-6).AND.(ABS(DY).LT.1.0E-6).AND.IYCORD
+      ZZERO=(ABS(AZ).LT.1.0E-6).AND.(ABS(BZ).LT.1.0E-6).AND.
+     1(ABS(CZ).LT.1.0E-6).AND.(ABS(DZ).LT.1.0E-6).AND.IZCORD
+C
+      NXYZ=0
+      IF (XZERO) NXYZ=4
+      IF (XZERO.AND.YZERO) NXYZ=8
+C
+      XKMXL=CX-DX
+      YKMYL=CY-DY
+      ZKMZL=CZ-DZ
+      L1=KSTART(LSH)
+      L2=L1+KNG(LSH)-1
+      LLT=KTYPE(LSH)
+      ISSSS=.FALSE.
+      IPSSS=.FALSE.
+      IPSPS=.FALSE.
+      IPPSS=.FALSE.
+      IZUZ=LLT+LKT+LJT+LIT
+      MZUZ=LLT+LKT
+      IF (IZUZ.GT.6) GO TO 983
+      IF (IZUZ.EQ.4) THEN
+        ISSSS=.TRUE.
+      ELSE IF (IZUZ.EQ.5) THEN
+        IPSSS=.TRUE.
+      ELSE IF (MZUZ.EQ.3) THEN
+        IPSPS=.TRUE.
+      ELSE IF (MZUZ.EQ.4.AND.LLT.EQ.2.AND.(.NOT.KANDL)) THEN
+        IPPSS=.TRUE.
+      ELSE IF (LIT.EQ.2.AND.LJT.EQ.2.AND.(.NOT.IANDJ)) THEN
+        IPPSS=.TRUE.
+      END IF
+983   CONTINUE
+      MINL=KMIN(LSH)
+      MAXL=KMAX(LSH)
+      LOCL=KLOC(LSH)-MINL
+      NGD=0
+      DO 300 L=L1,L2
+        NGD=NGD+1
+        GD(NGD)=EX(L)
+        CSD(NGD)=CS(L)
+  300 CONTINUE
+      NROOTS=(LIT+LJT+LKT+LLT-1)/2
+      RCD=((CX-DX)**2+(CY-DY)**2+(CZ-DZ)**2)
+C
+C     ----- PREPARE INDICES FOR PAIRS OF (K,L) FUNCTIONS
+C
+      KL=0
+      KLD=0
+      LMAX=MAXL
+      DO 350 K=MINK,MAXK
+        NX=KX(K)
+        NY=KY(K)
+        NZ=KZ(K)
+        IF (KANDL) LMAX=K
+        DO 350 L=MINL,LMAX
+          KL=KL+1
+          KLX(KL)=NX+LX(L)
+          KLY(KL)=NY+LY(L)
+          KLZ(KL)=NZ+LZ(L)
+  350 CONTINUE
+      RETURN
+      END
+      SUBROUTINE DPRIM
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+      LOGICAL IANDJ,KANDL,SAME,OUT,NORM
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON/OUTPUT/NPRINT,ITOL,ICUT,NORMF,NORMP,NOPK
+      COMMON/DSHLT/TOL,CUTOFF,OUT
+      COMMON/DSHLNF/AG(10),CSA(10),CPA(10),CDA(10)
+     1,             BG(10),CSB(10),CPB(10),CDB(10)
+     1,             CG(10),CSC(10),CPC(10),CDC(10)
+     1,             DG(10),CSD(10),CPD(10),CDD(10)
+     1,             XI,YI,ZI,XJ,YJ,ZJ,RRI,XK,YK,ZK,XL,YL,ZL,RRK
+     1,             NGA,NGB,NGC,NGD
+      COMMON/DMISC/IANDJ,KANDL,SAME
+      COMMON/DSHLNO/LIT,LJT,LKT,LLT,LOCI,LOCJ,LOCK,LOCL,
+     1MINI,MINJ,MINK,MINL,MAXI,MAXJ,MAXK,MAXL,
+     2NIJ,IJD,KLD,IJ,KL
+      COMMON/DIJPRM/AA(100),R(100),X1(100),Y1(100),Z1(100),DIJ(400),
+     1IJDEN(36),EIS(100),EJS(100),EIIAS(100),EJIAS(100),EIJIAS(100)
+      COMMON /GEOINF/ XIMXJ,YIMYJ,ZIMZJ,XKMXL,YKMYL,ZKMZL
+     1,               XAMXB,YAMYB,ZAMZB
+      COMMON /EXPNTS/ EIIA,EJIA,EKIB,EIJIA,EKLIB,RHO,RHOTSQ
+     1,               EI,EJ,EK,A,B
+C
+      DIMENSION NA(4),NB(4)
+C
+      DATA NA /1,1,2,10/, NB /1,1,3,0 /
+C
+      NORM=NORMF.NE.1.OR.NORMP.NE.1
+      MAX=MAXJ
+C
+C     ----- I PRIMITIVE
+C
+      NIJ=0
+      JBMAX=NGB
+      DO 2000 IA=1,NGA
+        AI=AG(IA)
+        ARRI=AI*RRI
+        AXI=AI*XI
+        AYI=AI*YI
+        AZI=AI*ZI
+        CSI=CSA(IA)
+C
+C     ----- J PRIMITIVE
+C
+C     IF(IANDJ) JBMAX=IA
+        DO 1000 JB=1,JBMAX
+          AJ=BG(JB)
+          AQ=AI+AJ
+          DUM=AJ*ARRI/AQ
+          IF(DUM.GT.TOL) GO TO 1000
+          CSJ=CSB(JB)/AQ
+          NIJ=NIJ+1
+          R(NIJ)=DUM
+          AA(NIJ)=AQ
+          EIS(NIJ)=AI
+          EJS(NIJ)=AJ
+          EIIAS(NIJ)=AI/AQ
+          EJIAS(NIJ)=AJ/AQ
+          EIJIAS(NIJ)=AI*EJIAS(NIJ)
+          X1(NIJ)=(AXI+AJ*XJ)/AQ
+          Y1(NIJ)=(AYI+AJ*YJ)/AQ
+          Z1(NIJ)=(AZI+AJ*ZJ)/AQ
+C
+C     ----- DENSITY FACTOR
+C
+          DIJ(NIJ)=CSI*CSJ
+ 1000   CONTINUE
+ 2000 CONTINUE
+      RETURN
+      END
+      SUBROUTINE DABIN(IA,DT,D,ABDENS,LENBLK)
+C
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY IA,DT,D,ABDENS
+C
+      LOGICAL OUT,IANDJ,KANDL,SAME
+      LOGICAL OPEN
+      CHARACTER*5 CALTYP
+      CHARACTER*6 SCFTYP
+C
+      COMMON /TOLER/  F00TOL,FTOL
+      COMMON /IOFILE/ IR,IW,IP,IS,IPK,IDAF,NAV,IODA(20),IOUT,IFLAG3
+      COMMON /DSHLT/  TOL,CUTOFF,OUT
+      COMMON /OUTPUT/ NPRINT,ITOL,ICUT,NORMF,NORMP,NOPK
+      COMMON /TCSCF/  OCC1,OCC12,OCC2,SOCC1,SOCC12,SOCC2,ITCSCF
+      COMMON /COUPLC/ FOCC(5),ALP(5,5),BET(5,5),NTYPES
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /DMISC/  IANDJ,KANDL,SAME
+CIBM  COMMON /SHELLD/ NATOM(4),NPASS
+      COMMON /SHELLD/ XIDER,YIDER,ZIDER,XJDER,YJDER,ZJDER
+     2,               XKDER,YKDER,ZKDER,NATOM(4),NPASS
+      COMMON /DSHLNO/ LIT,LJT,LKT,LLT,LOCI,LOCJ,LOCK,LOCL
+     1,               MINI,MINJ,MINK,MINL,MAXI,MAXJ,MAXK,MAXL
+     2,               NIJ,IJD,KLD,IJ,KL
+      COMMON /CNTRL/  IPRINT,NDERIV,INTOUT,INFOUT,OPEN,SCFTYP,CALTYP
+C
+      DIMENSION IA(NUM),DT(NNP),D(NNP,NTYPES)
+      DIMENSION ABDENS(LENBLK)
+C
+      ICHECK = 3
+C
+      DATA TWO,FOUR /2.0D+00,4.0D+00/
+C
+C       INITIALIZE ROUTE FOR EACH TYPE OF CALCULATION
+C
+      IF (SCFTYP(1:5).EQ.'CLSCF') ASSIGN 1 TO JUMP
+      IF (SCFTYP(1:5).EQ.'HSOP ') ASSIGN 2 TO JUMP
+      IF (SCFTYP(1:5).EQ.'OPSNG') ASSIGN 3 TO JUMP
+      IF (SCFTYP(1:5).EQ.'GRSCF') ASSIGN 5 TO JUMP
+      IF (SCFTYP(1:5).EQ.'TCSCF') ASSIGN 5 TO JUMP
+      IF (ITCSCF.EQ.1)       ASSIGN 4 TO JUMP
+C
+      RETURN
+C
+C-------------------------------------------------DAB------------
+C
+      ENTRY DAB(II,JJ,KK,LL,Q4)
+C
+      NN=0
+      DMAX=0.0
+      DO 1700 I=MINI,MAXI
+        DO 1600 J=MINJ,MAXJ
+          LMAX=MAXL
+          DO 1500 K=MINK,MAXK
+            IF (KANDL) LMAX=K
+            DO 1400 L=MINL,LMAX
+              NN=NN+1
+              I1=LOCI+I
+              I2=LOCJ+J
+              I3=LOCK+K
+              I4=LOCL+L
+              IF(I1.GE.I2) GO TO 700
+              N=I1
+              I1=I2
+              I2=N
+  700         IF(I3.GE.I4) GO TO 800
+              N=I3
+              I3=I4
+              I4=N
+  800         IF(I1-I3) 900,1000,1100
+  900         N=I1
+              I1=I3
+              I3=N
+              N=I2
+              I2=I4
+              I4=N
+              GO TO 1100
+ 1000         IF(I2.LT.I4) GO TO 900
+ 1100         CONTINUE
+              MIJ=IA(I1)+I2
+              MIK=IA(I1)+I3
+              MIL=IA(I1)+I4
+              MKL=IA(I3)+I4
+              IF(I2.LT.I3) GO TO 5100
+              MJK=IA(I2)+I3
+              MJL=IA(I2)+I4
+              GO TO 7100
+ 5100         MJK=IA(I3)+I2
+              IF(I2.LT.I4) GO TO 6100
+              MJL=IA(I2)+I4
+              GO TO 7100
+ 6100         MJL=IA(I4)+I2
+ 7100         CONTINUE
+              GO TO JUMP, (1,2,3,4,5)
+    1         CONTINUE
+C
+C     ----- CLOSED SHELL SINGLET -----
+C
+              DFAC=DT(MIJ)*DT(MKL)*4.0-DT(MIK)*DT(MJL)-DT(MIL)*DT(
+     *        MJK)
+              GO TO 9
+    2         CONTINUE
+C
+C     ----- HIGH-SPIN OPEN-SHELL -----
+C
+              DFAC=DT(MIJ)*DT(MKL)*4.0-DT(MIK)*DT(MJL)-DT(MIL)*DT(
+     *        MJK)-                        D(MIK,2)*D(MJL,2)-D(MIL,2
+     *        )*D(MJK,2)
+              GO TO 9
+    3         CONTINUE
+C
+C     ----- OPEN SHELL SINGLET -----
+C
+              DFAC=( DT(MIJ)* DT(MKL)- D(MIJ,2)* D(MKL,2)
+     #        +     D(MIJ,3)*D(MKL,4)+D(MIJ,4)*D(MKL,3))*4.0D+00
+     #        -      DT(MIK)* DT(MJL)- DT(MIL)* DT(MJK)
+     #        +      D(MIK,2)* D(MJL,2)+ D(MIL,2)* D(MJK,2)
+     #        +    (D(MIK,3)*D(MJL,4)+D(MIK,4)*D(MJL,3)
+     #        +     D(MIL,3)*D(MJK,4)+D(MIL,4)*D(MJK,3))*2.0D+00
+              GO TO 9
+    4         CONTINUE
+CTJL          WRITE(*,*) '  IN TCSCF PART '
+C
+C     ----- TWO-CONFIGURATION SCF (GVB) -----
+C
+              DFAC=( DT(MIJ)* DT(MKL)- D(MIJ,2)* D(MKL,2)
+     #        +     D(MIJ,3)*D(MKL,3)*SOCC1+D(MIJ,4)*D(MKL,4)*SOCC2)
+     *        *4.0D+00-      DT(MIK)* DT(MJL)- DT(MIL)* DT(MJK)
+     #        +      D(MIK,2)* D(MJL,2)+ D(MIL,2)* D(MJK,2)
+     #        +    (D(MIK,3)*D(MJL,4)+D(MIK,4)*D(MJL,3)
+     #        +     D(MIL,3)*D(MJK,4)+D(MIL,4)*D(MJK,3))*SOCC12
+              GO TO 9
+C
+C     ----- GENERAL OPEN SHELL SCF -----
+C
+    5         CONTINUE
+CTJL          WRITE(*,*) '  IN GRSCF PART '
+              DFAC1 = 0.0D+00
+              DFAC2 = 0.0D+00
+              DO 1320 ITYP = 1,NTYPES
+                DO 1320 JTYP = 1,NTYPES
+                  DFAC1 = DFAC1 + D(MIJ,ITYP)*D(MKL,JTYP) * ALP(
+     *            ITYP,JTYP)
+                  DFAC2 = DFAC2 +(D(MIK,ITYP)*D(MJL,JTYP)+D(MIL,
+     *            ITYP)*D(MJK,JTYP))* BET(ITYP,JTYP)
+ 1320         CONTINUE
+              DFAC = DFAC1 * 8.0D+00 + DFAC2 * 4.0D+00
+C
+C
+    9         CONTINUE
+CD    WRITE(ICHECK,991) I1,I2,I3,I4,DFAC/8.0D+00
+CD991 FORMAT('  DAB',4I4,F12.7)
+              IF(I1.EQ.I2) DFAC=DFAC/TWO
+              IF(I3.EQ.I4) DFAC=DFAC/TWO
+              DFAC=DFAC*Q4
+C
+C     ----- THIS FACTOR OF TWO IS NEEDED BECAUSE ONLY GENERATE
+C               ONE OF TWO POSSIBLE DERIVATIVES OF [II,KL]     -----
+C
+              IF (IANDJ.AND.I.EQ.J) DFAC=DFAC*2.0D+00
+C
+              IF (ABS(DFAC).GT.DMAX) DMAX=ABS(DFAC)
+C
+CD    IF (ABS(ABDENS(NN)-DFAC).LT.1.0D-6) GO TO 1399
+CD    WRITE(ICHECK,992) II,JJ,KK,LL,I1,I2,I3,I4,ABDENS(NN),DFAC
+C 992 FORMAT('  DIF?',4I3,I5,3I4,2F12.6)
+C1399 CONTINUE
+CD    DFAC=ABDENS(NN)
+              ABDENS(NN)=DFAC
+ 1400       CONTINUE
+ 1500     CONTINUE
+ 1600   CONTINUE
+ 1700 CONTINUE
+C     IF (ABS(DMAX).GT.1.0E-15) THEN
+C     F00TOL=FTOL/DMAX
+C     ELSE
+C     F00TOL=1.0E+10
+C     END IF
+      F00TOL=-1.0E+10
+      RETURN
+      END
+      SUBROUTINE INXIJK(XIN,YIN,ZIN,DXI,DYI,DZI,DXJ,DYJ,DZJ,
+     #DXK,DYK,DZK,LEN2D)
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY XIN,YIN,ZIN,DXI,DYI,DZI,DXJ,DYJ,DZJ,DXK,DYK,DZK
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /SETD/   BP01,B00,B10,XCP00,XC00,YCP00,YC00,ZCP00,ZC00,F00
+     1,               NIMAX,NJMAX,NKMAX,NLMAX,NMAX,MMAX,IOFFST
+     2,               IN(6),KN(6)
+      COMMON /GEOINF/ XIMXJ,YIMYJ,ZIMZJ,XKMXL,YKMYL,ZKMZL
+     1,               XAMXB,YAMYB,ZAMZB
+      COMMON /EXPNTS/ EIIA,EJIA,EKIB,EIJIA,EKLIB,RHO,RHOTSQ
+     1,               EI,EJ,EK,A,B
+C
+      DIMENSION XIN(LEN2D),YIN(LEN2D),ZIN(LEN2D)
+      DIMENSION DXI(LEN2D),DYI(LEN2D),DZI(LEN2D)
+      DIMENSION DXJ(LEN2D),DYJ(LEN2D),DZJ(LEN2D)
+      DIMENSION DXK(LEN2D),DYK(LEN2D),DZK(LEN2D)
+C
+      RETURN
+C
+C-----------------------------------------------------XYZIJK
+C
+      ENTRY XYZIJK
+C
+      RTIASQ = RHOTSQ / A**2
+      RTIBSQ = RHOTSQ / B**2
+      RTIAB  = RHOTSQ / (A*B)
+      DIC00  = EI/A - RTIASQ*EI - 1
+      DJC00  = EJ/A - RTIASQ*EJ
+      DKC00  = EK * RTIAB
+      DICP00 = EI * RTIAB
+      DJCP00 = EJ * RTIAB
+      DKCP00 = EK/B - RTIBSQ*EK - 1
+      RHO2T  = RHOTSQ + RHOTSQ
+      RHO2TI = RHO2T*EIIA
+      RHO2TJ = RHO2T*EJIA
+      RHO2TK = RHO2T*EKIB
+      XICNST =  -XIMXJ*EIJIA*2.0 - XAMXB*RHO2TI
+      YICNST =  -YIMYJ*EIJIA*2.0 - YAMYB*RHO2TI
+      ZICNST = (-ZIMZJ*EIJIA*2.0 - ZAMZB*RHO2TI)
+      XJCNST =   XIMXJ*EIJIA*2.0 - XAMXB*RHO2TJ
+      YJCNST =   YIMYJ*EIJIA*2.0 - YAMYB*RHO2TJ
+      ZJCNST = ( ZIMZJ*EIJIA*2.0 - ZAMZB*RHO2TJ)
+      XKCNST =  -XKMXL*EKLIB*2.0 + XAMXB*RHO2TK
+      YKCNST =  -YKMYL*EKLIB*2.0 + YAMYB*RHO2TK
+      ZKCNST = (-ZKMZL*EKLIB*2.0 + ZAMZB*RHO2TK)
+C
+C
+C     ----- I(0,0) -----
+C
+      I = IOFFST + 1
+      XIN(I) = 1.0
+      YIN(I) = 1.0
+      ZIN(I) = F00
+      DXI(I) = 0.0
+      DYI(I) = 0.0
+      DZI(I) = 0.0
+      DXJ(I) = 0.0
+      DYJ(I) = 0.0
+      DZJ(I) = 0.0
+      DXK(I) = 0.0
+      DYK(I) = 0.0
+      DZK(I) = 0.0
+C
+C     ----- I(1,0)=C00 -----
+C
+      IF (NMAX.NE.0) THEN
+        I2 = IOFFST + 2
+        XIN(I2) = XC00
+        YIN(I2) = YC00
+        ZIN(I2) = ZC00 * F00
+        DXI(I2) = DIC00
+        DYI(I2) = DIC00
+        DZI(I2) = DIC00 * F00
+        DXJ(I2) = DJC00
+        DYJ(I2) = DJC00
+        DZJ(I2) = DJC00 * F00
+        DXK(I2) = DKC00
+        DYK(I2) = DKC00
+        DZK(I2) = DKC00 * F00
+      END IF
+C
+C     ----- I(0,1)=CP00 -----
+C
+      IF (MMAX.NE.0) THEN
+        I = IOFFST + 33
+        XIN(I) = XCP00
+        YIN(I) = YCP00
+        ZIN(I) = ZCP00 * F00
+        DXI(I) = DICP00
+        DYI(I) = DICP00
+        DZI(I) = DICP00 * F00
+        DXJ(I) = DJCP00
+        DYJ(I) = DJCP00
+        DZJ(I) = DJCP00 * F00
+        DXK(I) = DKCP00
+        DYK(I) = DKCP00
+        DZK(I) = DKCP00 * F00
+C
+C     ----- I(1,1)=B00 * I(0,0) + CP00 * I(1,0) -----
+C
+        IF (NMAX.NE.0) THEN
+          I = IOFFST + 34
+          XIN(I) = XCP00 * XIN(I2) + B00
+          YIN(I) = YCP00 * YIN(I2) + B00
+          ZIN(I) = ZCP00 * ZIN(I2) + B00 * F00
+          DXI(I) = DICP00 * XIN(I2) + XCP00 * DXI(I2)
+          DYI(I) = DICP00 * YIN(I2) + YCP00 * DYI(I2)
+          DZI(I) = DICP00 * ZIN(I2) + ZCP00 * DZI(I2)
+          DXJ(I) = DJCP00 * XIN(I2) + XCP00 * DXJ(I2)
+          DYJ(I) = DJCP00 * YIN(I2) + YCP00 * DYJ(I2)
+          DZJ(I) = DJCP00 * ZIN(I2) + ZCP00 * DZJ(I2)
+          DXK(I) = DKCP00 * XIN(I2) + XCP00 * DXK(I2)
+          DYK(I) = DKCP00 * YIN(I2) + YCP00 * DYK(I2)
+          DZK(I) = DKCP00 * ZIN(I2) + ZCP00 * DZK(I2)
+        END IF
+      END IF
+C
+C     ----- I(N,0)=(N-1)B10 * I(N-2,0) + C00 * I(N-1,0) -----
+C
+      IF (NMAX.GT.1) THEN
+        DO 1 N=2,NMAX
+          NL10=N + IOFFST
+          N0=NL10+1
+          NL20=NL10 - 1
+          B10NL1=(N-1) * B10
+          XIN(N0) = B10NL1 * XIN(NL20) + XC00 * XIN(NL10)
+          YIN(N0) = B10NL1 * YIN(NL20) + YC00 * YIN(NL10)
+          ZIN(N0) = B10NL1 * ZIN(NL20) + ZC00 * ZIN(NL10)
+          DXI(N0) = B10NL1 * DXI(NL20) + DIC00 * XIN(NL10) + XC00* DXI
+     *    (NL10)
+          DYI(N0) = B10NL1 * DYI(NL20) + DIC00 * YIN(NL10) + YC00* DYI
+     *    (NL10)
+          DZI(N0) = B10NL1 * DZI(NL20) + DIC00 * ZIN(NL10) + ZC00* DZI
+     *    (NL10)
+          DXJ(N0) = B10NL1 * DXJ(NL20) + DJC00 * XIN(NL10) + XC00* DXJ
+     *    (NL10)
+          DYJ(N0) = B10NL1 * DYJ(NL20) + DJC00 * YIN(NL10) + YC00* DYJ
+     *    (NL10)
+          DZJ(N0) = B10NL1 * DZJ(NL20) + DJC00 * ZIN(NL10) + ZC00* DZJ
+     *    (NL10)
+          DXK(N0) = B10NL1 * DXK(NL20) + DKC00 * XIN(NL10) + XC00* DXK
+     *    (NL10)
+          DYK(N0) = B10NL1 * DYK(NL20) + DKC00 * YIN(NL10) + YC00* DYK
+     *    (NL10)
+          DZK(N0) = B10NL1 * DZK(NL20) + DKC00 * ZIN(NL10) + ZC00* DZK
+     *    (NL10)
+C
+C     ----- I(N,1)=N * B00 * I(N-1,0) + CP00 * I(N,0) -----
+C
+          IF (MMAX.NE.0) THEN
+            N1=N0+32
+            B00N = B00 * N
+            XIN(N1) = B00N * XIN(NL10) + XCP00 * XIN(N0)
+            YIN(N1) = B00N * YIN(NL10) + YCP00 * YIN(N0)
+            ZIN(N1) = B00N * ZIN(NL10) + ZCP00 * ZIN(N0)
+            DXI(N1) = B00N * DXI(NL10) + DICP00 * XIN(N0) + XCP00 *
+     *      DXI(N0)
+            DYI(N1) = B00N * DYI(NL10) + DICP00 * YIN(N0) + YCP00 *
+     *      DYI(N0)
+            DZI(N1) = B00N * DZI(NL10) + DICP00 * ZIN(N0) + ZCP00 *
+     *      DZI(N0)
+            DXJ(N1) = B00N * DXJ(NL10) + DJCP00 * XIN(N0) + XCP00 *
+     *      DXJ(N0)
+            DYJ(N1) = B00N * DYJ(NL10) + DJCP00 * YIN(N0) + YCP00 *
+     *      DYJ(N0)
+            DZJ(N1) = B00N * DZJ(NL10) + DJCP00 * ZIN(N0) + ZCP00 *
+     *      DZJ(N0)
+            DXK(N1) = B00N * DXK(NL10) + DKCP00 * XIN(N0) + XCP00 *
+     *      DXK(N0)
+            DYK(N1) = B00N * DYK(NL10) + DKCP00 * YIN(N0) + YCP00 *
+     *      DYK(N0)
+            DZK(N1) = B00N * DZK(NL10) + DKCP00 * ZIN(N0) + ZCP00 *
+     *      DZK(N0)
+          END IF
+    1   CONTINUE
+      END IF
+C
+C     ----- I(0,M)=(M-1)BP01 * I(0,M-2) + CP00 * I(0,M-1) -----
+C
+      IF (MMAX.GT.1) THEN
+        DO 2 M=2,MMAX
+          I0M = M*32 +  1 + IOFFST
+          I0ML1 = I0M - 32
+          I0ML2 = I0ML1 - 32
+          I1M   = I0M + 1
+          BPML1 = (M-1) * BP01
+          XIN(I0M) = BPML1 * XIN(I0ML2) + XCP00 * XIN(I0ML1)
+          YIN(I0M) = BPML1 * YIN(I0ML2) + YCP00 * YIN(I0ML1)
+          ZIN(I0M) = BPML1 * ZIN(I0ML2) + ZCP00 * ZIN(I0ML1)
+          DXI(I0M) = BPML1 * DXI(I0ML2) + DICP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXI(I0ML1)
+          DYI(I0M) = BPML1 * DYI(I0ML2) + DICP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYI(I0ML1)
+          DZI(I0M) = BPML1 * DZI(I0ML2) + DICP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZI(I0ML1)
+          DXJ(I0M) = BPML1 * DXJ(I0ML2) + DJCP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXJ(I0ML1)
+          DYJ(I0M) = BPML1 * DYJ(I0ML2) + DJCP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYJ(I0ML1)
+          DZJ(I0M) = BPML1 * DZJ(I0ML2) + DJCP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZJ(I0ML1)
+          DXK(I0M) = BPML1 * DXK(I0ML2) + DKCP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXK(I0ML1)
+          DYK(I0M) = BPML1 * DYK(I0ML2) + DKCP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYK(I0ML1)
+          DZK(I0M) = BPML1 * DZK(I0ML2) + DKCP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZK(I0ML1)
+C
+C     ----- I(1,M)=M * B00 * I(0,M-1) + C00 * I(0,M) -----
+C
+          IF (NMAX.NE.0) THEN
+            B00M = M * B00
+            XIN(I1M) = B00M * XIN(I0ML1) + XC00 * XIN(I0M)
+            YIN(I1M) = B00M * YIN(I0ML1) + YC00 * YIN(I0M)
+            ZIN(I1M) = B00M * ZIN(I0ML1) + ZC00 * ZIN(I0M)
+            DXI(I1M) = B00M * DXI(I0ML1) + DIC00 * XIN(I0M) + XC00 *
+     *      DXI(I0M)
+            DYI(I1M) = B00M * DYI(I0ML1) + DIC00 * YIN(I0M) + YC00 *
+     *      DYI(I0M)
+            DZI(I1M) = B00M * DZI(I0ML1) + DIC00 * ZIN(I0M) + ZC00 *
+     *      DZI(I0M)
+            DXJ(I1M) = B00M * DXJ(I0ML1) + DJC00 * XIN(I0M) + XC00 *
+     *      DXJ(I0M)
+            DYJ(I1M) = B00M * DYJ(I0ML1) + DJC00 * YIN(I0M) + YC00 *
+     *      DYJ(I0M)
+            DZJ(I1M) = B00M * DZJ(I0ML1) + DJC00 * ZIN(I0M) + ZC00 *
+     *      DZJ(I0M)
+            DXK(I1M) = B00M * DXK(I0ML1) + DKC00 * XIN(I0M) + XC00 *
+     *      DXK(I0M)
+            DYK(I1M) = B00M * DYK(I0ML1) + DKC00 * YIN(I0M) + YC00 *
+     *      DYK(I0M)
+            DZK(I1M) = B00M * DZK(I0ML1) + DKC00 * ZIN(I0M) + ZC00 *
+     *      DZK(I0M)
+          END IF
+    2   CONTINUE
+      END IF
+C
+C     ----- I(N,M)=(N-1)B10 * I(N-2,M) + M * B00 * I(N-1,M-1) +
+C                                            C00 * I(N-1,M)   -----
+C
+      IF (NMAX.GT.1.AND.MMAX.GT.1) THEN
+        DO 4 M=2,MMAX
+          M8=M*32 + IOFFST
+          DO 3 N=2,NMAX
+            NM=N + 1 + M8
+            NL1M=NM - 1
+            NL1ML1= NL1M - 32
+            NL2M = NL1M - 1
+            B10NL1 = (N-1) * B10
+            B00M = M * B00
+            XIN(NM) = B10NL1 * XIN(NL2M) + B00M * XIN(NL1ML1) +XC00 *
+     *      XIN(NL1M)
+            YIN(NM) = B10NL1 * YIN(NL2M) + B00M * YIN(NL1ML1) +YC00 *
+     *      YIN(NL1M)
+            ZIN(NM) = B10NL1 * ZIN(NL2M) + B00M * ZIN(NL1ML1) +ZC00 *
+     *      ZIN(NL1M)
+            DXI(NM) = B10NL1 * DXI(NL2M) + B00M * DXI(NL1ML1)
+     1      +          DIC00 * XIN(NL1M) + XC00  * DXI(NL1M)
+            DYI(NM) = B10NL1 * DYI(NL2M) + B00M * DYI(NL1ML1)
+     1      +          DIC00 * YIN(NL1M) + YC00  * DYI(NL1M)
+            DZI(NM) = B10NL1 * DZI(NL2M) + B00M * DZI(NL1ML1)
+     1      +          DIC00 * ZIN(NL1M) + ZC00  * DZI(NL1M)
+            DXJ(NM) = B10NL1 * DXJ(NL2M) + B00M * DXJ(NL1ML1)
+     1      +          DJC00 * XIN(NL1M) + XC00  * DXJ(NL1M)
+            DYJ(NM) = B10NL1 * DYJ(NL2M) + B00M * DYJ(NL1ML1)
+     1      +          DJC00 * YIN(NL1M) + YC00  * DYJ(NL1M)
+            DZJ(NM) = B10NL1 * DZJ(NL2M) + B00M * DZJ(NL1ML1)
+     1      +          DJC00 * ZIN(NL1M) + ZC00  * DZJ(NL1M)
+            DXK(NM) = B10NL1 * DXK(NL2M) + B00M * DXK(NL1ML1)
+     1      +          DKC00 * XIN(NL1M) + XC00  * DXK(NL1M)
+            DYK(NM) = B10NL1 * DYK(NL2M) + B00M * DYK(NL1ML1)
+     1      +          DKC00 * YIN(NL1M) + YC00  * DYK(NL1M)
+            DZK(NM) = B10NL1 * DZK(NL2M) + B00M * DZK(NL1ML1)
+     1      +          DKC00 * ZIN(NL1M) + ZC00  * DZK(NL1M)
+    3     CONTINUE
+    4   CONTINUE
+      END IF
+C
+C     ----- I(I,J,M)=I(I+1,J-1,M) + (QI-QJ) * I(I,J-1,M) -----
+C
+      DO 7 M=0,MMAX
+        MPT = M * 32 + IOFFST
+        DO 6 J=1,NJMAX
+          JM = J * 8 + MPT
+          DO 5 I=1,NIMAX + NJMAX - J + 1
+            IJM = I + JM
+            IJL1M = IJM - 8
+            I1JL1M = IJL1M + 1
+            XIN(IJM) = XIN(I1JL1M) + XIMXJ * XIN(IJL1M)
+            YIN(IJM) = YIN(I1JL1M) + YIMYJ * YIN(IJL1M)
+            ZIN(IJM) = ZIN(I1JL1M) + ZIMZJ * ZIN(IJL1M)
+            DXI(IJM) = DXI(I1JL1M) + XIMXJ * DXI(IJL1M) + XIN(IJL1M)
+            DYI(IJM) = DYI(I1JL1M) + YIMYJ * DYI(IJL1M) + YIN(IJL1M)
+            DZI(IJM) = DZI(I1JL1M) + ZIMZJ * DZI(IJL1M) + ZIN(IJL1M)
+            DXJ(IJM) = DXJ(I1JL1M) + XIMXJ * DXJ(IJL1M) - XIN(IJL1M)
+            DYJ(IJM) = DYJ(I1JL1M) + YIMYJ * DYJ(IJL1M) - YIN(IJL1M)
+            DZJ(IJM) = DZJ(I1JL1M) + ZIMZJ * DZJ(IJL1M) - ZIN(IJL1M)
+            DXK(IJM) = DXK(I1JL1M) + XIMXJ * DXK(IJL1M)
+            DYK(IJM) = DYK(I1JL1M) + YIMYJ * DYK(IJL1M)
+            DZK(IJM) = DZK(I1JL1M) + ZIMZJ * DZK(IJL1M)
+    5     CONTINUE
+    6   CONTINUE
+    7 CONTINUE
+C
+C     ----- I(I,J,M,0) = I(I,J,M) -----
+C
+      DO 10 M=MMAX,0,-1
+        MNEW = M * 64 + IOFFST
+        MOLD = M * 32 + IOFFST
+        DO 9 J=NJMAX,0,-1
+          JMNEW = MNEW + J * 16
+          JMOLD = MOLD + J * 8
+          DO 8 I=NIMAX+1,1,-1
+            IJMNEW = JMNEW + I
+            IJMOLD = JMOLD + I
+            XIN(IJMNEW) = XIN(IJMOLD)
+            YIN(IJMNEW) = YIN(IJMOLD)
+            ZIN(IJMNEW) = ZIN(IJMOLD)
+            DXI(IJMNEW) = DXI(IJMOLD)
+            DYI(IJMNEW) = DYI(IJMOLD)
+            DZI(IJMNEW) = DZI(IJMOLD)
+            DXJ(IJMNEW) = DXJ(IJMOLD)
+            DYJ(IJMNEW) = DYJ(IJMOLD)
+            DZJ(IJMNEW) = DZJ(IJMOLD)
+            DXK(IJMNEW) = DXK(IJMOLD)
+            DYK(IJMNEW) = DYK(IJMOLD)
+            DZK(IJMNEW) = DZK(IJMOLD)
+    8     CONTINUE
+    9   CONTINUE
+   10 CONTINUE
+C
+C     ----- I(I,J,K,L)=I(I,J,K+1,L-1) + (QK-QL) * I(I,J,K,L-1) -----
+C
+      DO 14 L=1,NLMAX
+        LPT = 4 * L + IOFFST
+        DO 13 K=0,NKMAX + NLMAX - L
+          KL = K * 64 + LPT
+          DO 12 J=0,NJMAX
+            JKL = J * 16 + KL
+            DO 11 I=1,NIMAX+1
+              IJKL = I + JKL
+              IJKLM1 = IJKL - 4
+              KP1LM1 = IJKLM1 + 64
+              XIN(IJKL) = XIN(KP1LM1) + XKMXL * XIN(IJKLM1)
+              YIN(IJKL) = YIN(KP1LM1) + YKMYL * YIN(IJKLM1)
+              ZIN(IJKL) = ZIN(KP1LM1) + ZKMZL * ZIN(IJKLM1)
+              DXI(IJKL) = DXI(KP1LM1) + XKMXL * DXI(IJKLM1)
+              DYI(IJKL) = DYI(KP1LM1) + YKMYL * DYI(IJKLM1)
+              DZI(IJKL) = DZI(KP1LM1) + ZKMZL * DZI(IJKLM1)
+              DXJ(IJKL) = DXJ(KP1LM1) + XKMXL * DXJ(IJKLM1)
+              DYJ(IJKL) = DYJ(KP1LM1) + YKMYL * DYJ(IJKLM1)
+              DZJ(IJKL) = DZJ(KP1LM1) + ZKMZL * DZJ(IJKLM1)
+              DXK(IJKL) = DXK(KP1LM1) + XKMXL * DXK(IJKLM1) + XIN(
+     *        IJKLM1)
+              DYK(IJKL) = DYK(KP1LM1) + YKMYL * DYK(IJKLM1) + YIN(
+     *        IJKLM1)
+              DZK(IJKL) = DZK(KP1LM1) + ZKMZL * DZK(IJKLM1) + ZIN(
+     *        IJKLM1)
+   11       CONTINUE
+   12     CONTINUE
+   13   CONTINUE
+   14 CONTINUE
+C
+C     ----- ADD DERIVATIVE OF EXP(-D) AND EXP(-G) -----
+C
+      DO 18 L=0,NLMAX
+        LPT = L*4 + IOFFST
+        DO 17 K=0,NKMAX
+          KL = K*64 + LPT
+          DO 16 J=0,NJMAX
+            JKL = J*16 + KL
+            DO 15 I=1,NIMAX+1
+              IJKL = I + JKL
+              DXI(IJKL) = DXI(IJKL) + XICNST * XIN(IJKL)
+              DYI(IJKL) = DYI(IJKL) + YICNST * YIN(IJKL)
+              DZI(IJKL) = DZI(IJKL) + ZICNST * ZIN(IJKL)
+              DXJ(IJKL) = DXJ(IJKL) + XJCNST * XIN(IJKL)
+              DYJ(IJKL) = DYJ(IJKL) + YJCNST * YIN(IJKL)
+              DZJ(IJKL) = DZJ(IJKL) + ZJCNST * ZIN(IJKL)
+              DXK(IJKL) = DXK(IJKL) + XKCNST * XIN(IJKL)
+              DYK(IJKL) = DYK(IJKL) + YKCNST * YIN(IJKL)
+              DZK(IJKL) = DZK(IJKL) + ZKCNST * ZIN(IJKL)
+   15       CONTINUE
+   16     CONTINUE
+   17   CONTINUE
+   18 CONTINUE
+      RETURN
+      END
+      SUBROUTINE INXIJ (XIN,YIN,ZIN,DXI,DYI,DZI,DXJ,DYJ,DZJ,LEN2D)
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY XIN,YIN,ZIN,DXI,DYI,DZI,DXJ,DYJ,DZJ
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /SETD/   BP01,B00,B10,XCP00,XC00,YCP00,YC00,ZCP00,ZC00,F00
+     1,               NIMAX,NJMAX,NKMAX,NLMAX,NMAX,MMAX,IOFFST
+     2,               IN(6),KN(6)
+      COMMON /GEOINF/ XIMXJ,YIMYJ,ZIMZJ,XKMXL,YKMYL,ZKMZL
+     1,               XAMXB,YAMYB,ZAMZB
+      COMMON /EXPNTS/ EIIA,EJIA,EKIB,EIJIA,EKLIB,RHO,RHOTSQ
+     1,               EI,EJ,EK,A,B
+C
+      DIMENSION XIN(LEN2D),YIN(LEN2D),ZIN(LEN2D)
+      DIMENSION DXI(LEN2D),DYI(LEN2D),DZI(LEN2D)
+      DIMENSION DXJ(LEN2D),DYJ(LEN2D),DZJ(LEN2D)
+C
+      RETURN
+C
+C-----------------------------------------------------XYZIJ
+C
+      ENTRY XYZIJ
+C
+      RTIASQ = RHOTSQ / A**2
+      RTIAB  = RHOTSQ / (A*B)
+      DIC00  = EI/A - RTIASQ*EI - 1
+      DJC00  = EJ/A - RTIASQ*EJ
+      DICP00 = EI * RTIAB
+      DJCP00 = EJ * RTIAB
+      RHO2T  = RHOTSQ + RHOTSQ
+      RHO2TI = RHO2T*EIIA
+      RHO2TJ = RHO2T*EJIA
+      XICNST =  -XIMXJ*EIJIA*2.0 - XAMXB*RHO2TI
+      YICNST =  -YIMYJ*EIJIA*2.0 - YAMYB*RHO2TI
+      ZICNST = (-ZIMZJ*EIJIA*2.0 - ZAMZB*RHO2TI)
+      XJCNST =   XIMXJ*EIJIA*2.0 - XAMXB*RHO2TJ
+      YJCNST =   YIMYJ*EIJIA*2.0 - YAMYB*RHO2TJ
+      ZJCNST = ( ZIMZJ*EIJIA*2.0 - ZAMZB*RHO2TJ)
+C
+C
+C     ----- I(0,0) -----
+C
+      I = IOFFST + 1
+      XIN(I) = 1.0
+      YIN(I) = 1.0
+      ZIN(I) = F00
+      DXI(I) = 0.0
+      DYI(I) = 0.0
+      DZI(I) = 0.0
+      DXJ(I) = 0.0
+      DYJ(I) = 0.0
+      DZJ(I) = 0.0
+C
+C     ----- I(1,0)=C00 -----
+C
+      IF (NMAX.NE.0) THEN
+        I2 = IOFFST + 2
+        XIN(I2) = XC00
+        YIN(I2) = YC00
+        ZIN(I2) = ZC00 * F00
+        DXI(I2) = DIC00
+        DYI(I2) = DIC00
+        DZI(I2) = DIC00 * F00
+        DXJ(I2) = DJC00
+        DYJ(I2) = DJC00
+        DZJ(I2) = DJC00 * F00
+      END IF
+C
+C     ----- I(0,1)=CP00 -----
+C
+      IF (MMAX.NE.0) THEN
+        I = IOFFST + 33
+        XIN(I) = XCP00
+        YIN(I) = YCP00
+        ZIN(I) = ZCP00 * F00
+        DXI(I) = DICP00
+        DYI(I) = DICP00
+        DZI(I) = DICP00 * F00
+        DXJ(I) = DJCP00
+        DYJ(I) = DJCP00
+        DZJ(I) = DJCP00 * F00
+C
+C     ----- I(1,1)=B00 * I(0,0) + CP00 * I(1,0) -----
+C
+        IF (NMAX.NE.0) THEN
+          I = IOFFST + 34
+          XIN(I) = XCP00 * XIN(I2) + B00
+          YIN(I) = YCP00 * YIN(I2) + B00
+          ZIN(I) = ZCP00 * ZIN(I2) + B00 * F00
+          DXI(I) = DICP00 * XIN(I2) + XCP00 * DXI(I2)
+          DYI(I) = DICP00 * YIN(I2) + YCP00 * DYI(I2)
+          DZI(I) = DICP00 * ZIN(I2) + ZCP00 * DZI(I2)
+          DXJ(I) = DJCP00 * XIN(I2) + XCP00 * DXJ(I2)
+          DYJ(I) = DJCP00 * YIN(I2) + YCP00 * DYJ(I2)
+          DZJ(I) = DJCP00 * ZIN(I2) + ZCP00 * DZJ(I2)
+        END IF
+      END IF
+C
+C     ----- I(N,0)=(N-1)B10 * I(N-2,0) + C00 * I(N-1,0) -----
+C
+      IF (NMAX.GT.1) THEN
+        DO 1 N=2,NMAX
+          NL10=N + IOFFST
+          N0=NL10+1
+          NL20=NL10 - 1
+          B10NL1=(N-1) * B10
+          XIN(N0) = B10NL1 * XIN(NL20) + XC00 * XIN(NL10)
+          YIN(N0) = B10NL1 * YIN(NL20) + YC00 * YIN(NL10)
+          ZIN(N0) = B10NL1 * ZIN(NL20) + ZC00 * ZIN(NL10)
+          DXI(N0) = B10NL1 * DXI(NL20) + DIC00 * XIN(NL10) + XC00* DXI
+     *    (NL10)
+          DYI(N0) = B10NL1 * DYI(NL20) + DIC00 * YIN(NL10) + YC00* DYI
+     *    (NL10)
+          DZI(N0) = B10NL1 * DZI(NL20) + DIC00 * ZIN(NL10) + ZC00* DZI
+     *    (NL10)
+          DXJ(N0) = B10NL1 * DXJ(NL20) + DJC00 * XIN(NL10) + XC00* DXJ
+     *    (NL10)
+          DYJ(N0) = B10NL1 * DYJ(NL20) + DJC00 * YIN(NL10) + YC00* DYJ
+     *    (NL10)
+          DZJ(N0) = B10NL1 * DZJ(NL20) + DJC00 * ZIN(NL10) + ZC00* DZJ
+     *    (NL10)
+C
+C     ----- I(N,1)=N * B00 * I(N-1,0) + CP00 * I(N,0) -----
+C
+          IF (MMAX.NE.0) THEN
+            N1=N0+32
+            B00N = B00 * N
+            XIN(N1) = B00N * XIN(NL10) + XCP00 * XIN(N0)
+            YIN(N1) = B00N * YIN(NL10) + YCP00 * YIN(N0)
+            ZIN(N1) = B00N * ZIN(NL10) + ZCP00 * ZIN(N0)
+            DXI(N1) = B00N * DXI(NL10) + DICP00 * XIN(N0) + XCP00 *
+     *      DXI(N0)
+            DYI(N1) = B00N * DYI(NL10) + DICP00 * YIN(N0) + YCP00 *
+     *      DYI(N0)
+            DZI(N1) = B00N * DZI(NL10) + DICP00 * ZIN(N0) + ZCP00 *
+     *      DZI(N0)
+            DXJ(N1) = B00N * DXJ(NL10) + DJCP00 * XIN(N0) + XCP00 *
+     *      DXJ(N0)
+            DYJ(N1) = B00N * DYJ(NL10) + DJCP00 * YIN(N0) + YCP00 *
+     *      DYJ(N0)
+            DZJ(N1) = B00N * DZJ(NL10) + DJCP00 * ZIN(N0) + ZCP00 *
+     *      DZJ(N0)
+          END IF
+    1   CONTINUE
+      END IF
+C
+C     ----- I(0,M)=(M-1)BP01 * I(0,M-2) + CP00 * I(0,M-1) -----
+C
+      IF (MMAX.GT.1) THEN
+        DO 2 M=2,MMAX
+          I0M = M*32 +  1 + IOFFST
+          I0ML1 = I0M - 32
+          I0ML2 = I0ML1 - 32
+          I1M   = I0M + 1
+          BPML1 = (M-1) * BP01
+          XIN(I0M) = BPML1 * XIN(I0ML2) + XCP00 * XIN(I0ML1)
+          YIN(I0M) = BPML1 * YIN(I0ML2) + YCP00 * YIN(I0ML1)
+          ZIN(I0M) = BPML1 * ZIN(I0ML2) + ZCP00 * ZIN(I0ML1)
+          DXI(I0M) = BPML1 * DXI(I0ML2) + DICP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXI(I0ML1)
+          DYI(I0M) = BPML1 * DYI(I0ML2) + DICP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYI(I0ML1)
+          DZI(I0M) = BPML1 * DZI(I0ML2) + DICP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZI(I0ML1)
+          DXJ(I0M) = BPML1 * DXJ(I0ML2) + DJCP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXJ(I0ML1)
+          DYJ(I0M) = BPML1 * DYJ(I0ML2) + DJCP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYJ(I0ML1)
+          DZJ(I0M) = BPML1 * DZJ(I0ML2) + DJCP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZJ(I0ML1)
+C
+C     ----- I(1,M)=M * B00 * I(0,M-1) + C00 * I(0,M) -----
+C
+          IF (NMAX.NE.0) THEN
+            B00M = M * B00
+            XIN(I1M) = B00M * XIN(I0ML1) + XC00 * XIN(I0M)
+            YIN(I1M) = B00M * YIN(I0ML1) + YC00 * YIN(I0M)
+            ZIN(I1M) = B00M * ZIN(I0ML1) + ZC00 * ZIN(I0M)
+            DXI(I1M) = B00M * DXI(I0ML1) + DIC00 * XIN(I0M) + XC00 *
+     *      DXI(I0M)
+            DYI(I1M) = B00M * DYI(I0ML1) + DIC00 * YIN(I0M) + YC00 *
+     *      DYI(I0M)
+            DZI(I1M) = B00M * DZI(I0ML1) + DIC00 * ZIN(I0M) + ZC00 *
+     *      DZI(I0M)
+            DXJ(I1M) = B00M * DXJ(I0ML1) + DJC00 * XIN(I0M) + XC00 *
+     *      DXJ(I0M)
+            DYJ(I1M) = B00M * DYJ(I0ML1) + DJC00 * YIN(I0M) + YC00 *
+     *      DYJ(I0M)
+            DZJ(I1M) = B00M * DZJ(I0ML1) + DJC00 * ZIN(I0M) + ZC00 *
+     *      DZJ(I0M)
+          END IF
+    2   CONTINUE
+      END IF
+C
+C     ----- I(N,M)=(N-1)B10 * I(N-2,M) + M * B00 * I(N-1,M-1) +
+C                                            C00 * I(N-1,M)   -----
+C
+      IF (NMAX.GT.1.AND.MMAX.GT.1) THEN
+        DO 4 M=2,MMAX
+          M8=M*32 + IOFFST
+          DO 3 N=2,NMAX
+            NM=N + 1 + M8
+            NL1M=NM - 1
+            NL1ML1= NL1M - 32
+            NL2M = NL1M - 1
+            B10NL1 = (N-1) * B10
+            B00M = M * B00
+            XIN(NM) = B10NL1 * XIN(NL2M) + B00M * XIN(NL1ML1) +XC00 *
+     *      XIN(NL1M)
+            YIN(NM) = B10NL1 * YIN(NL2M) + B00M * YIN(NL1ML1) +YC00 *
+     *      YIN(NL1M)
+            ZIN(NM) = B10NL1 * ZIN(NL2M) + B00M * ZIN(NL1ML1) +ZC00 *
+     *      ZIN(NL1M)
+            DXI(NM) = B10NL1 * DXI(NL2M) + B00M * DXI(NL1ML1)
+     1      +          DIC00 * XIN(NL1M) + XC00  * DXI(NL1M)
+            DYI(NM) = B10NL1 * DYI(NL2M) + B00M * DYI(NL1ML1)
+     1      +          DIC00 * YIN(NL1M) + YC00  * DYI(NL1M)
+            DZI(NM) = B10NL1 * DZI(NL2M) + B00M * DZI(NL1ML1)
+     1      +          DIC00 * ZIN(NL1M) + ZC00  * DZI(NL1M)
+            DXJ(NM) = B10NL1 * DXJ(NL2M) + B00M * DXJ(NL1ML1)
+     1      +          DJC00 * XIN(NL1M) + XC00  * DXJ(NL1M)
+            DYJ(NM) = B10NL1 * DYJ(NL2M) + B00M * DYJ(NL1ML1)
+     1      +          DJC00 * YIN(NL1M) + YC00  * DYJ(NL1M)
+            DZJ(NM) = B10NL1 * DZJ(NL2M) + B00M * DZJ(NL1ML1)
+     1      +          DJC00 * ZIN(NL1M) + ZC00  * DZJ(NL1M)
+    3     CONTINUE
+    4   CONTINUE
+      END IF
+C
+C     ----- I(I,J,M)=I(I+1,J-1,M) + (QI-QJ) * I(I,J-1,M) -----
+C
+      DO 7 M=0,MMAX
+        MPT = M * 32 + IOFFST
+        DO 6 J=1,NJMAX
+          JM = J * 8 + MPT
+          DO 5 I=1,NIMAX + NJMAX - J + 1
+            IJM = I + JM
+            IJL1M = IJM - 8
+            I1JL1M = IJL1M + 1
+            XIN(IJM) = XIN(I1JL1M) + XIMXJ * XIN(IJL1M)
+            YIN(IJM) = YIN(I1JL1M) + YIMYJ * YIN(IJL1M)
+            ZIN(IJM) = ZIN(I1JL1M) + ZIMZJ * ZIN(IJL1M)
+            DXI(IJM) = DXI(I1JL1M) + XIMXJ * DXI(IJL1M) + XIN(IJL1M)
+            DYI(IJM) = DYI(I1JL1M) + YIMYJ * DYI(IJL1M) + YIN(IJL1M)
+            DZI(IJM) = DZI(I1JL1M) + ZIMZJ * DZI(IJL1M) + ZIN(IJL1M)
+            DXJ(IJM) = DXJ(I1JL1M) + XIMXJ * DXJ(IJL1M) - XIN(IJL1M)
+            DYJ(IJM) = DYJ(I1JL1M) + YIMYJ * DYJ(IJL1M) - YIN(IJL1M)
+            DZJ(IJM) = DZJ(I1JL1M) + ZIMZJ * DZJ(IJL1M) - ZIN(IJL1M)
+    5     CONTINUE
+    6   CONTINUE
+    7 CONTINUE
+C
+C     ----- I(I,J,M,0) = I(I,J,M) -----
+C
+      DO 10 M=MMAX,0,-1
+        MNEW = M * 64 + IOFFST
+        MOLD = M * 32 + IOFFST
+        DO 9 J=NJMAX,0,-1
+          JMNEW = MNEW + J * 16
+          JMOLD = MOLD + J * 8
+          DO 8 I=NIMAX+1,1,-1
+            IJMNEW = JMNEW + I
+            IJMOLD = JMOLD + I
+            XIN(IJMNEW) = XIN(IJMOLD)
+            YIN(IJMNEW) = YIN(IJMOLD)
+            ZIN(IJMNEW) = ZIN(IJMOLD)
+            DXI(IJMNEW) = DXI(IJMOLD)
+            DYI(IJMNEW) = DYI(IJMOLD)
+            DZI(IJMNEW) = DZI(IJMOLD)
+            DXJ(IJMNEW) = DXJ(IJMOLD)
+            DYJ(IJMNEW) = DYJ(IJMOLD)
+            DZJ(IJMNEW) = DZJ(IJMOLD)
+    8     CONTINUE
+    9   CONTINUE
+   10 CONTINUE
+C
+C     ----- I(I,J,K,L)=I(I,J,K+1,L-1) + (QK-QL) * I(I,J,K,L-1) -----
+C
+      DO 14 L=1,NLMAX
+        LPT = 4 * L + IOFFST
+        DO 13 K=0,NKMAX + NLMAX - L
+          KL = K * 64 + LPT
+          DO 12 J=0,NJMAX
+            JKL = J * 16 + KL
+            DO 11 I=1,NIMAX+1
+              IJKL = I + JKL
+              IJKLM1 = IJKL - 4
+              KP1LM1 = IJKLM1 + 64
+              XIN(IJKL) = XIN(KP1LM1) + XKMXL * XIN(IJKLM1)
+              YIN(IJKL) = YIN(KP1LM1) + YKMYL * YIN(IJKLM1)
+              ZIN(IJKL) = ZIN(KP1LM1) + ZKMZL * ZIN(IJKLM1)
+              DXI(IJKL) = DXI(KP1LM1) + XKMXL * DXI(IJKLM1)
+              DYI(IJKL) = DYI(KP1LM1) + YKMYL * DYI(IJKLM1)
+              DZI(IJKL) = DZI(KP1LM1) + ZKMZL * DZI(IJKLM1)
+              DXJ(IJKL) = DXJ(KP1LM1) + XKMXL * DXJ(IJKLM1)
+              DYJ(IJKL) = DYJ(KP1LM1) + YKMYL * DYJ(IJKLM1)
+              DZJ(IJKL) = DZJ(KP1LM1) + ZKMZL * DZJ(IJKLM1)
+   11       CONTINUE
+   12     CONTINUE
+   13   CONTINUE
+   14 CONTINUE
+C
+C     ----- ADD DERIVATIVE OF EXP(-D) AND EXP(-G) -----
+C
+      DO 18 L=0,NLMAX
+        LPT = L*4 + IOFFST
+        DO 17 K=0,NKMAX
+          KL = K*64 + LPT
+          DO 16 J=0,NJMAX
+            JKL = J*16 + KL
+            DO 15 I=1,NIMAX+1
+              IJKL = I + JKL
+              DXI(IJKL) = DXI(IJKL) + XICNST * XIN(IJKL)
+              DYI(IJKL) = DYI(IJKL) + YICNST * YIN(IJKL)
+              DZI(IJKL) = DZI(IJKL) + ZICNST * ZIN(IJKL)
+              DXJ(IJKL) = DXJ(IJKL) + XJCNST * XIN(IJKL)
+              DYJ(IJKL) = DYJ(IJKL) + YJCNST * YIN(IJKL)
+              DZJ(IJKL) = DZJ(IJKL) + ZJCNST * ZIN(IJKL)
+   15       CONTINUE
+   16     CONTINUE
+   17   CONTINUE
+   18 CONTINUE
+      RETURN
+      END
+      SUBROUTINE INXIK (XIN,YIN,ZIN,DXI,DYI,DZI,DXK,DYK,DZK,LEN2D)
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY XIN,YIN,ZIN,DXI,DYI,DZI,DXK,DYK,DZK
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /SETD/   BP01,B00,B10,XCP00,XC00,YCP00,YC00,ZCP00,ZC00,F00
+     1,               NIMAX,NJMAX,NKMAX,NLMAX,NMAX,MMAX,IOFFST
+     2,               IN(6),KN(6)
+      COMMON /GEOINF/ XIMXJ,YIMYJ,ZIMZJ,XKMXL,YKMYL,ZKMZL
+     1,               XAMXB,YAMYB,ZAMZB
+      COMMON /EXPNTS/ EIIA,EJIA,EKIB,EIJIA,EKLIB,RHO,RHOTSQ
+     1,               EI,EJ,EK,A,B
+C
+      DIMENSION XIN(LEN2D),YIN(LEN2D),ZIN(LEN2D)
+      DIMENSION DXI(LEN2D),DYI(LEN2D),DZI(LEN2D)
+      DIMENSION DXK(LEN2D),DYK(LEN2D),DZK(LEN2D)
+C
+      RETURN
+C
+C-----------------------------------------------------XYZIK
+C
+      ENTRY XYZIK
+C
+      RTIASQ = RHOTSQ / A**2
+      RTIBSQ = RHOTSQ / B**2
+      RTIAB  = RHOTSQ / (A*B)
+      DIC00  = EI/A - RTIASQ*EI - 1
+      DKC00  = EK * RTIAB
+      DICP00 = EI * RTIAB
+      DKCP00 = EK/B - RTIBSQ*EK - 1
+      RHO2T  = RHOTSQ + RHOTSQ
+      RHO2TI = RHO2T*EIIA
+      RHO2TK = RHO2T*EKIB
+      XICNST =  -XIMXJ*EIJIA*2.0 - XAMXB*RHO2TI
+      YICNST =  -YIMYJ*EIJIA*2.0 - YAMYB*RHO2TI
+      ZICNST = (-ZIMZJ*EIJIA*2.0 - ZAMZB*RHO2TI)
+      XKCNST =  -XKMXL*EKLIB*2.0 + XAMXB*RHO2TK
+      YKCNST =  -YKMYL*EKLIB*2.0 + YAMYB*RHO2TK
+      ZKCNST = (-ZKMZL*EKLIB*2.0 + ZAMZB*RHO2TK)
+C
+C
+C     ----- I(0,0) -----
+C
+      I = IOFFST + 1
+      XIN(I) = 1.0
+      YIN(I) = 1.0
+      ZIN(I) = F00
+      DXI(I) = 0.0
+      DYI(I) = 0.0
+      DZI(I) = 0.0
+      DXK(I) = 0.0
+      DYK(I) = 0.0
+      DZK(I) = 0.0
+C
+C     ----- I(1,0)=C00 -----
+C
+      IF (NMAX.NE.0) THEN
+        I2 = IOFFST + 2
+        XIN(I2) = XC00
+        YIN(I2) = YC00
+        ZIN(I2) = ZC00 * F00
+        DXI(I2) = DIC00
+        DYI(I2) = DIC00
+        DZI(I2) = DIC00 * F00
+        DXK(I2) = DKC00
+        DYK(I2) = DKC00
+        DZK(I2) = DKC00 * F00
+      END IF
+C
+C     ----- I(0,1)=CP00 -----
+C
+      IF (MMAX.NE.0) THEN
+        I = IOFFST + 33
+        XIN(I) = XCP00
+        YIN(I) = YCP00
+        ZIN(I) = ZCP00 * F00
+        DXI(I) = DICP00
+        DYI(I) = DICP00
+        DZI(I) = DICP00 * F00
+        DXK(I) = DKCP00
+        DYK(I) = DKCP00
+        DZK(I) = DKCP00 * F00
+C
+C     ----- I(1,1)=B00 * I(0,0) + CP00 * I(1,0) -----
+C
+        IF (NMAX.NE.0) THEN
+          I = IOFFST + 34
+          XIN(I) = XCP00 * XIN(I2) + B00
+          YIN(I) = YCP00 * YIN(I2) + B00
+          ZIN(I) = ZCP00 * ZIN(I2) + B00 * F00
+          DXI(I) = DICP00 * XIN(I2) + XCP00 * DXI(I2)
+          DYI(I) = DICP00 * YIN(I2) + YCP00 * DYI(I2)
+          DZI(I) = DICP00 * ZIN(I2) + ZCP00 * DZI(I2)
+          DXK(I) = DKCP00 * XIN(I2) + XCP00 * DXK(I2)
+          DYK(I) = DKCP00 * YIN(I2) + YCP00 * DYK(I2)
+          DZK(I) = DKCP00 * ZIN(I2) + ZCP00 * DZK(I2)
+        END IF
+      END IF
+C
+C     ----- I(N,0)=(N-1)B10 * I(N-2,0) + C00 * I(N-1,0) -----
+C
+      IF (NMAX.GT.1) THEN
+        DO 1 N=2,NMAX
+          NL10=N + IOFFST
+          N0=NL10+1
+          NL20=NL10 - 1
+          B10NL1=(N-1) * B10
+          XIN(N0) = B10NL1 * XIN(NL20) + XC00 * XIN(NL10)
+          YIN(N0) = B10NL1 * YIN(NL20) + YC00 * YIN(NL10)
+          ZIN(N0) = B10NL1 * ZIN(NL20) + ZC00 * ZIN(NL10)
+          DXI(N0) = B10NL1 * DXI(NL20) + DIC00 * XIN(NL10) + XC00* DXI
+     *    (NL10)
+          DYI(N0) = B10NL1 * DYI(NL20) + DIC00 * YIN(NL10) + YC00* DYI
+     *    (NL10)
+          DZI(N0) = B10NL1 * DZI(NL20) + DIC00 * ZIN(NL10) + ZC00* DZI
+     *    (NL10)
+          DXK(N0) = B10NL1 * DXK(NL20) + DKC00 * XIN(NL10) + XC00* DXK
+     *    (NL10)
+          DYK(N0) = B10NL1 * DYK(NL20) + DKC00 * YIN(NL10) + YC00* DYK
+     *    (NL10)
+          DZK(N0) = B10NL1 * DZK(NL20) + DKC00 * ZIN(NL10) + ZC00* DZK
+     *    (NL10)
+C
+C     ----- I(N,1)=N * B00 * I(N-1,0) + CP00 * I(N,0) -----
+C
+          IF (MMAX.NE.0) THEN
+            N1=N0+32
+            B00N = B00 * N
+            XIN(N1) = B00N * XIN(NL10) + XCP00 * XIN(N0)
+            YIN(N1) = B00N * YIN(NL10) + YCP00 * YIN(N0)
+            ZIN(N1) = B00N * ZIN(NL10) + ZCP00 * ZIN(N0)
+            DXI(N1) = B00N * DXI(NL10) + DICP00 * XIN(N0) + XCP00 *
+     *      DXI(N0)
+            DYI(N1) = B00N * DYI(NL10) + DICP00 * YIN(N0) + YCP00 *
+     *      DYI(N0)
+            DZI(N1) = B00N * DZI(NL10) + DICP00 * ZIN(N0) + ZCP00 *
+     *      DZI(N0)
+            DXK(N1) = B00N * DXK(NL10) + DKCP00 * XIN(N0) + XCP00 *
+     *      DXK(N0)
+            DYK(N1) = B00N * DYK(NL10) + DKCP00 * YIN(N0) + YCP00 *
+     *      DYK(N0)
+            DZK(N1) = B00N * DZK(NL10) + DKCP00 * ZIN(N0) + ZCP00 *
+     *      DZK(N0)
+          END IF
+    1   CONTINUE
+      END IF
+C
+C     ----- I(0,M)=(M-1)BP01 * I(0,M-2) + CP00 * I(0,M-1) -----
+C
+      IF (MMAX.GT.1) THEN
+        DO 2 M=2,MMAX
+          I0M = M*32 +  1 + IOFFST
+          I0ML1 = I0M - 32
+          I0ML2 = I0ML1 - 32
+          I1M   = I0M + 1
+          BPML1 = (M-1) * BP01
+          XIN(I0M) = BPML1 * XIN(I0ML2) + XCP00 * XIN(I0ML1)
+          YIN(I0M) = BPML1 * YIN(I0ML2) + YCP00 * YIN(I0ML1)
+          ZIN(I0M) = BPML1 * ZIN(I0ML2) + ZCP00 * ZIN(I0ML1)
+          DXI(I0M) = BPML1 * DXI(I0ML2) + DICP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXI(I0ML1)
+          DYI(I0M) = BPML1 * DYI(I0ML2) + DICP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYI(I0ML1)
+          DZI(I0M) = BPML1 * DZI(I0ML2) + DICP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZI(I0ML1)
+          DXK(I0M) = BPML1 * DXK(I0ML2) + DKCP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXK(I0ML1)
+          DYK(I0M) = BPML1 * DYK(I0ML2) + DKCP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYK(I0ML1)
+          DZK(I0M) = BPML1 * DZK(I0ML2) + DKCP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZK(I0ML1)
+C
+C     ----- I(1,M)=M * B00 * I(0,M-1) + C00 * I(0,M) -----
+C
+          IF (NMAX.NE.0) THEN
+            B00M = M * B00
+            XIN(I1M) = B00M * XIN(I0ML1) + XC00 * XIN(I0M)
+            YIN(I1M) = B00M * YIN(I0ML1) + YC00 * YIN(I0M)
+            ZIN(I1M) = B00M * ZIN(I0ML1) + ZC00 * ZIN(I0M)
+            DXI(I1M) = B00M * DXI(I0ML1) + DIC00 * XIN(I0M) + XC00 *
+     *      DXI(I0M)
+            DYI(I1M) = B00M * DYI(I0ML1) + DIC00 * YIN(I0M) + YC00 *
+     *      DYI(I0M)
+            DZI(I1M) = B00M * DZI(I0ML1) + DIC00 * ZIN(I0M) + ZC00 *
+     *      DZI(I0M)
+            DXK(I1M) = B00M * DXK(I0ML1) + DKC00 * XIN(I0M) + XC00 *
+     *      DXK(I0M)
+            DYK(I1M) = B00M * DYK(I0ML1) + DKC00 * YIN(I0M) + YC00 *
+     *      DYK(I0M)
+            DZK(I1M) = B00M * DZK(I0ML1) + DKC00 * ZIN(I0M) + ZC00 *
+     *      DZK(I0M)
+          END IF
+    2   CONTINUE
+      END IF
+C
+C     ----- I(N,M)=(N-1)B10 * I(N-2,M) + M * B00 * I(N-1,M-1) +
+C                                            C00 * I(N-1,M)   -----
+C
+      IF (NMAX.GT.1.AND.MMAX.GT.1) THEN
+        DO 4 M=2,MMAX
+          M8=M*32 + IOFFST
+          DO 3 N=2,NMAX
+            NM=N + 1 + M8
+            NL1M=NM - 1
+            NL1ML1= NL1M - 32
+            NL2M = NL1M - 1
+            B10NL1 = (N-1) * B10
+            B00M = M * B00
+            XIN(NM) = B10NL1 * XIN(NL2M) + B00M * XIN(NL1ML1) +XC00 *
+     *      XIN(NL1M)
+            YIN(NM) = B10NL1 * YIN(NL2M) + B00M * YIN(NL1ML1) +YC00 *
+     *      YIN(NL1M)
+            ZIN(NM) = B10NL1 * ZIN(NL2M) + B00M * ZIN(NL1ML1) +ZC00 *
+     *      ZIN(NL1M)
+            DXI(NM) = B10NL1 * DXI(NL2M) + B00M * DXI(NL1ML1)
+     1      +          DIC00 * XIN(NL1M) + XC00  * DXI(NL1M)
+            DYI(NM) = B10NL1 * DYI(NL2M) + B00M * DYI(NL1ML1)
+     1      +          DIC00 * YIN(NL1M) + YC00  * DYI(NL1M)
+            DZI(NM) = B10NL1 * DZI(NL2M) + B00M * DZI(NL1ML1)
+     1      +          DIC00 * ZIN(NL1M) + ZC00  * DZI(NL1M)
+            DXK(NM) = B10NL1 * DXK(NL2M) + B00M * DXK(NL1ML1)
+     1      +          DKC00 * XIN(NL1M) + XC00  * DXK(NL1M)
+            DYK(NM) = B10NL1 * DYK(NL2M) + B00M * DYK(NL1ML1)
+     1      +          DKC00 * YIN(NL1M) + YC00  * DYK(NL1M)
+            DZK(NM) = B10NL1 * DZK(NL2M) + B00M * DZK(NL1ML1)
+     1      +          DKC00 * ZIN(NL1M) + ZC00  * DZK(NL1M)
+    3     CONTINUE
+    4   CONTINUE
+      END IF
+C
+C     ----- I(I,J,M)=I(I+1,J-1,M) + (QI-QJ) * I(I,J-1,M) -----
+C
+      DO 7 M=0,MMAX
+        MPT = M * 32 + IOFFST
+        DO 6 J=1,NJMAX
+          JM = J * 8 + MPT
+          DO 5 I=1,NIMAX + NJMAX - J + 1
+            IJM = I + JM
+            IJL1M = IJM - 8
+            I1JL1M = IJL1M + 1
+            XIN(IJM) = XIN(I1JL1M) + XIMXJ * XIN(IJL1M)
+            YIN(IJM) = YIN(I1JL1M) + YIMYJ * YIN(IJL1M)
+            ZIN(IJM) = ZIN(I1JL1M) + ZIMZJ * ZIN(IJL1M)
+            DXI(IJM) = DXI(I1JL1M) + XIMXJ * DXI(IJL1M) + XIN(IJL1M)
+            DYI(IJM) = DYI(I1JL1M) + YIMYJ * DYI(IJL1M) + YIN(IJL1M)
+            DZI(IJM) = DZI(I1JL1M) + ZIMZJ * DZI(IJL1M) + ZIN(IJL1M)
+            DXK(IJM) = DXK(I1JL1M) + XIMXJ * DXK(IJL1M)
+            DYK(IJM) = DYK(I1JL1M) + YIMYJ * DYK(IJL1M)
+            DZK(IJM) = DZK(I1JL1M) + ZIMZJ * DZK(IJL1M)
+    5     CONTINUE
+    6   CONTINUE
+    7 CONTINUE
+C
+C     ----- I(I,J,M,0) = I(I,J,M) -----
+C
+      DO 10 M=MMAX,0,-1
+        MNEW = M * 64 + IOFFST
+        MOLD = M * 32 + IOFFST
+        DO 9 J=NJMAX,0,-1
+          JMNEW = MNEW + J * 16
+          JMOLD = MOLD + J * 8
+          DO 8 I=NIMAX+1,1,-1
+            IJMNEW = JMNEW + I
+            IJMOLD = JMOLD + I
+            XIN(IJMNEW) = XIN(IJMOLD)
+            YIN(IJMNEW) = YIN(IJMOLD)
+            ZIN(IJMNEW) = ZIN(IJMOLD)
+            DXI(IJMNEW) = DXI(IJMOLD)
+            DYI(IJMNEW) = DYI(IJMOLD)
+            DZI(IJMNEW) = DZI(IJMOLD)
+            DXK(IJMNEW) = DXK(IJMOLD)
+            DYK(IJMNEW) = DYK(IJMOLD)
+            DZK(IJMNEW) = DZK(IJMOLD)
+    8     CONTINUE
+    9   CONTINUE
+   10 CONTINUE
+C
+C     ----- I(I,J,K,L)=I(I,J,K+1,L-1) + (QK-QL) * I(I,J,K,L-1) -----
+C
+      DO 14 L=1,NLMAX
+        LPT = 4 * L + IOFFST
+        DO 13 K=0,NKMAX + NLMAX - L
+          KL = K * 64 + LPT
+          DO 12 J=0,NJMAX
+            JKL = J * 16 + KL
+            DO 11 I=1,NIMAX+1
+              IJKL = I + JKL
+              IJKLM1 = IJKL - 4
+              KP1LM1 = IJKLM1 + 64
+              XIN(IJKL) = XIN(KP1LM1) + XKMXL * XIN(IJKLM1)
+              YIN(IJKL) = YIN(KP1LM1) + YKMYL * YIN(IJKLM1)
+              ZIN(IJKL) = ZIN(KP1LM1) + ZKMZL * ZIN(IJKLM1)
+              DXI(IJKL) = DXI(KP1LM1) + XKMXL * DXI(IJKLM1)
+              DYI(IJKL) = DYI(KP1LM1) + YKMYL * DYI(IJKLM1)
+              DZI(IJKL) = DZI(KP1LM1) + ZKMZL * DZI(IJKLM1)
+              DXK(IJKL) = DXK(KP1LM1) + XKMXL * DXK(IJKLM1) + XIN(
+     *        IJKLM1)
+              DYK(IJKL) = DYK(KP1LM1) + YKMYL * DYK(IJKLM1) + YIN(
+     *        IJKLM1)
+              DZK(IJKL) = DZK(KP1LM1) + ZKMZL * DZK(IJKLM1) + ZIN(
+     *        IJKLM1)
+   11       CONTINUE
+   12     CONTINUE
+   13   CONTINUE
+   14 CONTINUE
+C
+C     ----- ADD DERIVATIVE OF EXP(-D) AND EXP(-G) -----
+C
+      DO 18 L=0,NLMAX
+        LPT = L*4 + IOFFST
+        DO 17 K=0,NKMAX
+          KL = K*64 + LPT
+          DO 16 J=0,NJMAX
+            JKL = J*16 + KL
+            DO 15 I=1,NIMAX+1
+              IJKL = I + JKL
+              DXI(IJKL) = DXI(IJKL) + XICNST * XIN(IJKL)
+              DYI(IJKL) = DYI(IJKL) + YICNST * YIN(IJKL)
+              DZI(IJKL) = DZI(IJKL) + ZICNST * ZIN(IJKL)
+              DXK(IJKL) = DXK(IJKL) + XKCNST * XIN(IJKL)
+              DYK(IJKL) = DYK(IJKL) + YKCNST * YIN(IJKL)
+              DZK(IJKL) = DZK(IJKL) + ZKCNST * ZIN(IJKL)
+   15       CONTINUE
+   16     CONTINUE
+   17   CONTINUE
+   18 CONTINUE
+      RETURN
+      END
+      SUBROUTINE INXI  (XIN,YIN,ZIN,DXI,DYI,DZI,LEN2D)
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY XIN,YIN,ZIN,DXI,DYI,DZI
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /SETD/   BP01,B00,B10,XCP00,XC00,YCP00,YC00,ZCP00,ZC00,F00
+     1,               NIMAX,NJMAX,NKMAX,NLMAX,NMAX,MMAX,IOFFST
+     2,               IN(6),KN(6)
+      COMMON /GEOINF/ XIMXJ,YIMYJ,ZIMZJ,XKMXL,YKMYL,ZKMZL
+     1,               XAMXB,YAMYB,ZAMZB
+      COMMON /EXPNTS/ EIIA,EJIA,EKIB,EIJIA,EKLIB,RHO,RHOTSQ
+     1,               EI,EJ,EK,A,B
+C
+      DIMENSION XIN(LEN2D),YIN(LEN2D),ZIN(LEN2D)
+      DIMENSION DXI(LEN2D),DYI(LEN2D),DZI(LEN2D)
+C
+      RETURN
+C
+C-----------------------------------------------------XYZI
+C
+      ENTRY XYZI
+C
+      RTIASQ = RHOTSQ / A**2
+      RTIAB  = RHOTSQ / (A*B)
+      DIC00  = EI/A - RTIASQ*EI - 1
+      DICP00 = EI * RTIAB
+      RHO2T  = RHOTSQ + RHOTSQ
+      RHO2TI = RHO2T*EIIA
+      XICNST =  -XIMXJ*EIJIA*2.0 - XAMXB*RHO2TI
+      YICNST =  -YIMYJ*EIJIA*2.0 - YAMYB*RHO2TI
+      ZICNST = (-ZIMZJ*EIJIA*2.0 - ZAMZB*RHO2TI)
+C
+C
+C     ----- I(0,0) -----
+C
+      I = IOFFST + 1
+      XIN(I) = 1.0
+      YIN(I) = 1.0
+      ZIN(I) = F00
+      DXI(I) = 0.0
+      DYI(I) = 0.0
+      DZI(I) = 0.0
+C
+C     ----- I(1,0)=C00 -----
+C
+      IF (NMAX.NE.0) THEN
+        I2 = IOFFST + 2
+        XIN(I2) = XC00
+        YIN(I2) = YC00
+        ZIN(I2) = ZC00 * F00
+        DXI(I2) = DIC00
+        DYI(I2) = DIC00
+        DZI(I2) = DIC00 * F00
+      END IF
+C
+C     ----- I(0,1)=CP00 -----
+C
+      IF (MMAX.NE.0) THEN
+        I = IOFFST + 33
+        XIN(I) = XCP00
+        YIN(I) = YCP00
+        ZIN(I) = ZCP00 * F00
+        DXI(I) = DICP00
+        DYI(I) = DICP00
+        DZI(I) = DICP00 * F00
+C
+C     ----- I(1,1)=B00 * I(0,0) + CP00 * I(1,0) -----
+C
+        IF (NMAX.NE.0) THEN
+          I = IOFFST + 34
+          XIN(I) = XCP00 * XIN(I2) + B00
+          YIN(I) = YCP00 * YIN(I2) + B00
+          ZIN(I) = ZCP00 * ZIN(I2) + B00 * F00
+          DXI(I) = DICP00 * XIN(I2) + XCP00 * DXI(I2)
+          DYI(I) = DICP00 * YIN(I2) + YCP00 * DYI(I2)
+          DZI(I) = DICP00 * ZIN(I2) + ZCP00 * DZI(I2)
+        END IF
+      END IF
+C
+C     ----- I(N,0)=(N-1)B10 * I(N-2,0) + C00 * I(N-1,0) -----
+C
+      IF (NMAX.GT.1) THEN
+        DO 1 N=2,NMAX
+          NL10=N + IOFFST
+          N0=NL10+1
+          NL20=NL10 - 1
+          B10NL1=(N-1) * B10
+          XIN(N0) = B10NL1 * XIN(NL20) + XC00 * XIN(NL10)
+          YIN(N0) = B10NL1 * YIN(NL20) + YC00 * YIN(NL10)
+          ZIN(N0) = B10NL1 * ZIN(NL20) + ZC00 * ZIN(NL10)
+          DXI(N0) = B10NL1 * DXI(NL20) + DIC00 * XIN(NL10) + XC00* DXI
+     *    (NL10)
+          DYI(N0) = B10NL1 * DYI(NL20) + DIC00 * YIN(NL10) + YC00* DYI
+     *    (NL10)
+          DZI(N0) = B10NL1 * DZI(NL20) + DIC00 * ZIN(NL10) + ZC00* DZI
+     *    (NL10)
+C
+C     ----- I(N,1)=N * B00 * I(N-1,0) + CP00 * I(N,0) -----
+C
+          IF (MMAX.NE.0) THEN
+            N1=N0+32
+            B00N = B00 * N
+            XIN(N1) = B00N * XIN(NL10) + XCP00 * XIN(N0)
+            YIN(N1) = B00N * YIN(NL10) + YCP00 * YIN(N0)
+            ZIN(N1) = B00N * ZIN(NL10) + ZCP00 * ZIN(N0)
+            DXI(N1) = B00N * DXI(NL10) + DICP00 * XIN(N0) + XCP00 *
+     *      DXI(N0)
+            DYI(N1) = B00N * DYI(NL10) + DICP00 * YIN(N0) + YCP00 *
+     *      DYI(N0)
+            DZI(N1) = B00N * DZI(NL10) + DICP00 * ZIN(N0) + ZCP00 *
+     *      DZI(N0)
+          END IF
+    1   CONTINUE
+      END IF
+C
+C     ----- I(0,M)=(M-1)BP01 * I(0,M-2) + CP00 * I(0,M-1) -----
+C
+      IF (MMAX.GT.1) THEN
+        DO 2 M=2,MMAX
+          I0M = M*32 +  1 + IOFFST
+          I0ML1 = I0M - 32
+          I0ML2 = I0ML1 - 32
+          I1M   = I0M + 1
+          BPML1 = (M-1) * BP01
+          XIN(I0M) = BPML1 * XIN(I0ML2) + XCP00 * XIN(I0ML1)
+          YIN(I0M) = BPML1 * YIN(I0ML2) + YCP00 * YIN(I0ML1)
+          ZIN(I0M) = BPML1 * ZIN(I0ML2) + ZCP00 * ZIN(I0ML1)
+          DXI(I0M) = BPML1 * DXI(I0ML2) + DICP00 * XIN(I0ML1)
+     1    +                                XCP00 * DXI(I0ML1)
+          DYI(I0M) = BPML1 * DYI(I0ML2) + DICP00 * YIN(I0ML1)
+     1    +                                YCP00 * DYI(I0ML1)
+          DZI(I0M) = BPML1 * DZI(I0ML2) + DICP00 * ZIN(I0ML1)
+     1    +                                ZCP00 * DZI(I0ML1)
+C
+C     ----- I(1,M)=M * B00 * I(0,M-1) + C00 * I(0,M) -----
+C
+          IF (NMAX.NE.0) THEN
+            B00M = M * B00
+            XIN(I1M) = B00M * XIN(I0ML1) + XC00 * XIN(I0M)
+            YIN(I1M) = B00M * YIN(I0ML1) + YC00 * YIN(I0M)
+            ZIN(I1M) = B00M * ZIN(I0ML1) + ZC00 * ZIN(I0M)
+            DXI(I1M) = B00M * DXI(I0ML1) + DIC00 * XIN(I0M) + XC00 *
+     *      DXI(I0M)
+            DYI(I1M) = B00M * DYI(I0ML1) + DIC00 * YIN(I0M) + YC00 *
+     *      DYI(I0M)
+            DZI(I1M) = B00M * DZI(I0ML1) + DIC00 * ZIN(I0M) + ZC00 *
+     *      DZI(I0M)
+          END IF
+    2   CONTINUE
+      END IF
+C
+C     ----- I(N,M)=(N-1)B10 * I(N-2,M) + M * B00 * I(N-1,M-1) +
+C                                            C00 * I(N-1,M)   -----
+C
+      IF (NMAX.GT.1.AND.MMAX.GT.1) THEN
+        DO 4 M=2,MMAX
+          M8=M*32 + IOFFST
+          DO 3 N=2,NMAX
+            NM=N + 1 + M8
+            NL1M=NM - 1
+            NL1ML1= NL1M - 32
+            NL2M = NL1M - 1
+            B10NL1 = (N-1) * B10
+            B00M = M * B00
+            XIN(NM) = B10NL1 * XIN(NL2M) + B00M * XIN(NL1ML1) +XC00 *
+     *      XIN(NL1M)
+            YIN(NM) = B10NL1 * YIN(NL2M) + B00M * YIN(NL1ML1) +YC00 *
+     *      YIN(NL1M)
+            ZIN(NM) = B10NL1 * ZIN(NL2M) + B00M * ZIN(NL1ML1) +ZC00 *
+     *      ZIN(NL1M)
+            DXI(NM) = B10NL1 * DXI(NL2M) + B00M * DXI(NL1ML1)
+     1      +          DIC00 * XIN(NL1M) + XC00  * DXI(NL1M)
+            DYI(NM) = B10NL1 * DYI(NL2M) + B00M * DYI(NL1ML1)
+     1      +          DIC00 * YIN(NL1M) + YC00  * DYI(NL1M)
+            DZI(NM) = B10NL1 * DZI(NL2M) + B00M * DZI(NL1ML1)
+     1      +          DIC00 * ZIN(NL1M) + ZC00  * DZI(NL1M)
+    3     CONTINUE
+    4   CONTINUE
+      END IF
+C
+C     ----- I(I,J,M)=I(I+1,J-1,M) + (QI-QJ) * I(I,J-1,M) -----
+C
+      DO 7 M=0,MMAX
+        MPT = M * 32 + IOFFST
+        DO 6 J=1,NJMAX
+          JM = J * 8 + MPT
+          DO 5 I=1,NIMAX + NJMAX - J + 1
+            IJM = I + JM
+            IJL1M = IJM - 8
+            I1JL1M = IJL1M + 1
+            XIN(IJM) = XIN(I1JL1M) + XIMXJ * XIN(IJL1M)
+            YIN(IJM) = YIN(I1JL1M) + YIMYJ * YIN(IJL1M)
+            ZIN(IJM) = ZIN(I1JL1M) + ZIMZJ * ZIN(IJL1M)
+            DXI(IJM) = DXI(I1JL1M) + XIMXJ * DXI(IJL1M) + XIN(IJL1M)
+            DYI(IJM) = DYI(I1JL1M) + YIMYJ * DYI(IJL1M) + YIN(IJL1M)
+            DZI(IJM) = DZI(I1JL1M) + ZIMZJ * DZI(IJL1M) + ZIN(IJL1M)
+    5     CONTINUE
+    6   CONTINUE
+    7 CONTINUE
+C
+C     ----- I(I,J,M,0) = I(I,J,M) -----
+C
+      DO 10 M=MMAX,0,-1
+        MNEW = M * 64 + IOFFST
+        MOLD = M * 32 + IOFFST
+        DO 9 J=NJMAX,0,-1
+          JMNEW = MNEW + J * 16
+          JMOLD = MOLD + J * 8
+          DO 8 I=NIMAX+1,1,-1
+            IJMNEW = JMNEW + I
+            IJMOLD = JMOLD + I
+            XIN(IJMNEW) = XIN(IJMOLD)
+            YIN(IJMNEW) = YIN(IJMOLD)
+            ZIN(IJMNEW) = ZIN(IJMOLD)
+            DXI(IJMNEW) = DXI(IJMOLD)
+            DYI(IJMNEW) = DYI(IJMOLD)
+            DZI(IJMNEW) = DZI(IJMOLD)
+    8     CONTINUE
+    9   CONTINUE
+   10 CONTINUE
+C
+C     ----- I(I,J,K,L)=I(I,J,K+1,L-1) + (QK-QL) * I(I,J,K,L-1) -----
+C
+      DO 14 L=1,NLMAX
+        LPT = 4 * L + IOFFST
+        DO 13 K=0,NKMAX + NLMAX - L
+          KL = K * 64 + LPT
+          DO 12 J=0,NJMAX
+            JKL = J * 16 + KL
+            DO 11 I=1,NIMAX+1
+              IJKL = I + JKL
+              IJKLM1 = IJKL - 4
+              KP1LM1 = IJKLM1 + 64
+              XIN(IJKL) = XIN(KP1LM1) + XKMXL * XIN(IJKLM1)
+              YIN(IJKL) = YIN(KP1LM1) + YKMYL * YIN(IJKLM1)
+              ZIN(IJKL) = ZIN(KP1LM1) + ZKMZL * ZIN(IJKLM1)
+              DXI(IJKL) = DXI(KP1LM1) + XKMXL * DXI(IJKLM1)
+              DYI(IJKL) = DYI(KP1LM1) + YKMYL * DYI(IJKLM1)
+              DZI(IJKL) = DZI(KP1LM1) + ZKMZL * DZI(IJKLM1)
+   11       CONTINUE
+   12     CONTINUE
+   13   CONTINUE
+   14 CONTINUE
+C
+C     ----- ADD DERIVATIVE OF EXP(-D) AND EXP(-G) -----
+C
+      DO 18 L=0,NLMAX
+        LPT = L*4 + IOFFST
+        DO 17 K=0,NKMAX
+          KL = K*64 + LPT
+          DO 16 J=0,NJMAX
+            JKL = J*16 + KL
+            DO 15 I=1,NIMAX+1
+              IJKL = I + JKL
+              DXI(IJKL) = DXI(IJKL) + XICNST * XIN(IJKL)
+              DYI(IJKL) = DYI(IJKL) + YICNST * YIN(IJKL)
+              DZI(IJKL) = DZI(IJKL) + ZICNST * ZIN(IJKL)
+   15       CONTINUE
+   16     CONTINUE
+   17   CONTINUE
+   18 CONTINUE
+      RETURN
+      END
+      SUBROUTINE SYMD (DE,ICT,PTR,INVT)
+C
+C
+C MODIFIED 25 AUGUST 1983 AT BRL TO HANDLE VARIABLE DIMENSIONED
+C HONDO ARRAYS                                           PWS
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+C     EXTENDED DUMMY DE,ICT,PTR,INVT
+C
+      REAL*8 DE(3,NAT),PTR(3,3,NT)
+      INTEGER ICT(NAT,NT),INVT(NT)
+      LOGICAL IANDJ
+      LOGICAL OPEN
+      CHARACTER*5 CALTYP
+      CHARACTER*6 SCFTYP
+C
+      COMMON /TAPES/  IOUT,ICHECK,INPUT,ITAP42,ITAP49
+      COMMON /CNTRL/  IPRINT,NDERIV,INTOUT,INFOUT,OPEN,SCFTYP,CALTYP
+      COMMON /INFOA/  NAT,NUM,NNP,NSHELL,NIRRED,NT,NPRIM,MXT,NISO
+      COMMON /OUTPUT/ NPRINT,ITOL,ICUT,NORMF,NORMP,NOPK
+C
+C
+C
+C
+CTEMP IF(NPRINT.EQ.0) GO TO 9
+      WRITE(ICHECK,6010)
+ 6010 FORMAT(//,' GRADIENT BEFORE SYMDE')
+      WRITE(ICHECK,6011) ((DE(I,J),I=1,3),J=1,NAT)
+ 6011 FORMAT(3F16.7)
+      WRITE(ICHECK,6012) ICT
+ 6012 FORMAT (/,' ICT:',(15I4))
+      WRITE(ICHECK,6013) INVT
+ 6013 FORMAT (/,' INVT:',(15I4))
+      WRITE(ICHECK,6014) (((PTR(IQ,JQ,KQ),IQ=1,3),JQ=1,3),KQ=1,NT)
+ 6014 FORMAT (//,' TRANSFORMATION MATRICES:',/,(3(/,1X,3F15.6),//))
+    9 IF (NT.EQ.1) RETURN
+C
+C     ----- SYMMETRYZE GRADIENT VECTOR -----
+C
+      ZERO=0.0D+00
+      DO 2500 IC=1,NAT
+        DO 2100 IT=1,NT
+          IF(ICT(IC,IT).GT.IC) GO TO 2500
+ 2100   CONTINUE
+        DEDX=ZERO
+        DEDY=ZERO
+        DEDZ=ZERO
+        DO 2200 IT=1,NT
+          ICNU=ICT(IC,IT)
+          DEDXP=DE(1,ICNU)
+          DEDYP=DE(2,ICNU)
+          DEDZP=DE(3,ICNU)
+          DEDX=DEDX+DEDXP*PTR(1,1,IT)+DEDYP*PTR(2,1,IT)+DEDZP*PTR(3,1,
+     *    IT)
+          DEDY=DEDY+DEDXP*PTR(1,2,IT)+DEDYP*PTR(2,2,IT)+DEDZP*PTR(3,2,
+     *    IT)
+          DEDZ=DEDZ+DEDXP*PTR(1,3,IT)+DEDYP*PTR(2,3,IT)+DEDZP*PTR(3,3,
+     *    IT)
+ 2200   CONTINUE
+        DE(1,IC)=DEDX
+        DE(2,IC)=DEDY
+        DE(3,IC)=DEDZ
+        DO 2400 IT=1,NT
+          ICNU=ICT(IC,IT)
+          IF(ICNU.EQ.IC) GO TO 2400
+          IF(IT.EQ.NT) GO TO 2350
+          IT1=IT+1
+          DO 2300 JT=IT1,NT
+            IF(ICT(IC,JT).EQ.ICNU) GO TO 2400
+ 2300     CONTINUE
+ 2350     CONTINUE
+          JT=INVT(IT)
+          DE(1,ICNU)=DE(1,IC)*PTR(1,1,JT)+DE(2,IC)*PTR(2,1,JT)
+     1    +DE(3,IC)*PTR(3,1,JT)
+          DE(2,ICNU)=DE(1,IC)*PTR(1,2,JT)+DE(2,IC)*PTR(2,2,JT)
+     1    +DE(3,IC)*PTR(3,2,JT)
+          DE(3,ICNU)=DE(1,IC)*PTR(1,3,JT)+DE(2,IC)*PTR(2,3,JT)
+     1    +DE(3,IC)*PTR(3,3,JT)
+ 2400   CONTINUE
+ 2500 CONTINUE
+      DUM=DBLE(NT)
+      DO 2600 N=1,NAT
+        DO 2600 I=1,3
+ 2600 DE(I,N)=DE(I,N)/DUM
+CC
+      RETURN
+      END

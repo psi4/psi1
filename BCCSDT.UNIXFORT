@@ -1,0 +1,4992 @@
+      subroutine fentry(cc,ic,imxcor)
+C
+C    ***********************************************
+C    * THE CLOSED-SHELL COUPLED CLUSTER SD PROGRAM *
+C    *  WRITTEN BY GUSTAVO E. SCUSERIA             *
+C    * LAST UPDATE  OCTOBER 26 , 1987  BY GES      *
+C    ***********************************************
+C
+C   *---------------------------------------------------------------*
+C   |   THIS VERSION WORKS WITH CCTRANS AND CCSORT.                 |
+C   |   ALL 2E INTS IN CORE , ONE GROUP EACH TIME, SYMMETRY PACKED, |
+C   |                         READ FROM FILE 60'S.                  |
+C   |   T2 IS SYMMETRY PACKED.                                      |
+C   |   DIIS EITHER IN CORE OR IN DISK.                             |
+C   |   ALL LOOPS IN COUPLED CLUSTER  ARE SYMMETRY ADAPTED.         |
+C   |   OPTIONS FOR 'CCSD', 'CCD ', 'LCCD' AND 'MP2 ' ARE INCLUDED. |
+C   |               'LCSD', 'VAR2'  ARE  ALSO INCLUDED.             |
+C   *---------------------------------------------------------------*
+C
+C***********************************************************************
+C   NOTICE OF PROGRAM MODIFICATIONS                                    *
+C      BY:  GUSTAVO E. SCUSERIA                                        *
+C                                                                      *
+C    DATE:  DEC 1 , 1986                                               *
+C  REASON:  CHANGE INTBUF FROM 40 TO 100 SECTORS.                      *
+C           INCLUDE PRINTING OF CLUSTER COEFFICIENTS IN FILE7.         *
+C                                                                      *
+C    DATE:  MAY 18, 1987                                               *
+C  REASON:  INCLUDE NON-SCF TERMS.                                     *
+C                                                                      *
+C    DATE:  MAY-JUNE 1987                                              *
+C  REASON:  INCLUDE CC MO OPTIMIZATION (ONLY C1 SYMMETRY).             *
+C           FOCK MATRIX IS WRITTEN TO FILE 86 (ITAP68) FOR CP-CCSD.    *
+C           S AND H ARE READ FROM FILE67 (WRITTEN BY CCTRANS).         *
+C           EIGENVECTOR IS READ FROM FILE30 (AND UPDATED IN MONGO).    *
+C           MONGO INPUT IS NEEDED. (SEE MONGO AND ZDIIS).              *
+C                                                                      *
+C    DATE:  JUNE 23, 1987                                              *
+C  REASON:  INCLUDE POINT SYMMETRY GROUP D2.                           *
+C                                                                      *
+C    DATE:  AUGUST 14, 1987                                            *
+C  REASON:  INCLUDE OUT OF CORE DIIS SUBROUTINE (DIISD).               *
+C                                                                      *
+C    DATE:  AUGUST 18, 1987                                            *
+C  REASON:  GET RID OF B INTEGRALS (VV,VV)                             *
+C                                                                      *
+C    DATE:  OCTOBER 14, 1987                                           *
+C  REASON:  INCLUDE CCSDT-1 OPTION.                                    *
+C                                                                      *
+C    DATE:  OCTOBER 22, 1987                                           *
+C  REASON:  CORS AND VIRS FOR CCSDT-1.                                 *
+C                                                                      *
+C    DATE:  OCTOBER 26, 1987                                           *
+C  REASON:  CHANGE CONVERGENCE CRITERIUM.                              *
+C                                                                      *
+C    DATE:  DECEMBER 3, 1987                                           *
+C  REASON:  INCLUDE OPTION FOR SORT/NO SORT OF T3 AMPLITUDES.          *
+C                                                                      *
+C    DATE:  FEBRUARY 4, 1988                                           *
+C  REASON:  INCLUDE LINEARIZED CCSD ('LCSD') AND QUADRATIC VARIATIONAL *
+C           CCSD ('VAR2') OPTIONS FOR THE ENERGY.                      *
+C                                                                      *
+C    DATE:  MARCH 3, 1988                                              *
+C  REASON:  REARRANGE READ AND WRITE OF FILE69 FOR RESTART OPTION.     *
+C  REASON:  RCLOSE/4 FILE81 AFTER ADDING CCSDT1 CORRECTIONS TO T2.     *
+C  REASON:  INCLUDE QUADRATIC ENERGY VARIATIONAL                       *
+C           UNITARY FORMULA FROM T1 AND T2 EQS.                        *
+C                                                                      *
+C    DATE:  MARCH 31, 1988                                             *
+C  REASON:  INCLUDE MONGO OPTION (FLAG=2) FOR WEIRD MOS CALCS.         *
+C           FILE68 IS CREATED AD-HOC (IDIMZ=NO*NV) AND FOCK WRITE TO IT*
+C***********************************************************************
+C
+C   FILE DICTIONARY:
+C
+C   FILE30
+C   FILE60 = A INTS, (OO,OO)
+C   FILE61 = B INTS, (VV,VV)
+C   FILE62 = C INTS, (OO,VV)
+C   FILE63 = D INTS, (OV,OV)
+C   FILE64 = E INTS, (OO,OV)
+C   FILE65 = F INTS, (VV,VO)
+C   FILE66 = F INTS, (VO,VV)
+C   FILE67 = S AND H INTS
+C   FILE69 = T1,T2 AND ENERGIES
+C   FILE81 = T3 AMPLITUDES (IFF CCSDT1 OPTION)
+C   FILE86 = GENERALIZED FOCK OPERATOR (IFF MONGO INPUT)
+C   FILE97 = SCRATCH FILE TO SORT T3 AMPLITUDES (IFF CCSDT1 OPTION)
+C   FILE98 = DIIS SCRATCH FILE
+C   FILE99 = DIIS SCRATCH FILE
+C
+      IMPLICIT INTEGER (A-Z)
+clj      REAL*8 TIMLIM,CC,AZERO,ONE,II,HALF,ENUC,ESCF,ECORR,ETOT
+      REAL*8 TIMLIM,CC,AZERO,ONE,   HALF,ENUC,ESCF,ECORR,ETOT
+      REAL*4 EECPU,EETIME,EETCPU
+      CHARACTER*32 DATTIM
+      CHARACTER* 4 LABEL(20),OPTION,PRTS,RSTR,CHAR,SORT
+      COMMON/TIEMPO/EECPU,EETIME,EETCPU
+      COMMON/RESTAR/TIMLIM
+      COMMON/INTS/NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO
+      DIMENSION NLAMDA(8),ITEMP(1),NC(8),ITYP(8),FLOV(8,4),ITEP(8),
+     .          NOSYM(8),NVSYM(8),NFZO(8),NFZV(8),NDOC(8),NUOC(8),
+     .          NT3(8)
+clj      DIMENSION CC(1),IC(3000000)
+      DIMENSION CC(imxcor),IC(intowp(imxcor))
+clj      EQUIVALENCE (CC,IC)
+clj      CALL NOUNFL
+      call drum
+clj      IMXCOR=1500000
+      INPUT=5
+      IW = 6
+      IOUT12=7
+      ITAP30=30
+      ITAP60=60
+      ITAP61=61
+      ITAP62=62
+      ITAP63=63
+      ITAP64=64
+      ITAP65=65
+      ITAP66=66
+      ITAP67=67
+      ITAP68=86
+      ITAP69=69
+      ITAP81=81
+      ITAP97=97
+      ITAP98=98
+      ITAP99=99
+      CALL DATETM(DATTIM,EECPU,EETIME,EETCPU)
+      CALL TSTART(6)
+      WRITE(IW,6000)
+ 6000 FORMAT(   43('-'),/,43('-'),/,
+     .' THE CLOSED-SHELL COUPLED CLUSTER  PROGRAM',/,
+     .'         WRITTEN BY GUSTAVO SCUSERIA'     ,/,
+     .'          VERSION DEC 03 1987 ',/,43('-'),/,43('-')   )
+      AZERO=0.0D0
+      HALF=0.5D0
+      ONE =1.0D0
+      INTBUF=SEC2I(100)/INTOWP(1)
+CGES  INTBUF=SEC2I(40)/INTOWP(1)
+      CALL RFILE(ITAP30)
+      CALL RFILE(ITAP60)
+      CALL RFILE(ITAP61)
+      CALL RFILE(ITAP62)
+      CALL RFILE(ITAP63)
+      CALL RFILE(ITAP64)
+      CALL RFILE(ITAP65)
+      CALL RFILE(ITAP66)
+C     CALL RFILE(ITAP81)
+      CALL RFILE(ITAP97)
+      CALL RFILE(ITAP98)
+      CALL RFILE(ITAP99)
+      CALL WREADW(ITAP30,IC,200,101,LWORD)
+      MPOINT=IC(2)
+      MCONST=IC(3)
+      MCALCS=IC(4)
+      NCALCS=IC(5)
+      NT  =IC(18)
+      NAT=IC(19)
+      NTAO=IC(22)
+      NIRRED=IC(28)
+      NSYMHF=IC(41)
+      MXCOEF=IC(42)
+      CALL ZERO(CC,IMXCOR)
+      WTEMP=1
+      COORD=WTEMP+NT
+      ZAN=COORD+3*NAT
+      DVEC=ZAN+NAT
+      WVEC=DVEC+NT*NT
+      XVEC=WVEC+NT*NT
+      XARR=XVEC+NT*NT
+      EEE=XARR+NT
+      PTOCC=WPADTI(EEE+NT)
+      ORBSYM=PTOCC+NT
+      FZO=ORBSYM+NT
+      CALL READ30(ITAP30,MPOINT,MCONST,MCALCS,NCALCS,NT,NSYMHF,NAT,
+     .    MXCOEF,CC(EEE),NLAMDA,ITEMP,6,NC,NO,CC(WTEMP),IC(PTOCC),ITYP,
+     .    IC(ORBSYM),FLOV,NIRRED,ITEP,ENUC,ESCF,CHAR,NORD,CC(ZAN),
+     .    CC(COORD))
+      FZV=FZO+NO
+      NV=NT-NO
+      TOP=FZV+NV
+      CALL LOCATE (INPUT,'# CCSD ###',IERR)
+      IF(IERR.NE.0) THEN
+      WRITE (IW,6007)
+      WRITE ( 4,6007)
+ 6007 FORMAT(//,2X,' WARNING! NO INPUT TO CCSD HAS BEEN FOUND.',/,
+     .          2X,'          DEFAULT PARAMETERS WILL BE USED.',//)
+      EPSI=5
+      NGO=2
+      NMIN =2
+      MINDIM=2
+      MAXDIM=8
+      MAXIT=20
+      CONVI=7
+      PRTS = 'NO  '
+      RSTR = 'NO  '
+      SORT = 'NO  '
+      DO 622 I=1,NIRRED
+      NFZO(I)=0
+  622 NFZV(I)=0
+      ELSE
+      READ(5,6004)LABEL
+ 6004 FORMAT(20A4)
+      READ(5,6002)EPSI,NGO,NMIN ,MINDIM,MAXDIM,FLDIIS,IRSTR
+      IF(EPSI  .EQ.0)EPSI  =5
+      IF(NGO   .EQ.0)NGO   =2
+      IF(NMIN  .EQ.0)NMIN  =2
+      IF(MINDIM.EQ.0)MINDIM=2
+      IF(MAXDIM.EQ.0)MAXDIM=8
+      IF(IRSTR.NE.1) RSTR='NO  '
+      IF(IRSTR.EQ.1) RSTR='YES '
+      READ(5,6002)CONVI,MAXIT
+      IF(CONVI .EQ.0)CONVI =7
+      IF(MAXIT .EQ.0)MAXIT =20
+ 6002 FORMAT(16I5)
+      DO 623 I=1,NIRRED
+  623 READ(INPUT,6051)NFZO(I),NFZV(I)
+ 6051 FORMAT(I2,1X,I2)
+      READ(INPUT,6052)OPTION,SORT,PRTS
+ 6052 FORMAT(A4,1X,A4,1X,A4)
+      END IF
+COUT  WRITE(IW,6003)EPSI,NGO,NMIN ,MINDIM,MAXDIM,CONVI,MAXIT
+ 6003 FORMAT(//,2X,'***** DIIS PARAMETERS *****',
+     .        /,2X,'EPSI   =',I5,
+     .        /,2X,'NGO    =',I5,
+     .        /,2X,'NMIN   =',I5,
+     .        /,2X,'MINDIM =',I5,
+     .        /,2X,'MAXDIM =',I5)
+      WRITE(IW,6022)LABEL,OPTION,RSTR,CONVI,MAXIT,FLDIIS,INTBUF,CHAR,
+     .              NORD
+ 6022 FORMAT(//,2X,'***** CC PARAMETERS *****',
+     .       //,2X,'LABEL  = ',20A4,
+     .        /,2X,'OPTION = ',A4,
+     .        /,2X,'RSTR   = ',A4,
+     .        /,2X,'CONVI  = ',I4,
+     .        /,2X,'MAXIT  = ',I4,
+     .        /,2X,'FLDIIS = ',I4,
+     .        /,2X,'INTBUF = ',I6,
+     .        /,2X,'SYMM   = ',A4,I1)
+C
+      CALL FROZEN (FLOV,NOSYM,NVSYM,NFZO,NFZV,NDOC,NUOC,IC(FZO),IC(FZV),
+     .             ITEP,NIRRED,NO,NV,IW)
+      CALL NCOUNT(IC(ORBSYM),FLOV,NIRRED,NO,NV,NT,IC(FZO),IC(FZV),
+     .            NDIMT1,NDIMT2,NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO,
+     .            NT3,NTAU,OPTION)
+      NO2=(NO*(NO+1))/2
+      NV2=(NV*(NV+1))/2
+      NT2=(NT*(NT+1))/2
+      NONO=NO*NO
+      NVNV=NV*NV
+      NM =NO*NV
+      NMNM=NM*NM
+      NTNT=NT*NT
+      NM2=(NM*(NM+1))/2
+      NGOO=(NO2*(NO2+1))/2
+      NGVV=(NV2*(NV2+1))/2
+      NGOV=(NM*(NO+1)*(NV+1))/4
+      NHOV=(NM*(NM+1))/2
+      NLOV=NO2*NM
+      NLVO=NV2*NM
+      NINT=NGOO+NGVV+NGOV+NHOV+NLOV+NLVO
+      NSINT=NSGOO+NSGVV+NSGOV+NSHOV+NSLOV+NSLVO
+      MAXAR=NSGOO
+CGES  IF(NSGVV.GT.MAXAR)MAXAR=NSGVV
+      IF(NSGOV.GT.MAXAR)MAXAR=NSGOV
+      IF(NSHOV.GT.MAXAR)MAXAR=NSHOV
+      IF(NSLOV.GT.MAXAR)MAXAR=NSLOV
+      IF(NSLVO.GT.MAXAR)MAXAR=NSLVO
+      NTIN= MAXAR
+      NONO2=NO*NO2
+      NONV2=NO*NV2
+      NONM=NO*NM
+      NVNO2=NV*NO2
+      NVNV2=NV*NV2
+      NVNM=NV*NM
+      NOV2=MAX0(NO2,NV2)
+      NOV =MAX0(NO ,NV )
+      IMX=MAX0(NM,NV2)
+      NOVNOV=NOV*NOV
+      WRITE(IW,6030)NO,NV,NT,NM,NO2,NV2,NT2,NM2
+      WRITE(*,*)'NGOO =',NGOO,'NSGOO =',NSGOO
+      WRITE(*,*)'NGVV =',NGVV,'NSGVV =',NSGVV
+      WRITE(*,*)'NGOV =',NGOV,'NSGOV =',NSGOV
+      WRITE(*,*)'NHOV =',NHOV,'NSHOV =',NSHOV
+      WRITE(*,*)'NLOV =',NLOV,'NSLOV =',NSLOV
+      WRITE(*,*)'NLVO =',NLVO,'NSLVO =',NSLVO
+      WRITE(*,*)'NINT =',NINT,'NSINT =',NSINT
+      WRITE(*,*) 'MAXIMUM ARRAY NTIN =     ',NTIN
+      NDIMTT=NDIMT1+NDIMT2+1
+      WRITE(IW,6042)
+      WRITE(IW,6013)NDIMT1
+      WRITE(IW,6014)NDIMT2
+C     IF(OPTION.EQ.'SDT1')WRITE(IW,6016)NDIMT3
+ 6042 FORMAT(//,2X,'*****  # WALKS  *******************',/)
+ 6013 FORMAT(2X,'THE NUMBER OF SINGLE EXCITATIONS IS',I12)
+ 6014 FORMAT(2X,'THE NUMBER OF DOUBLE EXCITATIONS IS',I12)
+ 6016 FORMAT(2X,'THE NUMBER OF TRIPLE EXCITATIONS IS',I12)
+ 6015 FORMAT(2X,'THE TOTAL NUMBER OF CISD WALKS   IS',I12)
+      WRITE(IW,6020)
+ 6020 FORMAT(//,2X,'I',3X,'IRREP',10X,'SCF MO ENERGY',/)
+ 6021 FORMAT(I3,4X,A4,5X,F18.12)
+      DO 556 I=EEE,EEE+NT-1
+      WRITE (IW,6021) I-EEE+1,ITEP(IC(ORBSYM+I-EEE)+1),CC(I)
+  556 CONTINUE
+C
+C  CORE ALLOCATION
+C
+      IPV=TOP
+      IPO=IPV+NM
+      ITRV=IPO+NM
+      ITRT=ITRV+NM
+      ITR=ITRT+NM
+      IPL=ITR+NOV
+      IPQ=IPL+NT
+      ITRO=IPQ+NT2
+      ITV=ITRO+IMX
+      UOFF=ITV+NV
+      VADD=UOFF+NONO*2
+      TOFF=VADD+NVNV
+      TADD=TOFF+NONO*2*NIRRED
+      ZLX= TADD+NVNV*NIRRED
+      AOFF=ZLX+NVNV
+      AADD=AOFF+NONO
+      BOFF=AADD+NONO
+      BADD=BOFF+NVNV
+      COFF=BADD+NVNV
+      CADD=COFF+NVNV
+      DOFF=CADD+NONO
+      DADD=DOFF+NM
+      EOFF=DADD+NM
+      EADD=EOFF+NM
+      FOFF=EADD+NONO
+      FADD=FOFF+NVNV
+      ININ=FADD+NM
+      II=IADTWP(ININ)
+      BUF=II+NTIN
+      IBUF=WPADTI(BUF)
+      T2=BUF+INTBUF
+      NNT2=MAX0(NTAU,NDIMT2)
+      TAU=T2+NNT2
+      S=TAU+NTAU
+      T1O=S+NDIMT2
+      T1N=T1O+NM
+      FO=T1N+NM
+      FV=FO+NONO
+      FFO=FV+NVNV
+      FFV=FFO+NONO
+      XA=FFV+NVNV
+      XB=XA+NO
+      XC=XB+NO
+      F11=XC+NO
+      F12=F11+NM
+      Z=F12+NM
+      FOCK=Z+NM
+      T2P1=FOCK+NT2
+      D1=T2P1+NM
+      ICC=D1+NM
+      IBB=ICC+MAXDIM
+      IBB2=IBB+(MAXDIM+1)*(MAXDIM+2)
+      ILAST=IBB2+(MAXDIM+1)*(MAXDIM+2)
+        IMCOR=IMXCOR*8/1024
+        IF(ILAST.GT.IMXCOR) THEN
+        ICOR =ILAST *8/1024
+        WRITE(IW,6001)IMCOR,IMXCOR,ICOR,ILAST
+        STOP 'NOT ENOUGH CORE '
+        END IF
+           IF(FLDIIS.EQ.2)THEN
+           DIISFL=2
+           GO TO 752
+           END IF
+      DIIS=MAXDIM*(NM+NDIMT2)
+      ILEFT=IMXCOR-ILAST-DIIS-DIIS
+C
+C UNCOMMENT FOLLOWING LINE TO FORCE DIIS IN DISK
+      ILEFT=-1
+C
+      IF(ILEFT.GT.0) THEN
+      WRITE(IW,6008)
+      WRITE( 4,6008)
+ 6008 FORMAT(//,1X,'DIIS WILL DE DONE IN CORE')
+      DIISFL=1
+      TT1=ILAST
+      DT1=TT1+NM*MAXDIM
+      TT2=DT1+NM*MAXDIM
+      DT2=TT2+NDIMT2*MAXDIM
+      ILAST=DT2+NDIMT2*MAXDIM
+      ELSE
+      DIISFL=0
+      WRITE(IW,6009)
+C     WRITE( 4,6009)
+ 6009 FORMAT(//,1X,'DIIS WILL BE DONE IN DISK')
+      END IF
+  752 CONTINUE
+      ICOR =ILAST *8/1024
+      WRITE(IW,6001)IMCOR,IMXCOR,ICOR,ILAST
+C********* CONSTRUCT INDICES TO BE USED
+      DO 140  I=1,NM
+      I1=I-1
+      IC(IPV+I1)=NO+1+I1/NO
+      IC(IPO+I1)=I-(IC(IPV+I1)-NO-1)*NO
+      IC(ITRV+I1)=I1*NV2
+  140 IC(ITRT+I1)=I1*NM
+      DO 141 I=1,NOV
+      I1=I-1
+  141 IC(ITR+I1)=I1*NO
+      DO 142 I=1,NT
+      I1=I-1
+  142 IC(IPL+I1)=I1*NT
+      IC(IPQ)=0
+      DO 143 I=1,NT2-1
+  143 IC(IPQ+I)=IC(IPQ+I-1)+I
+      DO 144 I=1,IMX
+      I1=I-1
+  144 IC(ITRO+I1)=I1*NO2
+      DO 145 I=1,NV
+      I1=I-1
+  145 IC(ITV+I1)=I1*NV
+C
+      CALL SYMARR(IC(ORBSYM),FLOV,NIRRED,NO,NV,NT,NOV,NM,
+     .            IC(FZO),IC(FZV),NFZO,NFZV,
+     .            IC(UOFF),IC(VADD),IC(ZLX),IC(ITR),IC(ITV),NONO,NVNV,
+     .            IC(AOFF),IC(AADD),IC(BOFF),IC(BADD),IC(COFF),IC(CADD),
+     .            IC(DOFF),IC(DADD),IC(EOFF),IC(EADD),IC(FOFF),IC(FADD),
+     .            IC(TOFF),IC(TADD))
+C
+C********CLOSED-SHELL COUPLED CLUSTER CALCULATION
+C
+      IF(OPTION.EQ.'CHEK')STOP'CHECK'
+      IF(PRTS.EQ.'ONLY')THEN
+      CALL TSOUT (OPTION,IC(FZO),IC(FZV),IC(ORBSYM),FLOV,
+     .            IC(UOFF),IC(VADD),NT,CC(T1N),CC(T2),
+     .            NIRRED,NO,NV,NDIMT2,ITAP69,IOUT12,PRTS)
+      STOP'PRTS'
+      ENDIF
+      CALL CLUS(CC(II),NTIN,EPSI,NGO,NMIN ,MINDIM,MAXDIM,MAXIT,CONVI,
+     .         IC(IPQ),IC(IPL),IC(ITR),IC(ITRO),IC(ITRV),IC(ITRT),
+     .         NO,NV,NOV,NT,NM,NV2,NT2,IMX,NONO,NVNV,NDIMT2,
+     .         CC(T2),CC(TAU),CC(S),CC(T1O),CC(T1N),CC(FO),CC(FV),
+     .         CC(XA),CC(XB),CC(XC),CC(F11),CC(F12),CC(T2P1),
+     .         CC(D1),CC(EEE),IC(ORBSYM),FLOV,NSYMHF,NIRRED,ENUC,
+     .         IC(UOFF),IC(VADD),IC(ZLX),OPTION, RSTR,
+     .         CC(ICC),CC(IBB),CC(IBB2),CC(TT1),CC(DT1),CC(TT2),CC(DT2),
+     .         DIISFL,IC(FZO),IC(FZV),ECORR,CC(BUF),IC(IBUF),INTBUF,
+     .         IC(AOFF),IC(AADD),IC(BOFF),IC(BADD),IC(ITV),IC(COFF),
+     .         IC(CADD),IC(DOFF),IC(DADD),IC(EOFF),IC(EADD),IC(FOFF),
+     .         IC(FADD),ESCF,PRTS,IOUT12,CC(Z),CC(FOCK),CC(FFO),CC(FFV),
+     . ITAP97, ITAP98,ITAP99,ITAP81,IC(TOFF),IC(TADD),NTAU,NT3,
+     .         CC(DVEC),CC(WVEC),CC(XVEC),CC(XARR),SORT,NIT)
+      WRITE(IW,6074)
+ 6074 FORMAT(//,'CALCULATION RESULTS',/)
+      WRITE(IW,6071) ESCF
+      WRITE( 4,6071) ESCF
+      WRITE(IW,6072) ECORR
+      WRITE( 4,6072) ECORR
+      ETOT=ESCF+ECORR
+      WRITE(IW,6073) ETOT
+      WRITE( 4,6073) ETOT
+      CALL RCLOSE (ITAP60,3)
+      CALL RCLOSE (ITAP61,3)
+      CALL RCLOSE (ITAP62,3)
+      CALL RCLOSE (ITAP63,3)
+      CALL RCLOSE (ITAP64,3)
+      CALL RCLOSE (ITAP65,3)
+      CALL RCLOSE (ITAP66,3)
+C     CALL RCLOSE (ITAP81,3)
+      CALL RCLOSE (ITAP97,3)
+      IF(ILEFT.LT.0.AND.NIT.GT.1)THEN
+      CALL RCLOSE (ITAP98,4)
+      CALL RCLOSE (ITAP99,4)
+      ENDIF
+ 6071 FORMAT('  REF  ENERGY = ',F20.12)
+ 6072 FORMAT(' CORR. ENERGY = ',F20.12)
+ 6073 FORMAT(' TOTAL ENERGY = ',F20.12)
+C
+      CALL TSTOP (6)
+C
+ 6001 FORMAT(//,' MAXIMUM  CORE = ',I7,2X,'K BYTES  OR  ',I9 ,' REAL',
+     .         ' WORDS',/,
+     .          ' REQUIRED CORE = ',I7,2X,'K BYTES  OR  ',I9 ,' REAL',
+     .         ' WORDS',//)
+ 6030 FORMAT(//,'NO  =',I8,6X,'NV  =',I8,6X,'NT  =',I8,6X,'NM  =',I8,/,
+     .          'NO2 =',I8,6X,'NV2 =',I8,6X,'NT2 =',I8,6X,'NM2 =',I8,/)
+ 6040 FORMAT(//)
+ 6070 FORMAT(6(1X,I6,2X,F12.6))
+      RETURN
+      END
+      SUBROUTINE BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,ZLX,FLOV,
+     .                 ORBSYM,NIRRED,BE,A,GA,B)
+      IMPLICIT INTEGER(A-Z)
+      REAL*8 S(NDIMT2),XINT,TAU(NDIMT2)
+      DIMENSION ORBSYM(NO+NV),FLOV(NIRRED,4)
+      DIMENSION UOFF(NO,NO,2),VADD(NV,NV),ZLX(NV,NV),FZO(NO)
+C
+      ZLAB=ZLX(A,B)
+      ZL=ZLX(BE,GA)
+      BESYM=ORBSYM(BE+NO)
+      GASYM=ORBSYM(GA+NO)
+CGES  IF(BE.LT.GA)WRITE(*,*)'BE.LT.GA',BE,GA
+      BEGAS=IEOR(BESYM,GASYM)
+      DO 120 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 120
+      USYM=ORBSYM(U)
+      VSYM=IEOR(BEGAS,USYM)+1
+      FV=FLOV(VSYM,1)
+      LV=FLOV(VSYM,2)
+      DO 110 V=FV,LV
+      UVBEGA=UOFF(U,V,ZL)+VADD(BE,GA)
+      UVAB  =UOFF(U,V,ZLAB)+VADD(A,B)
+      S(UVBEGA)=S(UVBEGA)+XINT*TAU(UVAB)
+  110 CONTINUE
+  120 CONTINUE
+      RETURN
+      END
+C
+C
+      SUBROUTINE BTERM  (IDISK,MOINTS,LENINT,IDIM,JOUT,BUF,IBUF,LENBUF,
+     .                   IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .                   IOFF,IADD,NIOFF,NIADD,IPP,NPP,IQQ,NQQ,
+     .                   S,TAU,NDIMT2,UOFF,VADD,ZLX,FLOV,ORBSYM,NIRRED)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      COMMON/INTS/NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO
+      REAL*8 XINT,BUF(LENBUF),S(NDIMT2),TAU(NDIMT2)
+      INTEGER FZO(NO),FZV(NV)
+      INTEGER BE,A,GA,B
+      DIMENSION IBUF(2*LENBUF)
+      DIMENSION IPQ(NT2),ITR(NV),ITRO(IMX),ITRV(NM)
+      DIMENSION IOFF(NIOFF),IADD(NIADD),IPP(NPP),IQQ(NQQ)
+      INTEGER UOFF(NO,NO,2),VADD(NV,NV),ZLX(NV,NV),
+     .        FLOV(NIRRED,4),ORBSYM(NO+NV)
+      CALL SREW(IDISK)
+      CALL ZERO(MOINTS,LENINT)
+   29 FORMAT (4I3,F20.12)
+      ITEMP=255
+      INTLEN=(INTOWP(LENBUF)-2)/INTOWP(1)
+      MAXVAL=INTOWP(INTLEN)/(1+INTOWP(1))
+      IBOFF=(MAXVAL+2)/INTOWP(1)
+C***  B INTS  **** (VV|VV) *****
+      IF (IDISK.NE.61) GOTO 120
+  112 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 22 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         BE=ISHFT(IJKL,-24)-NO
+         A=IAND(ITEMP,ISHFT(IJKL,-16))-NO
+         GA=IAND(ITEMP,ISHFT(IJKL,-8))-NO
+         B=IAND(ITEMP,IJKL)-NO
+         XINT=BUF(II+IBOFF)
+         IF(FZV( A).EQ.1)GO TO 22
+         IF(FZV( B).EQ.1)GO TO 22
+         IF(FZV(BE).EQ.1)GO TO 22
+         IF(FZV(GA).EQ.1)GO TO 22
+C        MOINTS(IJKL)=BUF(II+IBOFF)
+C
+         CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .              ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+C
+         IF(BE.EQ.A)THEN
+C           IF(GA.EQ.B)THEN
+C              IF(BE.EQ.GA)THEN
+C              IC1=IC1+1
+C              CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+C              ELSE
+C              IC4=IC4+1
+C              CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+C              ENDIF
+C           ELSE
+C DELETE NEXT LINE IF UNCOMMENT ABOVE
+            IF(GA.NE.B)THEN
+               IF(BE.EQ.GA)THEN
+C              IC2=IC2+1
+C              CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+               CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+               CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                    ZLX,FLOV,ORBSYM,NIRRED,GA,B ,BE,A )
+               ELSE
+C              IC10=IC10+1
+C              CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+               CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+               ENDIF
+            ENDIF
+         ELSE
+            IF(GA.EQ.B)THEN
+               IF(GA.EQ.A)THEN
+C              IC3=IC3+1
+C              CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+               CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                    ZLX,FLOV,ORBSYM,NIRRED,A ,BE,GA,B )
+               CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                    ZLX,FLOV,ORBSYM,NIRRED,GA,B ,A ,BE)
+               ELSE
+C              IC8=IC8+1
+C              CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                    ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+               CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                    ZLX,FLOV,ORBSYM,NIRRED,A ,BE,GA,B )
+               ENDIF
+            ELSE
+               IF(BE.EQ.GA)THEN
+                  IF(A.EQ.B)THEN
+C                 IC5=IC5+1
+C                 CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                       ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,A ,BE,B ,GA)
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+                  ELSE
+C                 IC6=IC6+1
+C                 CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                       ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,A ,BE,B ,GA)
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,GA,B ,BE,A )
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,GA,B ,A ,BE)
+                  ENDIF
+               ELSE
+                  IF(A.EQ.B)THEN
+C                 IC7=IC7+1
+C                 CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                       ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,A ,BE,B ,GA)
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,GA,B ,A ,BE)
+                  CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                       ZLX,FLOV,ORBSYM,NIRRED,B ,GA,A ,BE)
+                  ELSE
+                     IF(A.EQ.GA)THEN
+C                    IC9=IC9+1
+C                    CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                          ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,A ,BE,GA,B )
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,A ,BE,B ,GA)
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,GA,B ,A ,BE)
+                     ELSE
+C                    IC11=IC11+1
+C                    CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,
+C    .                          ZLX,FLOV,ORBSYM,NIRRED,BE,A ,GA,B )
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,BE,A ,B ,GA)
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,A ,BE,GA,B )
+                     CALL BPROD(S,XINT,TAU,NDIMT2,NO,NV,UOFF,VADD,FZO,
+     .                          ZLX,FLOV,ORBSYM,NIRRED,A ,BE,B ,GA)
+                  ENDIF
+               ENDIF
+             ENDIF
+            ENDIF
+         ENDIF
+C     WRITE(*,*)I,J,K,L,IJ,KL,IJKL,MOINTS(IJKL)
+   22 CONTINUE
+C     WRITE(*,*)'IC1 =',IC1
+C     WRITE(*,*)'IC2 =',IC2
+C     WRITE(*,*)'IC3 =',IC3
+C     WRITE(*,*)'IC4 =',IC4
+C     WRITE(*,*)'IC5 =',IC5
+C     WRITE(*,*)'IC6 =',IC6
+C     WRITE(*,*)'IC7 =',IC7
+C     WRITE(*,*)'IC8 =',IC8
+C     WRITE(*,*)'IC9 =',IC9
+C     WRITE(*,*)'IC10=',IC10
+C     WRITE(*,*)'IC11=',IC11
+C     ICT=IC1+IC2+IC3+IC4+IC5+IC6+IC7+IC8+IC9+IC10+IC11
+C     WRITE(*,*)'ICT =',ICT
+      IF (IFLG.EQ.0) GOTO 112
+  120 CONTINUE
+C     CALL MATOUT(MOINTS,IDIM,IDIM,IDIM,IDIM,JOUT)
+      RETURN
+      END
+      SUBROUTINE CLUS(II,NTIN,EPSI,NGO,NDIIS,MINDIM,MAXDIM,MAXIT,CONVI,
+     .                IPQ,IPL,ITR,ITRO,ITRV,ITRT,
+     .                NO,NV,NOV,NT,NM,NV2,NT2,IMX,NONO,NVNV,NDIMT2,
+     .                T2,TAU,S,T1O,T1N,FO,FV,
+     .                XA,XB,XC,F11,F12,T2P1,
+     . D1,EEE,ORBSYM,FLOV,NSYMHF,NIRRED,ENUC,UOFF,VADD,ZLX,OPTION,RSTR,
+     .                CC,BB,BB2,TT1,DT1,TT2,DT2,DIISFL,FZO,FZV,XE,
+     .                BUF,IBUF,INTBUF,AOFF,AADD,BOFF,BADD,ITV,COFF,
+     .            CADD,DOFF,DADD,EOFF,EADD,FOFF,FADD,ESCF,PRTS,IOUT12,
+     . Z,FOCK,FFO,FFV,ITAP97,ITAP98,ITAP99,ITAP81,TOFF,TADD,NTAU,NT3,
+     .        D,XVEC,WVEC,XARR,SORT,NIT)
+      IMPLICIT INTEGER (A-Z)
+      COMMON/INTS/NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO
+      CHARACTER*4 OPTION,PRTS,RSTR,SORT
+      REAL * 8  S,TAU,T2,T1O,T1N,F11,F12,AZERO,FO,FV,XA,XB,XC,XFAC,XADD,
+     .         GOO,GVV,GOV,HOV,LOV,LVO,AX,BX,CX,DX,D1,T2P1,XE,EEE,ENUC,
+     .         XEO,CONV,II,HALF,CC,BB,BB2,TT1,DT1,TT2,DT2,BUF,ESCF,EREF,
+     .         Z(NM), FOCK(NT2),FFO(NO,NO),FFV(NV,NV),VAL,DUM,
+     .         D(NT,NT),XVEC(NT,NT),WVEC(NT,NT),XARR(NT),DELT,VE
+      DIMENSION S(NDIMT2),T2(NDIMT2),TAU(NTAU),T1O(NO,NV),
+     .          F11(NV,NO),F12(NV,NO),FO(NO,NO),FV(NV,NV),XA(NO),
+     .          XB(NO),XC(NO),T2P1(NO,NV),D1(NO,NV),T1N(NO,NV),EEE(NT)
+      DIMENSION CC(MAXDIM),
+     .          BB(MAXDIM+1,MAXDIM+2),BB2(MAXDIM+1,MAXDIM+2),
+     .          TT1(MAXDIM,NO,NV),DT1(MAXDIM,NO,NV),
+     .          TT2(MAXDIM,NDIMT2),DT2(MAXDIM,NDIMT2)
+      DIMENSION II(NTIN),ORBSYM(NT),FLOV(NIRRED,4),
+     .          UOFF(NO,NO,2),VADD(NV,NV),ZLX(NV,NV),
+     .          AOFF(NONO),AADD(NONO),BOFF(NVNV),BADD(NVNV),
+     .          COFF(NVNV),CADD(NONO),DOFF(NM)  ,DADD(NM),
+     .          EOFF(NM)  ,EADD(NONO),FOFF(NVNV),FADD(NM  )
+      DIMENSION IPQ(NT2),IPL(NT),ITR(NOV),ITRO(IMX),ITRV(NM),ITRT(NM),
+     .          ITV(NV),FZO(NO),FZV(NV)
+      DIMENSION BUF(INTBUF),IBUF(INTBUF*2),I68(20)
+      DIMENSION TOFF(NO,NO,2,NIRRED),TADD(NV,NV,NIRRED),NT3(NIRRED)
+C
+      ITAP69=69
+      ITAP68=86
+      ITAP67=67
+      NIT=0
+      AZERO=0.0D0
+      HALF= 0.5D0
+      CONV=10.D0**(-CONVI)
+      XEO=AZERO
+      IT=0
+      IFLAG=0
+      NCOUNT=0
+C
+C     FOCK MATRIX IN MO BASIS
+C
+      CALL LOCATE (5,'# MONGO ###',IERR)
+      IF(IERR.NE.0) THEN
+      WRITE ( 6,6007)
+      WRITE ( 4,6007)
+ 6007 FORMAT(//,2X,' NO INPUT TO MONGO HAS BEEN FOUND.',/,
+     .          2X,' DIAGONAL FOCK MATRIX IS ASSUMED. ',//)
+      FLAG=0
+      ELSE
+      READ(5,6004)FLAG
+ 6004 FORMAT(I5)
+      END IF
+      CALL ZERO (FOCK,NT2)
+C
+C     FLAG=0 (DEFAULT) USE MO ENERGIES IN THE FOCK MATRIX
+C
+      IF (FLAG.EQ.0) THEN
+      EREF=ESCF
+      DO 42 I=1,NT
+      IJ=IPQ(I)+I
+   42 FOCK(IJ)=EEE(I)
+      ELSE
+      WRITE(*,*)'NON-DIAGONAL FOCK MATRIX IS CONSTRUCTED '
+      CALL FOCKI (D,IOUT,XVEC,WVEC,XARR,NT,Z,FLAG,FOCK,EREF,ENUC,
+     .                 II,NTIN,BUF,IBUF,INTBUF,
+     .       NSGOO,NSGOV,NSHOV,NSLOV,IPQ,ITR,ITV,ITRO,ITRV,FZO,FZV,
+     .            AOFF,AADD,COFF,CADD,DOFF,DADD,EOFF,EADD,
+     .            NT2,NO,NV,NM,IMX,NONO,NVNV,NOV)
+      ESCF=EREF
+C
+C    FLAG=1  FILE 86 ALREADY EXISTS. Z-CC CALCULATION
+C
+      IF(FLAG.EQ.1)THEN
+      WRITE(*,*)'FOCK MATRIX  IS WRITTEN TO FILE86'
+      CALL RFILE(ITAP68)
+      IVEC68=9
+      CALL WREADW(ITAP68,I68 ,    9,1,IVEC68)
+      IDIMZ=I68(1)
+      IVEC68=IVEC68+INTOWP(IDIMZ)
+      CALL WWRITW(ITAP68,FOCK,INTOWP(NT2),IVEC68,IVEC68)
+      CALL RCLOSE(ITAP68,3)
+      ENDIF
+C
+C    FLAG=2  FILE 86 IS CREATED. (WHEN USING NON SCF MOS)
+C            IDIMZ IS ASSUMED TO BE NO*NV
+C
+      IF(FLAG.EQ.2)THEN
+      WRITE(*,*)'FOCK MATRIX  IS WRITTEN TO CREATED FILE86'
+      CALL RFILE(ITAP68)
+      IVEC68=9
+C     CALL WREADW(ITAP68,I68 ,    9,1,IVEC68)
+C     IDIMZ=I68(1)
+      IDIMZ=NO*NV
+      IVEC68=IVEC68+INTOWP(IDIMZ)
+      CALL WWRITW(ITAP68,FOCK,INTOWP(NT2),IVEC68,IVEC68)
+      CALL RCLOSE(ITAP68,3)
+      ENDIF
+      ENDIF
+CGES  CALL PRINT(FOCK,NT2,NT,6)
+C
+C     SET INITIAL VALUES OF T1 & T2
+C
+      CALL ZERO(T1O,NO*NV)
+      CALL ZERO(T2,NDIMT2)
+      CALL RDINTS(63,II,NTIN,NHOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            DOFF,DADD,NM  ,NM  ,ITR,NOV,ITR,NOV)
+C
+      IF(RSTR.EQ.'YES ')THEN
+      CALL RFILE(ITAP69)
+      CALL SREAD(ITAP69,JU,1)
+      CALL SREAD(ITAP69,JU,1)
+      CALL SREAD(ITAP69,T1N,INTOWP(NM))
+      CALL SREAD(ITAP69,S,INTOWP(NDIMT2))
+      CALL RCLOSE(ITAP69,3)
+C
+      ELSE
+C
+      DO 25 U=1,NO
+      DO 25 BE=1,NV
+   25 T1N(U,BE)=0.0D0
+      DO 40 U=1,NO
+      UU=IPQ(U)+U
+      IF(FZO(U).EQ.1)GO TO 40
+      USYM=ORBSYM(U)
+      DO 39 V=1,NO
+      VV=IPQ(V)+V
+      IF(FZO(V).EQ.1)GO TO 39
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 38 BE=1,NV
+      BEBE=IPQ(BE+NO)+BE+NO
+      IF(FZV(BE).EQ.1)GO TO 38
+      BESYM=ORBSYM(BE+NO)
+      GASYM=IEOR(UVSYM,BESYM)+1
+      BEU=ITR(BE)+U
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      IF(LGA.GT.BE)LGA=BE
+      DO 36 GA=FGA,LGA
+      GAGA=IPQ(GA+NO)+GA+NO
+      GAV=ITR(GA)+V
+      BEUGAV=DOFF(MAX0(BEU,GAV))+DADD(MIN0(BEU,GAV))
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VAL=FOCK(UU)+FOCK(VV)-FOCK(BEBE)-FOCK(GAGA)
+      S(UVBEGA)=II(BEUGAV)/VAL
+   36 CONTINUE
+   38 CONTINUE
+   39 CONTINUE
+   40 CONTINUE
+      END IF
+C
+C     INITIAL CORRELATION ENERGY  (MP2 OR RESTART)
+C
+      CALL ECORR(TAU,S,T1N,II,XE,UOFF,VADD,IPQ,ORBSYM,FLOV,ITR,
+     .           NIT,NO,NV,NT,NT2,NTIN,NDIMT2,NIRRED,FZO,FZV,
+     .           DOFF,DADD,NM,FOCK,XEO,OPTION)
+      CALL TDIFF(S,T1N,T2 ,T1O,DELT,NO,NV,NDIMT2,ORBSYM,FLOV,
+     .           NIRRED,UOFF,VADD,ZLX,FZO,FZV,XE,XEO)
+      WRITE(6,6010)
+      WRITE(4,6010)
+ 6010 FORMAT(3X,'IT #',5X,'  CORRELATION ENERGY ',5X,'  DELTA  E    ',
+     .       5X,' DELTA T NORM  ',/)
+      WRITE(6,6011)NIT,XE,XEO-XE,DELT
+      WRITE(4,6011)NIT,XE,XEO-XE,DELT
+ 6011 FORMAT(2X,I4,5X,F20.15,5X,D15.8,5X,D15.8)
+C
+C     WRITE OUT T1,T2 TO FILE69  (MP2 OR RESTART VALUES)
+C
+      CALL RFILE(ITAP69)
+      CALL SWRIT(ITAP69,NM,1)
+      CALL SWRIT(ITAP69,NDIMT2,1)
+      CALL SWRIT(ITAP69,T1N,INTOWP(NM))
+      CALL SWRIT(ITAP69,S,INTOWP(NDIMT2))
+      CALL SWRIT(ITAP69,EREF,INTOWP(1))
+      CALL SWRIT(ITAP69,XE,INTOWP(1))
+      CALL RCLOSE(ITAP69,3)
+C
+C     REGENERATE T3 AMPLITUDES IF NECCESARY
+C
+      IF(OPTION.EQ.'SDT1'.AND.RSTR.EQ.'YES ') THEN
+      DO 86 UVBEGA=1,NDIMT2
+      T2(UVBEGA)=S(UVBEGA)
+   86 CONTINUE
+      DO 91 I=1,NO
+      DO 91 A=1,NV
+      T1O(I,A)=T1N(I,A)
+   91 CONTINUE
+      GO TO 5050
+      ENDIF
+C
+C     *************************
+C     START ITERATIVE PROCEDURE
+C     *************************
+C
+   50 CONTINUE
+      NIT=NIT+1
+      IF (NIT.LE.3)CALL TIMIT(1,6)
+ 9000 FORMAT(////)
+C     WRITE(*,*)'***BEGGINING OF ITERATION',NIT
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+      IF(OPTION.EQ.'MP2 ')THEN
+      WRITE(6,*)'MP2 OPTION, CALCULATION ENDS '
+      IF(PRTS.EQ.'YES ')THEN
+      CALL TSOUT (OPTION,FZO,FZV,ORBSYM,FLOV,UOFF,VADD,NT,
+     .            T1N,T2,NIRRED,NO,NV,NDIMT2,ITAP69,IOUT12,PRTS)
+      END IF
+C     STOP 'MP2 '
+      RETURN
+      END IF
+C
+C     CHECK CONVERGENCE
+C
+C     IF(DABS(XEO-XE).LT.CONV) THEN
+      IF(DELT.LT.CONV)THEN
+      WRITE(6,9020) CONV
+ 9020 FORMAT(///,34('*'),/,'* CLUSTER COEFFICIENTS CONVERGED *',3X,D12.2
+     .    ,/,34('*'))
+      IF(PRTS.EQ.'YES ')THEN
+      CALL TSOUT (OPTION,FZO,FZV,ORBSYM,FLOV,UOFF,VADD,NT,
+     .            T1N,T2,NIRRED,NO,NV,NDIMT2,ITAP69,IOUT12,PRTS)
+      END IF
+      RETURN
+      END IF
+      IF(NIT.NE.MAXIT) GO TO 81
+      WRITE(6,9030)
+ 9030 FORMAT(///,'ITERATIONS EXHAUSTED & DID NOT CONVERGE',///)
+   81 CONTINUE
+      IF(NIT.GE.MAXIT) RETURN
+C
+C     TRANSFER T1 & T2 TO BEGIN NEW ITERATION
+C
+C     XEO=XE
+      DO 85 UVBEGA=1,NDIMT2
+   85 T2(UVBEGA)=S(UVBEGA)
+      DO 90 I=1,NO
+      DO 90 A=1,NV
+      T1O(I,A)=T1N(I,A)
+   90 CONTINUE
+      CALL FRTAU(TAU,T2,T1O,UOFF,VADD,ORBSYM,FLOV,NO,NV,
+     .           NDIMT2,NIRRED,FZO,FZV,OPTION)
+C
+C     AZERO ALL THE CORE
+C
+      DO 93 U=1,NO
+      DO 93 V=1,NO
+   93 FO(U,V)=AZERO
+      DO 95 UVBEGA=1,NDIMT2
+   95 S(UVBEGA)=AZERO
+      DO 96 U=1,NO
+      DO 96 A=1,NV
+   96 T1N(U,A)=AZERO
+      DO 97 B=1,NV
+      DO 97 A=1,NV
+   97 FV(B,A)=AZERO
+C
+C     A TERMS
+C
+      CALL RDINTS(60,II,NTIN,NGOO,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            AOFF,AADD,NONO,NONO,ITR,NOV,ITR,NOV)
+      DO 190 U=1,NO
+      IF(FZO(U).EQ.1) GO TO 190
+      USYM=ORBSYM(U)
+      DO 125 V=1,U-1
+      IF(FZO(V).EQ.1) GO TO 125
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 120 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 120
+      GASYM=ORBSYM(GA+NO)
+      DO 118 BE=GA,NV
+      IF(FZV(BE).EQ.1) GO TO 118
+      BESYM=ORBSYM(BE+NO)
+      BGSYM=IEOR(BESYM,GASYM)
+      IF(UVSYM.NE.BGSYM) GO TO 115
+      DO 110 IRI=1,NIRRED
+      FI=FLOV(IRI,1)
+      LI=FLOV(IRI,2)
+      JSYM=IEOR(UVSYM,IRI-1)+1
+      FJ=FLOV(JSYM,1)
+      LJ=FLOV(JSYM,2)
+      DO 110 I=FI,LI
+      UI=ITR(MAX0(U,I))+MIN0(U,I)
+      DO 110 J=FJ,LJ
+      VJ=ITR(MAX0(V,J))+MIN0(V,J)
+      UIVJ=AOFF(MAX0(UI,VJ))+AADD(MIN0(UI,VJ))
+      IJBEGA=UOFF(I,J,1)+VADD(BE,GA)
+      JIBEGA=UOFF(J,I,1)+VADD(BE,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)+II(UIVJ)*TAU(IJBEGA)
+      S(VUBEGA)=S(VUBEGA)+II(UIVJ)*TAU(JIBEGA)
+  110 CONTINUE
+  115 CONTINUE
+  118 CONTINUE
+  120 CONTINUE
+  125 CONTINUE
+      DO 140 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 140
+      GASYM=ORBSYM(GA+NO)
+      DO 138 BE=GA,NV
+      IF(FZV(BE).EQ.1) GO TO 138
+      BESYM=ORBSYM(BE+NO)
+      IF(BESYM.NE.GASYM) GO TO 135
+      DO 130 IRI=1,NIRRED
+      FI=FLOV(IRI,1)
+      LI=FLOV(IRI,2)
+      DO 130 I=FI,LI
+      UI=ITR(MAX0(U,I))+MIN0(U,I)
+      DO 130 J=FI,LI
+      IJBEGA=UOFF(I,J,1)+VADD(BE,GA)
+      UUBEGA=UOFF(U,U,1)+VADD(BE,GA)
+      UJ=ITR(MAX0(U,J))+MIN0(U,J)
+      UIUJ=AOFF(MAX0(UI,UJ))+AADD(MIN0(UI,UJ))
+      S(UUBEGA)=S(UUBEGA)+II(UIUJ)*TAU(IJBEGA)
+  130 CONTINUE
+  135 CONTINUE
+  138 CONTINUE
+  140 CONTINUE
+  190 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END A TERMS'
+      CALL TIMIT(1,6)
+C     CALL TIMIT(1,4)
+      END IF
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C     B TERMS
+C
+C     CALL RDINTS(61,II,NTIN,NGVV,6,BUF,IBUF,INTBUF,
+C    .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+C    .            BOFF,BADD,NVNV,NVNV,ITV,NV,ITV,NV)
+C     DO 290 BE=1,NV
+C     IF(FZV(BE).EQ.1) GO TO 290
+C     BESYM=ORBSYM(BE+NO)
+C     DO 288 GA=1,BE
+C     IF(FZV(GA).EQ.1) GO TO 288
+C     GASYM=ORBSYM(GA+NO)
+C     BEGASM=IEOR(BESYM,GASYM)
+C     DO 280 U=1,NO
+C     IF(FZO(U).EQ.1) GO TO 280
+C     USYM=ORBSYM(U)
+C     UBEGAS=IEOR(USYM,BEGASM)
+C     DO 278 V=1,NO
+C     IF(FZO(V).EQ.1) GO TO 278
+C     VSYM=ORBSYM(V)
+C     IF(VSYM.NE.UBEGAS) GO TO 275
+C     DO 240 IRA = 1,NIRRED
+C     FA=FLOV(IRA,3)-NO
+C     LA=FLOV(IRA,4)-NO
+C     BSYM = IEOR(IRA-1,BEGASM) + 1
+C     FB=FLOV(BSYM,3)-NO
+C     LB=FLOV(BSYM,4)-NO
+C     DO 235 A=FA,LA
+C     BEA=ITV(MAX0(BE,A))+MIN0(BE,A)
+C     DO 235 B=FB,LB
+C     GAB=ITV(MAX0(GA,B))+MIN0(GA,B)
+C     BEAGAB=BOFF(MAX0(BEA,GAB))+BADD(MIN0(BEA,GAB))
+C     ZL=ZLX(A,B)
+C     UVAB=UOFF(U,V,ZL)+VADD(A,B)
+C     UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+C     S(UVBEGA)=S(UVBEGA)+II(BEAGAB)*TAU(UVAB)
+C 235 CONTINUE
+C 240 CONTINUE
+C 275 CONTINUE
+C 278 CONTINUE
+C 280 CONTINUE
+C 288 CONTINUE
+C 290 CONTINUE
+      CALL BTERM (61,II,NTIN,NGVV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            BOFF,BADD,NVNV,NVNV,ITV,NV,ITV,NV,
+     .            S,TAU,NDIMT2,UOFF,VADD,ZLX,FLOV,ORBSYM,NIRRED)
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END B TERMS'
+      CALL TIMIT(1,6)
+C     CALL TIMIT(1,4)
+      END IF
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C     F TERMS
+C
+      IF(OPTION.EQ.'CCD '.OR.OPTION.EQ.'LCCD')GO TO 395
+      CALL RDINTS(65,II,NTIN,NLVO,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            FOFF,FADD,NVNV,NM  ,ITV,NV ,ITR,NOV)
+      DO 390 BE=1,NV
+      IF(FZV(BE).EQ.1) GO TO 390
+      BESYM=ORBSYM(BE+NO)
+      DO 388  I=1,NO
+      IF(FZO(I).EQ.1) GO TO 388
+      ISYM=ORBSYM(I)
+      BEISYM=IEOR(BESYM,ISYM)
+C     READ BE I (BE.GE.I) ALL AB (BE A,I B)
+      DO 310 B=BE,NV
+      IF(FZV(B).EQ.1) GO TO 310
+      F11(B,I)=AZERO
+      F12(B,I)=AZERO
+      BSYM=ORBSYM(B+NO)
+      BBEIS=IEOR(BEISYM,BSYM)
+      IB=ITR(B)+I
+      BEB=ITV(MAX0(BE,B))+MIN0(BE,B)
+      FU=FLOV(BBEIS+1,1)
+      LU=FLOV(BBEIS+1,2)
+      FA=FLOV(BBEIS+1,3)-NO
+      LA=FLOV(BBEIS+1,4)-NO
+      DO 308 U=FU,LU
+      F11(B,U)=AZERO
+      F12(B,U)=AZERO
+      DO 305 A=FA,LA
+      BEA=ITV(MAX0(BE,A))+MIN0(BE,A)
+      IA=ITR(A)+I
+      IABEB=FADD(IA)+FOFF(BEB)
+      IBBEA=FADD(IB)+FOFF(BEA)
+      F11(B,U)=F11(B,U)+II(IABEB)*T1O(U,A)
+      F12(B,U)=F12(B,U)+II(IBBEA)*T1O(U,A)
+  305 CONTINUE
+      IUBBE=UOFF(I,U,1)+VADD(B,BE)
+      S(IUBBE)=S(IUBBE)+F12(B,U)
+  308 CONTINUE
+      IF(B.EQ.BE) GO TO 309
+      IF(BSYM.NE.BESYM)GO TO 309
+      FV(B,BE)=FV(B,BE)+F11(B,I)+F11(B,I)-F12(B,I)
+  309 CONTINUE
+  310 CONTINUE
+C
+      DO 320 B=1,BE
+      IF(FZV(B).EQ.1) GO TO 320
+      F11(B,I)=AZERO
+      F12(B,I)=AZERO
+      BSYM=ORBSYM(B+NO)
+      BBEIS=IEOR(BEISYM,BSYM)
+      IB=ITR(B)+I
+      BEB=ITV(MAX0(BE,B))+MIN0(BE,B)
+      FU=FLOV(BBEIS+1,1)
+      LU=FLOV(BBEIS+1,2)
+      FA=FLOV(BBEIS+1,3)-NO
+      LA=FLOV(BBEIS+1,4)-NO
+      DO 318 U=FU,LU
+      F11(B,U)=AZERO
+      F12(B,U)=AZERO
+      DO 315 A=FA,LA
+      BEA=ITV(MAX0(BE,A))+MIN0(BE,A)
+      IA=ITR(A)+I
+      IABEB=FADD(IA)+FOFF(BEB)
+      IBBEA=FADD(IB)+FOFF(BEA)
+      F11(B,U)=F11(B,U)+II(IABEB)*T1O(U,A)
+      F12(B,U)=F12(B,U)+II(IBBEA)*T1O(U,A)
+  315 CONTINUE
+      UIBEB=UOFF(U,I,1)+VADD(BE,B)
+      S(UIBEB)=S(UIBEB)+F12(B,U)
+  318 CONTINUE
+      IF(BSYM.NE.BESYM)GO TO 319
+      FV(B,BE)=FV(B,BE)+F11(B,I)+F11(B,I)-F12(B,I)
+  319 CONTINUE
+  320 CONTINUE
+C
+      IF(OPTION.EQ.'VAR2')GO TO 361
+      IF(OPTION.EQ.'LCSD')GO TO 361
+      DO  360 U=1,NO
+      IF(FZO(U).EQ.1) GO TO 360
+      USYM=ORBSYM(U)
+      DO 359 B=1,NV
+      IF(FZV(B).EQ.1) GO TO 359
+      BSYM=ORBSYM(B+NO)
+      IBSYM=IEOR(ISYM,BSYM)
+      UBSYM=IEOR(USYM,BSYM)
+      IF(UBSYM.NE.BEISYM)GO TO 358
+      DO 345 IRGA=1,NIRRED
+      FGA=FLOV(IRGA,3)-NO
+      LGA=FLOV(IRGA,4)-NO
+      IF(LGA.GT.BE)LGA=BE
+      VSYM=IEOR(IRGA-1,IBSYM)+1
+      FIV=FLOV(VSYM,1)
+      LV=FLOV(VSYM,2)
+      DO 345 GA=FGA,LGA
+      DO 340 V=FIV,LV
+      ZL=ZLX(B,GA)
+      IVBGA=UOFF(I,V,ZL)+VADD(B,GA)
+      VIBGA=UOFF(V,I,ZL)+VADD(B,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)+F12(B,U)*(T2(IVBGA)+T2(IVBGA)-T2(VIBGA))
+     .                     -F11(B,U)*T2(IVBGA)
+      S(VUBEGA)=S(VUBEGA)-F11(B,U)*T2(VIBGA)
+  340 CONTINUE
+  345 CONTINUE
+      DO 355 IRGA=1,NIRRED
+      FGA=FLOV(IRGA,3)-NO
+      LGA=FLOV(IRGA,4)-NO
+      IF(FGA.LT.BE)FGA=BE
+      VSYM=IEOR(IRGA-1,IBSYM)+1
+      FIV=FLOV(VSYM,1)
+      LV=FLOV(VSYM,2)
+      DO 355 GA=FGA,LGA
+      DO 350 V=FIV,LV
+      ZL=ZLX(B,GA)
+      IVBGA=UOFF(I,V,ZL)+VADD(B,GA)
+      VIBGA=UOFF(V,I,ZL)+VADD(B,GA)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      UVGABE=UOFF(U,V,1)+VADD(GA,BE)
+      S(VUGABE)=S(VUGABE)+F12(B,U)*(T2(IVBGA)+T2(IVBGA)-T2(VIBGA))
+     .                     -F11(B,U)*T2(IVBGA)
+      S(UVGABE)=S(UVGABE)-F11(B,U)*T2(VIBGA)
+  350 CONTINUE
+  355 CONTINUE
+  358 CONTINUE
+  359 CONTINUE
+  360 CONTINUE
+  361 CONTINUE
+C
+      DO 370 V=1,NO
+      IF(FZO(V).EQ.1) GO TO 370
+      VAL=0.0D0
+      VSYM=ORBSYM(V)
+      IF(VSYM.NE.BESYM)GO TO 367
+      DO 365 IRGA=1,NIRRED
+      FGA=FLOV(IRGA,3)-NO
+      LGA=FLOV(IRGA,4)-NO
+      BSYM=IEOR(IRGA-1,BEISYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 364 GA=FGA,LGA
+      BEGAI=ITV(MAX0(BE,GA))+MIN0(BE,GA)
+      DO 363 B=FB,LB
+      IB=ITR(B)+I
+      IBBEGA=FADD(IB)+FOFF(BEGAI)
+      ZL=ZLX(B,GA)
+      IVBGA=UOFF(I,V,ZL)+VADD(B,GA)
+      VIBGA=UOFF(V,I,ZL)+VADD(B,GA)
+      XFAC=T2(IVBGA)+T2(IVBGA)-T2(VIBGA)
+C     T1N(V,BE)=T1N(V,BE)-II(IBBEGA)*XFAC
+      VAL=VAL+II(IBBEGA)*XFAC
+  363 CONTINUE
+  364 CONTINUE
+  365 CONTINUE
+  367 CONTINUE
+      T1N(V,BE)=T1N(V,BE)-VAL
+  370 CONTINUE
+C
+      IF(OPTION.EQ.'VAR2')GO TO 381
+      IF(OPTION.EQ.'LCSD')GO TO 381
+      DO 380 U=1,NO
+      IF(FZO(U).EQ.1) GO TO 380
+      USYM=ORBSYM(U)
+      DO 379 V=1,NO
+      IF(FZO(V).EQ.1) GO TO 379
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      IF(UVSYM.NE.BEISYM) GO TO 378
+      AX=AZERO
+      DO 374 IRA=1,NIRRED
+      FA=FLOV(IRA,3)-NO
+      LA=FLOV(IRA,4)-NO
+      BSYM=IEOR(IRA-1,BEISYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 374 A=FA,LA
+      BEA=ITV(MAX0(BE,A))+MIN0(BE,A)
+      DO 372 B=FB,LB
+      IB=ITR(B)+I
+      IBBEA=FADD(IB)+FOFF(BEA)
+      ZL=ZLX(A,B)
+      UVAB=UOFF(U,V,ZL)+VADD(A,B)
+      AX=AX+II(IBBEA)*TAU(UVAB)
+  372 CONTINUE
+  374 CONTINUE
+      FGA=FLOV(ISYM+1,3)-NO
+      LGA=FLOV(ISYM+1,4)-NO
+      IF(LGA.GT.BE)LGA=BE
+      DO 376 GA=FGA,LGA
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+  376 S(UVBEGA)=S(UVBEGA)-AX*T1O(I,GA)
+      LGA=FLOV(ISYM+1,4)-NO
+      IF(FGA.LT.BE)FGA=BE
+      DO 377 GA=FGA,LGA
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+  377 S(VUGABE)=S(VUGABE)-AX*T1O(I,GA)
+  378 CONTINUE
+  379 CONTINUE
+  380 CONTINUE
+  381 CONTINUE
+C
+  388 CONTINUE
+  390 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END F TERMS'
+      CALL TIMIT(1,6)
+C     CALL TIMIT(1,4)
+      END IF
+  395 CONTINUE
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C     ADD CCSDT TERMS TO T2 EQUATION. F INTS.
+C
+C     GO TO 6293
+      IF(OPTION.NE.'SDT1')GO TO 6293
+      IF(NIT.EQ.1.AND.RSTR.EQ.'NO  ')GO TO 6293
+      CALL RFILE(ITAP81)
+      I81=1
+      DO 6290 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 6290
+      ASYM=ORBSYM(A+NO)
+      DO 6285 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 6285
+      USYM=ORBSYM(U)
+      UASYM=IEOR(USYM,ASYM)+1
+      DIM=NT3(UASYM)
+      CALL WREADW (ITAP81,TAU,INTOWP(DIM),I81,I81)
+      DO 6280 V=1,NO
+      IF(FZO(V).EQ.1)GO TO 6280
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 6275 BE=1,NV
+      IF(FZV(BE).EQ.1)GO TO 6275
+      BESYM=ORBSYM(BE+NO)
+      BEA=ITV(MAX0(BE,A))+MIN0(BE,A)
+      BEASYM=IEOR(BESYM,ASYM)
+      GASYM=IEOR(UVSYM,BESYM)+1
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      DO 6270 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 6270
+      ISYM=ORBSYM(I)
+      IA=ITR(A)+I
+      BSYM=IEOR(BEASYM,ISYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 6265 B=FB,LB
+      IB=ITR(B)+I
+      BEB=ITV(MAX0(BE,B))+MIN0(BE,B)
+      BEBIA=FOFF(BEB)+FADD(IA)
+      BAIB =FOFF(BEA)+FADD(IB)
+C
+      LGA2=LGA
+      IF(LGA.GT.BE)LGA2=BE
+      DO 6230 GA=FGA,LGA2
+      ZLGAB=ZLX(GA,B)
+      ZLBGA=ZLX(B,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VIGAB=TOFF(V,I,ZLGAB,UASYM)+TADD(GA,B,UASYM)
+      VIBGA=TOFF(V,I,ZLBGA,UASYM)+TADD(B,GA,UASYM)
+C     S(UVBEGA)=S(UVBEGA)+(II(BAIB)+II(BAIB)-II(BEBIA))*T3(U,V,I,A,GA,B)
+C    .                   - II(BAIB) * T3(U,V,I,A ,B,GA)
+      S(UVBEGA)=S(UVBEGA)+(II(BAIB)+II(BAIB)-II(BEBIA))*TAU(VIGAB)
+     .                   - II(BAIB) * TAU(VIBGA)
+ 6230 CONTINUE
+C
+      FGA2=FGA
+      IF(FGA.LT.BE)FGA2=BE
+      DO 6231 GA=FGA2,LGA
+      ZLGAB=ZLX(GA,B)
+      ZLBGA=ZLX(B,GA)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      VIGAB=TOFF(V,I,ZLGAB,UASYM)+TADD(GA,B,UASYM)
+      VIBGA=TOFF(I,V,ZLGAB,UASYM)+TADD(B,GA,UASYM)
+C     S(VUGABE)=S(VUGABE)+(II(BAIB)+II(BAIB)-II(BEBIA))*T3(U,V,I,A,GA,B)
+C    .                   - II(BAIB) * T3(U,V,I,A ,B,GA)
+      S(VUGABE)=S(VUGABE)+(II(BAIB)+II(BAIB)-II(BEBIA))*TAU(VIGAB)
+     .                   - II(BAIB) * TAU(VIBGA)
+ 6231 CONTINUE
+C
+ 6265 CONTINUE
+ 6270 CONTINUE
+ 6275 CONTINUE
+ 6280 CONTINUE
+ 6285 CONTINUE
+ 6290 CONTINUE
+      CALL FRTAU(TAU,T2,T1O,UOFF,VADD,ORBSYM,FLOV,NO,NV,
+     .           NDIMT2,NIRRED,FZO,FZV,OPTION)
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END CCSDT F TERMS'
+      CALL TIMIT(1,6)
+      END IF
+ 6293 CONTINUE
+C
+C     D TERMS
+C
+      CALL RDINTS(63,II,NTIN,NHOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            DOFF,DADD,NM  ,NM  ,ITR,NOV,ITR,NOV)
+C     D2A,D2B,D2C
+      DO 458 A=1,NV
+      IF(FZV(A).EQ.1) GO TO 458
+      ASYM=ORBSYM(A+NO)
+      DO 457 I=1,NO
+      IF(FZO(I).EQ.1) GO TO 457
+      ISYM=ORBSYM(I)
+      AISYM= IEOR(ASYM,ISYM)
+C     READ  (AI,JB) AND (AJ,IB) ALL JB
+      AI=ITR(A)+I
+      IF(ASYM.NE.ISYM)GO TO 499
+      DO 401 J=1,NO
+      IF(FZO(J).EQ.1) GO TO 401
+      JSYM=ORBSYM(J)
+      DO 400 B=1,NV
+      IF(FZV(B).EQ.1) GO TO 400
+      BSYM=ORBSYM(B+NO)
+      IF(BSYM.NE.JSYM)GO TO 400
+      BJ=ITR(B)+J
+      AIBJ=DOFF(MAX0(AI,BJ))+DADD(MIN0(AI,BJ))
+      VAL=-(II(AIBJ)+II(AIBJ))*T1O(J,B)
+      T1N(I,A)=T1N(I,A)+VAL
+C
+      IF(OPTION.EQ.'VAR2')THEN
+      AJ=ITR(A)+J
+      BI=ITR(B)+I
+      AJBI=DOFF(MAX0(AJ,BI))+DADD(MIN0(AJ,BI))
+      T1N(I,A)=T1N(I,A)+II(AJBI)*T1O(J,B)+VAL
+      ENDIF
+C
+  400 CONTINUE
+  401 CONTINUE
+  499 CONTINUE
+C     CONSTRUCT T2P1(*I,A*)
+      DO 404 K=1,NO
+      IF(FZO(K).EQ.1) GO TO 404
+      DO 402 C=1,A
+      IF(FZV(C).EQ.1) GO TO 402
+      KIAC=UOFF(K,I,1)+VADD(A,C)
+      T2P1(K,C)=T2(KIAC)*HALF+T1O(K,A)*T1O(I,C)
+  402 CONTINUE
+      DO 403 C=A+1,NV
+      IF(FZV(C).EQ.1) GO TO 403
+      KIAC=UOFF(I,K,1)+VADD(C,A)
+      T2P1(K,C)=T2(KIAC)*HALF+T1O(K,A)*T1O(I,C)
+  403 CONTINUE
+  404 CONTINUE
+      DO 440 V=1,NO
+      IF(FZO(V).EQ.1) GO TO 440
+      VSYM=ORBSYM(V)
+      AIVSYM=IEOR(VSYM,AISYM)
+      DO 415 GA=A,NV
+      IF(FZV(GA).EQ.1) GO TO 415
+      GASYM=ORBSYM(GA+NO)
+      IF(GASYM.NE.AIVSYM)GO TO 415
+      GAA=IPQ(GA)+A
+      AX=AZERO
+      BX=AZERO
+      CX=AZERO
+      DO 405 IRJ=1,NIRRED
+      BSYM=IEOR(AISYM,IRJ-1)+1
+      FJ=FLOV(IRJ,1)
+      LJ=FLOV(IRJ,2)
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 405 J=FJ,LJ
+      AJ=ITR(A)+J
+      DO 405 B=FB,LB
+      BI=ITR(B)+I
+      BJ=ITR(B)+J
+      AJBI=DOFF(MAX0(AJ,BI))+DADD(MIN0(AJ,BI))
+      AIBJ=DOFF(MAX0(AI,BJ))+DADD(MIN0(AI,BJ))
+      ZL=ZLX(GA,B)
+      VJGAB=UOFF(V,J,ZL)+VADD(GA,B)
+      JVGAB=UOFF(J,V,ZL)+VADD(GA,B)
+      AX=AX+II(AIBJ)*(T2(VJGAB)+T2(VJGAB)-T2(JVGAB))
+      BX=BX+II(AJBI)* T2(VJGAB)
+      CX=CX+II(AJBI)* T2(JVGAB)
+  405 CONTINUE
+      VIGAA=UOFF(V,I,1)+VADD(GA,A)
+      S(VIGAA)=S(VIGAA)+AX
+      IF(OPTION.EQ.'LCCD')GO TO 414
+      IF(OPTION.EQ.'LCSD')GO TO 414
+      IF(OPTION.EQ.'VAR2')GO TO 414
+      IF(A.EQ.GA) GO TO 414
+      T1N(V,GA)=T1N(V,GA)-(AX-BX+AX-BX+CX)*T1O(I,A)
+      CX=CX*HALF
+      DO 411 IRU=1,NIRRED
+      FU=FLOV(IRU,1)
+      LU=FLOV(IRU,2)
+      BESYM=IEOR(AISYM,IRU-1)+1
+      FBE=FLOV(BESYM,3)-NO
+      LBE=FLOV(BESYM,4)-NO
+      FBE2=FBE
+      LBE2=LBE
+      IF(FBE.LT.GA)FBE2=GA
+      IF(LBE.GT.GA)LBE2=GA
+      DO 411 U=FU,LU
+      DO 407 BE=FBE2,LBE
+      BEGA=IPQ(BE)+GA
+      ZL=ZLX(BE,A)
+      UIBEA=UOFF(U,I,ZL)+VADD(BE,A)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)+(AX-BX)*(T2(UIBEA)-T2P1(U,BE))+
+     .                       CX*T2(UIBEA)
+      S(VUBEGA)=S(VUBEGA)+ (CX+CX)*T2P1(U,BE)
+  407 CONTINUE
+      DO 409 BE=FBE,LBE2
+      GABE=IPQ(GA)+BE
+      ZL=ZLX(BE,A)
+      UIBEA=UOFF(U,I,ZL)+VADD(BE,A)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      UVGABE=UOFF(U,V,1)+VADD(GA,BE)
+      S(VUGABE)=S(VUGABE)+(AX-BX)*(T2(UIBEA)-T2P1(U,BE))+
+     .                       CX*T2(UIBEA)
+      S(UVGABE)=S(UVGABE)+ (CX+CX)*T2P1(U,BE)
+  409 CONTINUE
+  411 CONTINUE
+  414 CONTINUE
+  415 CONTINUE
+      DO 435 GA=1,A
+      IF(FZV(GA).EQ.1) GO TO 435
+      GASYM=ORBSYM(GA+NO)
+      IF(GASYM.NE.AIVSYM)GO TO 435
+      AGA=IPQ(A)+GA
+      AX=AZERO
+      BX=AZERO
+      CX=AZERO
+      DO 425 IRJ=1,NIRRED
+      BSYM=IEOR(AISYM,IRJ-1)+1
+      FJ=FLOV(IRJ,1)
+      LJ=FLOV(IRJ,2)
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 425 J=FJ,LJ
+      AJ=ITR(A)+J
+      DO 425 B=FB,LB
+      BI=ITR(B)+I
+      BJ=ITR(B)+J
+      AJBI=DOFF(MAX0(AJ,BI))+DADD(MIN0(AJ,BI))
+      AIBJ=DOFF(MAX0(AI,BJ))+DADD(MIN0(AI,BJ))
+      ZL=ZLX(GA,B)
+      VJGAB=UOFF(V,J,ZL)+VADD(GA,B)
+      JVGAB=UOFF(J,V,ZL)+VADD(GA,B)
+      AX=AX+II(AIBJ)*(T2(VJGAB)+T2(VJGAB)-T2(JVGAB))
+      BX=BX+II(AJBI)* T2(VJGAB)
+      CX=CX+II(AJBI)* T2(JVGAB)
+  425 CONTINUE
+      IVAGA=UOFF(I,V,1)+VADD(A,GA)
+      S(IVAGA)=S(IVAGA)+AX
+      IF(OPTION.EQ.'LCCD')GO TO 434
+      IF(OPTION.EQ.'LCSD')GO TO 434
+      IF(OPTION.EQ.'VAR2')GO TO 434
+      T1N(V,GA)=T1N(V,GA)-(AX-BX+AX-BX+CX)*T1O(I,A)
+      CX=CX*HALF
+      DO 431 IRU=1,NIRRED
+      FU=FLOV(IRU,1)
+      LU=FLOV(IRU,2)
+      BESYM=IEOR(AISYM,IRU-1)+1
+      FBE=FLOV(BESYM,3)-NO
+      LBE=FLOV(BESYM,4)-NO
+      FBE2=FBE
+      LBE2=LBE
+      IF(FBE.LT.GA)FBE2=GA
+      IF(LBE.GT.GA)LBE2=GA
+      DO 431 U=FU,LU
+      DO 427 BE=FBE2,LBE
+      BEGA=IPQ(BE)+GA
+      ZL=ZLX(BE,A)
+      UIBEA=UOFF(U,I,ZL)+VADD(BE,A)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)+(AX-BX)*(T2(UIBEA)-T2P1(U,BE))+
+     .                       CX*T2(UIBEA)
+      S(VUBEGA)=S(VUBEGA)+ (CX+CX)*T2P1(U,BE)
+  427 CONTINUE
+      DO 429 BE=FBE,LBE2
+      GABE=IPQ(GA)+BE
+      ZL=ZLX(BE,A)
+      UIBEA=UOFF(U,I,ZL)+VADD(BE,A)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      UVGABE=UOFF(U,V,1)+VADD(GA,BE)
+      S(VUGABE)=S(VUGABE)+(AX-BX)*(T2(UIBEA)-T2P1(U,BE))+
+     .                       CX*T2(UIBEA)
+      S(UVGABE)=S(UVGABE)+(CX+CX)*T2P1(U,BE)
+  429 CONTINUE
+  431 CONTINUE
+  434 CONTINUE
+  435 CONTINUE
+  440 CONTINUE
+C
+C     D2'*
+      IF(OPTION.EQ.'LCCD'.OR.OPTION.EQ.'VAR2')GO TO 456
+      IF(OPTION.EQ.'LCSD')GO TO 456
+      DO 444 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 444
+      GASYM=ORBSYM(GA+NO)
+      IF(GASYM.NE.ASYM)GO TO 444
+      AX=AZERO
+      DO 442 IRJ=1,NIRRED
+      FJ=FLOV(IRJ,1)
+      LJ=FLOV(IRJ,2)
+      BSYM=IEOR(AISYM,IRJ-1)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 442 J=FJ,LJ
+      AJ=ITR(A)+J
+      DO 442 B=FB,LB
+      BI=ITR(B)+I
+      BJ=ITR(B)+J
+      AJBI=DOFF(MAX0(AJ,BI))+DADD(MIN0(AJ,BI))
+      AIBJ=DOFF(MAX0(AI,BJ))+DADD(MIN0(AI,BJ))
+      ZL=ZLX(B,GA)
+      IJBGA=UOFF(I,J,ZL)+VADD(B,GA)
+      AX=AX+(II(AIBJ)-II(AJBI)-II(AJBI))*TAU(IJBGA)
+  442 CONTINUE
+      FV(A,GA)=FV(A,GA)+AX
+  444 CONTINUE
+C
+C     D1
+      IF(OPTION.EQ.'CCD ') GO TO 456
+      DO 445 C=1,NV
+      DO 445 K=1,NO
+  445 D1(K,C)=AZERO
+      DO 452 V=1,NO
+      IF(FZO(V).EQ.1) GO TO 452
+      VSYM=ORBSYM(V)
+      DO 451 J=1,NO
+      IF(FZO(J).EQ.1) GO TO 451
+      JSYM=ORBSYM(J)
+      VJSYM=IEOR(VSYM,JSYM)
+      IF(VJSYM.NE.AISYM)GO TO 451
+      FB=FLOV(VSYM+1,3)-NO
+      LB=FLOV(VSYM+1,4)-NO
+      AJ=ITR(A)+J
+      AX=AZERO
+      BX=AZERO
+      DO 446 B=FB,LB
+      BJ=ITR(B)+J
+      BI=ITR(B)+I
+      AJBI=DOFF(MAX0(AJ,BI))+DADD(MIN0(AJ,BI))
+      AIBJ=DOFF(MAX0(AI,BJ))+DADD(MIN0(AI,BJ))
+      AX=AX+II(AIBJ)*T1O(V,B)
+      BX=BX+II(AJBI)*T1O(V,B)
+  446 CONTINUE
+      FGA=FLOV(JSYM+1,3)-NO
+      LGA=FLOV(JSYM+1,4)-NO
+      IF(FGA.LT.A)FGA=A
+      DO 448 GA=FGA,LGA
+      XFAC=AX*T1O(J,GA)
+      XADD=BX*T1O(J,GA)
+      D1(V,GA)=D1(V,GA)+XADD-XFAC-XFAC
+      VIGAA=UOFF(V,I,1)+VADD(GA,A)
+      S(VIGAA)=S(VIGAA)-XFAC
+  448 CONTINUE
+      FGA=FLOV(JSYM+1,3)-NO
+      IF(LGA.GT.A)LGA=A
+      DO 450 GA=FGA,LGA
+      XFAC=AX*T1O(J,GA)
+      XADD=BX*T1O(J,GA)
+      D1(V,GA)=D1(V,GA)+XADD-XFAC-XFAC
+      IVAGA=UOFF(I,V,1)+VADD(A,GA)
+      S(IVAGA)=S(IVAGA)-XFAC
+  450 CONTINUE
+      D1(V,A)=D1(V,A)-(BX-AX-AX)*T1O(J,A)
+  451 CONTINUE
+  452 CONTINUE
+      DO 454 V=1,NO
+      IF(FZO(V).EQ.1) GO TO 454
+      DO 453 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 453
+      T1N(V,GA)=T1N(V,GA)+D1(V,GA)*T1O(I,A)
+  453 CONTINUE
+  454 CONTINUE
+  456 CONTINUE
+  457 CONTINUE
+  458 CONTINUE
+C
+C     D2'
+      IF(OPTION.EQ.'LCCD'.OR.OPTION.EQ.'VAR2')GO TO 498
+      IF(OPTION.EQ.'LCSD')GO TO 498
+      DO 495 I=1,NO
+      IF(FZO(I ).EQ.1) GO TO 495
+      ISYM=ORBSYM(I)
+      IISYM=IEOR(ISYM,ISYM)
+      DO 475 J=1,I-1
+      IF(FZO(J ).EQ.1) GO TO 475
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+C     READ I.GT.J  (IA,JB) ALL A B
+      DO 473 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 473
+      VSYM=ORBSYM(V)
+      DO 472 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 472
+      USYM=ORBSYM(U)
+      UVSYM=IEOR(USYM,VSYM)
+      AX=AZERO
+      BX=AZERO
+      IF(IJSYM.NE.UVSYM)GO TO 471
+      DO 460 IRA=1,NIRRED
+      FA=FLOV(IRA,3)-NO
+      LA=FLOV(IRA,4)-NO
+      BSYM=IEOR(IRA-1,IJSYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 460 A=FA,LA
+      AI=ITR(A)+I
+      AJ=ITR(A)+J
+      DO 460 B=FB,LB
+      BI=ITR(B)+I
+      BJ=ITR(B)+J
+      AJBI=DOFF(MAX0(AJ,BI))+DADD(MIN0(AJ,BI))
+      AIBJ=DOFF(MAX0(AI,BJ))+DADD(MIN0(AI,BJ))
+      ZL=ZLX(A,B)
+      UVAB=UOFF(U,V,ZL)+VADD(A,B)
+      AX=AX+II(AIBJ)*TAU(UVAB)
+  460 BX=BX+II(AJBI)*TAU(UVAB)
+      IF(V.NE.J) GO TO 464
+      FO(U,I)=FO(U,I)+AX+AX-BX
+  464 CONTINUE
+      IF(V.NE.I) GO TO 468
+      FO(U,J)=FO(U,J)+BX+BX-AX
+  468 CONTINUE
+      DO 470 IBE=1,NIRRED
+      FBE=FLOV(IBE,3)-NO
+      LBE=FLOV(IBE,4)-NO
+      GASYM=IEOR(IBE-1,IJSYM)+1
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      DO 470 BE=FBE,LBE
+      LGA2=LGA
+      IF(LGA.GT.BE)LGA2=BE
+      DO 470 GA=FGA,LGA2
+      IJBEGA=UOFF(I,J,1)+VADD(BE,GA)
+      JIBEGA=UOFF(J,I,1)+VADD(BE,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)+AX*TAU(IJBEGA)+BX*TAU(JIBEGA)
+  470 CONTINUE
+  471 CONTINUE
+  472 CONTINUE
+  473 CONTINUE
+  475 CONTINUE
+C     READ (IA,IB) ALL A B
+      DO 493 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 493
+      VSYM=ORBSYM(V)
+      DO 492 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 492
+      USYM=ORBSYM(U)
+      UVSYM=IEOR(USYM,VSYM)
+      AX=AZERO
+      IF(UVSYM.NE.IISYM) GO TO 491
+      DO 480 IRA=1,NIRRED
+      FA=FLOV(IRA,3)-NO
+      LA=FLOV(IRA,4)-NO
+      BSYM=IEOR(IRA-1,IISYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 480 A=FA,LA
+      AI=ITR(A)+I
+      DO 480 B=FB,LB
+      BI=ITR(B)+I
+      AIBI=DOFF(MAX0(AI,BI))+DADD(MIN0(AI,BI))
+      ZL=ZLX(A,B)
+      UVAB=UOFF(U,V,ZL)+VADD(A,B)
+  480 AX=AX+II(AIBI)*TAU(UVAB)
+      IF(V.NE.I) GO TO 484
+      FO(U,I)=FO(U,I)+AX
+  484 CONTINUE
+      DO 490 IBE=1,NIRRED
+      FBE=FLOV(IBE,3)-NO
+      LBE=FLOV(IBE,4)-NO
+      GASYM=IEOR(IBE-1,IISYM)+1
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      DO 490 BE=FBE,LBE
+      LGA2 = LGA
+      IF(LGA.GT.BE)LGA2=BE
+      DO 490 GA=FGA,LGA2
+      IIBEGA=UOFF(I,I,1)+VADD(BE,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)+AX*TAU(IIBEGA)
+  490 CONTINUE
+  491 CONTINUE
+  492 CONTINUE
+  493 CONTINUE
+  495 CONTINUE
+  498 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END D TERMS'
+      CALL TIMIT(1,6)
+C     CALL TIMIT(1,4)
+      END IF
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C
+C     ADD CCSDT TERMS TO T1 EQUATION. D INTS.
+C
+      IF(OPTION.NE.'SDT1')GO TO 3195
+      IF(NIT.EQ.1.AND.RSTR.EQ.'NO  ')GO TO 3195
+      I81=1
+      DO 3190 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 3190
+      ASYM=ORBSYM(A+NO)
+      DO 3185 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 3185
+      ISYM=ORBSYM(I)
+      IASYM=IEOR(ISYM,ASYM)+1
+      DIM=NT3(IASYM)
+      CALL WREADW (ITAP81,TAU,INTOWP(DIM),I81,I81)
+      IA=ITR(A)+I
+      DO 3180 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 3180
+      USYM=ORBSYM(U)
+      BESYM=USYM
+      FBE=FLOV(BESYM+1,3)-NO
+      LBE=FLOV(BESYM+1,4)-NO
+      DO 3175 BE=FBE,LBE
+      DO 3170 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 3170
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      JA=ITR(A)+J
+      BSYM=IEOR(IJSYM,ASYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 3165 B=FB,LB
+      IB=ITR(B)+I
+      JB=ITR(B)+J
+      ZLBEB=ZLX(BE,B)
+      ZLBBE=ZLX(B,BE)
+      IAJB=DOFF(MAX0(IA,JB))+DADD(MIN0(IA,JB))
+      IBJA=DOFF(MAX0(IB,JA))+DADD(MIN0(IB,JA))
+      JUBEB=TOFF(J,U,ZLBEB,IASYM)+TADD(BE,B,IASYM)
+      JUBBE=TOFF(J,U,ZLBBE,IASYM)+TADD(B,BE,IASYM)
+      T1N(U,BE)=T1N(U,BE)+(II(IAJB)+II(IAJB)-II(IBJA))
+     .                   *(TAU(JUBEB)-TAU(JUBBE))
+ 3165 CONTINUE
+ 3170 CONTINUE
+ 3175 CONTINUE
+ 3180 CONTINUE
+ 3185 CONTINUE
+ 3190 CONTINUE
+C
+C     ADD NON-LINEAR T3*T1 CONTRIBUTION TO T1 EQUATION (CCSDT-1B)
+C
+C     DO 4290 U=1,NO
+C     USYM=ORBSYM(U)
+C     DO 4285 V=1,NO
+C     VSYM=ORBSYM(V)
+C     UVSYM=IEOR(USYM,VSYM)
+C     DO 4280 BE=1,NV
+C     BESYM=ORBSYM(BE+NO)
+C     GASYM=IEOR(UVSYM,BESYM)+1
+C
+C     FGA=FLOV(GASYM,3)-NO
+C     LGA=FLOV(GASYM,4)-NO
+C     LGA2=LGA
+C     IF(LGA.GT.BE)LGA2=BE
+C     DO 4275 GA=FGA,LGA2
+C     UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+C     DO 4270 I=1,NO
+C     DO 4265 A=1,NV
+C     IA=IPQ(A+NO)+I
+C     DO 4250 J=1,NO
+C     JA=IPQ(A+NO)+J
+C     DO 4250 B=1,NV
+C     JB=IPQ(B+NO)+J
+C     IAJB=IPQ(MAX0(IA,JB))+MIN0(IA,JB)
+C     IB=IPQ(B+NO)+I
+C     IBJA=IPQ(MAX0(IB,JA))+MIN0(IB,JA)
+C     VAL= T3(U,I,J,BE,A,GA)*T1O(V,B) + T3(U,V,I,BE,B,A)*T1O(J,GA)
+C    .   + T3(V,I,J,GA,A,BE)*T1O(U,B) + T3(V,U,I,GA,B,A)*T1O(J,BE)
+C     S(UVBEGA)=S(UVBEGA)-(II(IAJB)+II(IAJB)-II(IBJA))*VAL
+C     VAL= T3(U,I,J,A,BE,GA)*T1O(V,B) + T3(U,V,I,A,B,BE)*T1O(J,GA)
+C    .   + T3(V,I,J,A,GA,BE)*T1O(U,B) + T3(V,U,I,A,B,GA)*T1O(J,BE)
+C     S(UVBEGA)=S(UVBEGA)+ II(IAJB)                   *VAL
+C     VAL=(T3(U,V,I,BE,GA,A)-T3(U,V,I,A,GA,BE))*T1O(J,B)
+C    .   +(T3(V,U,I,GA,BE,A)-T3(V,U,I,A,BE,GA))*T1O(J,B)
+C     S(UVBEGA)=S(UVBEGA)+(II(IAJB)+II(IAJB)-II(IBJA))*VAL
+C4240 CONTINUE
+C4250 CONTINUE
+C4265 CONTINUE
+C4270 CONTINUE
+C4275 CONTINUE
+C4280 CONTINUE
+C4285 CONTINUE
+C4290 CONTINUE
+      CALL FRTAU(TAU,T2,T1O,UOFF,VADD,ORBSYM,FLOV,NO,NV,
+     .           NDIMT2,NIRRED,FZO,FZV,OPTION)
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END CCSDT D TERMS'
+      CALL TIMIT(1,6)
+      END IF
+ 3195 CONTINUE
+C
+C     C TERMS
+C
+      CALL RDINTS(62,II,NTIN,NGOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            COFF,CADD,NVNV,NONO,ITV,NV,ITR,NOV)
+      DO 540 BE=1,NV
+      IF(FZV(BE).EQ.1) GO TO 540
+      BESYM=ORBSYM(BE+NO)
+      DO 539 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 539
+      USYM=ORBSYM(U)
+      BEUSYM=IEOR(BESYM,USYM)
+C     READ BE U(BE B,IU) ALL BI
+      DO 525 GA=1,BE
+      IF(FZV(GA).EQ.1) GO TO 525
+      GASYM=ORBSYM(GA+NO)
+      GBUSYM=IEOR(GASYM,BEUSYM)
+      DO 524 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 524
+      VSYM=ORBSYM(V)
+      IF(VSYM.NE.GBUSYM)GO TO 523
+      DO 520 IRI=1,NIRRED
+      FI=FLOV(IRI,1)
+      LI=FLOV(IRI,2)
+      BSYM=IEOR(BEUSYM,IRI-1)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 520 I=FI,LI
+      IU=ITR(MAX0(I,U))+MIN0(I,U)
+      DO 520 B=FB,LB
+      BEB=ITV(MAX0(BE,B))+MIN0(BE,B)
+      BEBIU=COFF(BEB)+CADD(IU)
+      ZL=ZLX(B,GA)
+      IVBGA=UOFF(I,V,ZL)+VADD(B,GA)
+      VIBGA=UOFF(V,I,ZL)+VADD(B,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)-II(BEBIU)*T2(IVBGA)
+      S(VUBEGA)=S(VUBEGA)-II(BEBIU)*TAU(VIBGA)
+  520 CONTINUE
+  523 CONTINUE
+  524 CONTINUE
+  525 CONTINUE
+      DO 530 GA=BE,NV
+      IF(FZV(GA).EQ.1) GO TO 530
+      GASYM=ORBSYM(GA+NO)
+      GBUSYM=IEOR(GASYM,BEUSYM)
+      DO 529 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 529
+      VSYM=ORBSYM(V)
+      IF(VSYM.NE.GBUSYM)GO TO 528
+      DO 527 IRI=1,NIRRED
+      FI=FLOV(IRI,1)
+      LI=FLOV(IRI,2)
+      BSYM=IEOR(BEUSYM,IRI-1)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 527 I=FI,LI
+      IU=ITR(MAX0(I,U))+MIN0(I,U)
+      DO 527 B=FB,LB
+      BEB=ITV(MAX0(BE,B))+MIN0(BE,B)
+      BEBIU=COFF(BEB)+CADD(IU)
+      ZL=ZLX(B,GA)
+      IVBGA=UOFF(I,V,ZL)+VADD(B,GA)
+      VIBGA=UOFF(V,I,ZL)+VADD(B,GA)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      UVGABE=UOFF(U,V,1)+VADD(GA,BE)
+      S(VUGABE)=S(VUGABE)-II(BEBIU)*T2(IVBGA)
+      S(UVGABE)=S(UVGABE)-II(BEBIU)*TAU(VIBGA)
+  527 CONTINUE
+  528 CONTINUE
+  529 CONTINUE
+  530 CONTINUE
+      DO 535 B=1,NV
+      IF(FZV(B ).EQ.1) GO TO 535
+      BSYM=ORBSYM(B+NO)
+      IF(USYM.NE.BSYM)GO TO 534
+      BEB=ITV(MAX0(BE,B))+MIN0(BE,B)
+      DO 533 I=1,NO
+      ISYM=ORBSYM(I)
+      IF(ISYM.NE.BESYM)GO TO 533
+      IF(FZO(I ).EQ.1) GO TO 532
+      IU=ITR(MAX0(I,U))+MIN0(I,U)
+      BEBIU=COFF(BEB)+CADD(IU)
+      T1N(I,BE)=T1N(I,BE)+II(BEBIU)*T1O(U,B)
+  532 CONTINUE
+  533 CONTINUE
+  534 CONTINUE
+  535 CONTINUE
+  539 CONTINUE
+  540 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END C TERMS'
+      CALL TIMIT(1,6)
+C     CALL TIMIT(1,4)
+      END IF
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C     E TERMS
+C
+      IF(OPTION.EQ.'CCD '.OR.OPTION.EQ.'LCCD')GO TO 695
+      CALL RDINTS(64,II,NTIN,NLOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            EOFF,EADD,NM  ,NONO,ITR,NOV,ITR,NOV)
+      DO 690 I=1,NO
+      IF(FZO(I ).EQ.1) GO TO 690
+      XA(I)=AZERO
+      XB(I)=AZERO
+      XC(I)=AZERO
+      ISYM=ORBSYM(I)
+      DO 689 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 689
+      USYM=ORBSYM(U)
+      IUSYM=IEOR(ISYM,USYM)
+      IU=ITR(MAX0(I,U))+MIN0(I,U)
+C     READ   (IU,BJ) AND (IB,UJ)  ALL BJ
+      DO 650 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 650
+      GASYM=ORBSYM(GA+NO)
+      DO 640 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 640
+      VSYM=ORBSYM(V)
+      GAVSYM=IEOR(GASYM,VSYM)
+      XA(V)=AZERO
+      XB(V)=AZERO
+      XC(V)=AZERO
+      IF(GAVSYM.NE.IUSYM)GO TO 640
+      DO 612 IRJ=1,NIRRED
+      FJ=FLOV(IRJ,1)
+      LJ=FLOV(IRJ,2)
+      BSYM=IEOR(IUSYM,IRJ-1)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      DO 611 J=FJ,LJ
+      UJ=ITR(MAX0(U,J))+MIN0(U,J)
+      DO 610 B=FB,LB
+      IB=ITR(B)+I
+      BJ=ITR(B)+J
+      IUBJ=EOFF(BJ)+EADD(IU)
+      IBUJ=EOFF(IB)+EADD(UJ)
+      ZL=ZLX(GA,B)
+      VJGAB=UOFF(V,J,ZL)+VADD(GA,B)
+      JVGAB=UOFF(J,V,ZL)+VADD(GA,B)
+      XA(V)=XA(V)+II(IUBJ)*(T2(VJGAB)+T2(VJGAB)-T2(JVGAB))
+      XB(V)=XB(V)+II(IBUJ)* T2(VJGAB)
+      XC(V)=XC(V)+II(IBUJ)* T2(JVGAB)
+  610 CONTINUE
+  611 CONTINUE
+  612 CONTINUE
+      IF(OPTION.EQ.'VAR2')GO TO 640
+      IF(OPTION.EQ.'LCSD')GO TO 640
+      FBE=FLOV(ISYM+1,3)-NO
+      LBE=FLOV(ISYM+1,4)-NO
+      IF(FBE.LT.GA)FBE=GA
+      DO 620 BE=FBE,LBE
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,1)+VADD(BE,GA)
+      S(UVBEGA)=S(UVBEGA)-(XA(V)-XB(V))*T1O(I,BE)
+      S(VUBEGA)=S(VUBEGA)+ XC(V)      *T1O(I,BE)
+  620 CONTINUE
+      FBE=FLOV(ISYM+1,3)-NO
+      IF(LBE.GT.GA)LBE=GA
+      DO 630 BE=FBE,LBE
+      UVGABE=UOFF(U,V,1)+VADD(GA,BE)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      S(VUGABE)=S(VUGABE)-(XA(V)-XB(V))*T1O(I,BE)
+      S(UVGABE)=S(UVGABE)+ XC(V)      *T1O(I,BE)
+  630 CONTINUE
+  640 CONTINUE
+      VAL=(XA(I)-XB(I)+XC(I)+XC(I))*HALF
+      T1N(U,GA)=T1N(U,GA)+VAL
+  650 CONTINUE
+C
+      DO 670 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 670
+      GASYM=ORBSYM(GA+NO)
+      DO 668 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 668
+      VSYM=ORBSYM(V)
+      GAVSYM=IEOR(GASYM,VSYM)
+      IF(IUSYM.NE.GAVSYM)GO TO 668
+      VGA=ITR(GA)+V
+      IUVGA=EOFF(VGA)+EADD(IU)
+      FBE=FLOV(ISYM+1,3)-NO
+      LBE=FLOV(ISYM+1,4)-NO
+      IF(FBE.LT.GA)FBE=GA
+      DO 655 BE=FBE,LBE
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      VAL=II(IUVGA)*T1O(I,BE)
+      S(UVBEGA)=S(UVBEGA)-VAL
+  655 CONTINUE
+      FBE=FLOV(ISYM+1,3)-NO
+      LBE=FLOV(ISYM+1,4)-NO
+      IF(LBE.GT.GA)LBE=GA
+      DO 660 BE=FBE,LBE
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      VAL=II(IUVGA)*T1O(I,BE)
+      S(VUGABE)=S(VUGABE)-VAL
+  660 CONTINUE
+  668 CONTINUE
+  670 CONTINUE
+C
+      IF(OPTION.EQ.'VAR2')GO TO 688
+      IF(OPTION.EQ.'LCSD')GO TO 688
+      DO 687 J=1,NO
+      IF(FZO(J ).EQ.1) GO TO 687
+      XA(J)=AZERO
+      JSYM=ORBSYM(J)
+      IUJSYM=IEOR(IUSYM,JSYM)
+      IJSYM=IEOR(ISYM,JSYM)
+      UJ=ITR(MAX0(U,J))+MIN0(U,J)
+      BX=AZERO
+      FB=FLOV(IUJSYM+1,3)-NO
+      LB=FLOV(IUJSYM+1,4)-NO
+      DO 672 B=FB,LB
+      IB=ITR(B)+I
+      IBUJ=EOFF(IB)+EADD(UJ)
+  672 BX=BX+II(IBUJ)*T1O(J,B)
+      FIV=FLOV(IUJSYM+1,1)
+      LV=FLOV(IUJSYM+1,2)
+      DO 685 V=FIV,LV
+      XA(V)=AZERO
+      DO 675 B=FB,LB
+      BJ=ITR(B)+J
+      IUBJ=EOFF(BJ)+EADD(IU)
+  675 XA(V)=XA(V)+II(IUBJ)*T1O(V,B)
+      DO 680 IGA=1,NIRRED
+      FGA=FLOV(IGA,3)-NO
+      LGA=FLOV(IGA,4)-NO
+      BESYM=IEOR(IGA-1,IJSYM)+1
+      FBE=FLOV(BESYM,3)-NO
+      LBE=FLOV(BESYM,4)-NO
+      DO 680 GA=FGA,LGA
+      FBE2=FBE
+      IF(FBE.LT.GA)FBE2=GA
+      DO 677 BE=FBE2,LBE
+      IJBEGA=UOFF(I,J,1)+VADD(BE,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+  677 S(UVBEGA)=S(UVBEGA)+XA(V)*TAU(IJBEGA)
+      LBE2=LBE
+      IF(LBE.GT.GA)LBE2=GA
+      DO 679 BE=FBE,LBE2
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      IJBEGA=UOFF(I,J,2)+VADD(BE,GA)
+  679 S(VUGABE)=S(VUGABE)+XA(V)*TAU(IJBEGA)
+  680 CONTINUE
+  685 CONTINUE
+      FO(U,I)=FO(U,I)+XA(J)+XA(J)-BX
+  687 CONTINUE
+  688 CONTINUE
+C
+  689 CONTINUE
+  690 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END E TERMS'
+      CALL TIMIT(1,6)
+C     CALL TIMIT(1,4)
+      END IF
+  695 CONTINUE
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C
+C     ADD CCSDT TERMS TO T2 EQUATION. E INTS.
+C
+C      GO TO 3293
+      IF(OPTION.NE.'SDT1')GO TO 3293
+      IF(NIT.EQ.1.AND.RSTR.EQ.'NO  ')GO TO 3293
+      I81=1
+      DO 3290 BE=1,NV
+      IF(FZV(BE).EQ.1)GO TO 3290
+      BESYM=ORBSYM(BE+NO)
+      DO 3285 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 3285
+      ISYM=ORBSYM(I)
+      IBESYM=IEOR(ISYM,BESYM)+1
+      DIM=NT3(IBESYM)
+      CALL WREADW (ITAP81,TAU,INTOWP(DIM),I81,I81)
+      DO 3280 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 3280
+      USYM=ORBSYM(U)
+      IU=ITR(MAX0(I,U))+MIN0(I,U)
+      IUSYM=IEOR(ISYM,USYM)
+      DO 3275 V=1,NO
+      IF(FZO(V).EQ.1)GO TO 3275
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      GASYM=IEOR(UVSYM,BESYM)+1
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      DO 3270 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 3270
+      ASYM=ORBSYM(A+NO)
+      IA=ITR(A)+I
+      JSYM=IEOR(IUSYM,ASYM)+1
+      FJ=FLOV(JSYM,1)
+      LJ=FLOV(JSYM,2)
+      DO 3265 J=FJ,LJ
+      JU=ITR(MAX0(J,U))+MIN0(J,U)
+      JA=ITR(A)+J
+      IUJA=EOFF(JA)+EADD(IU)
+      IAJU=EOFF(IA)+EADD(JU)
+C
+      LGA2=LGA
+      IF(LGA.GT.BE)LGA2=BE
+      DO 3260 GA=FGA,LGA2
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      ZLAGA=ZLX(A,GA)
+      JVAGA=TOFF(J,V,ZLAGA,IBESYM)+TADD(A,GA,IBESYM)
+      VJAGA=TOFF(V,J,ZLAGA,IBESYM)+TADD(A,GA,IBESYM)
+C     S(UVBEGA)=S(UVBEGA)-(II(IUJA)+II(IUJA)-II(IAJU))*T3(I,J,V,BE,A,GA)
+C    .                   + II(IUJA) * T3(I,V,J,BE,A,GA)
+      S(UVBEGA)=S(UVBEGA)-(II(IUJA)+II(IUJA)-II(IAJU))*TAU(JVAGA)
+     .                   + II(IUJA) * TAU(VJAGA)
+ 3260 CONTINUE
+C
+      FGA2=FGA
+      IF(FGA.LT.BE)FGA2=BE
+      DO 3261 GA=FGA2,LGA
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+      ZLAGA=ZLX(A,GA)
+      JVAGA=TOFF(J,V,ZLAGA,IBESYM)+TADD(A,GA,IBESYM)
+      VJAGA=TOFF(V,J,ZLAGA,IBESYM)+TADD(A,GA,IBESYM)
+C     S(VUGABE)=S(VUGABE)-(II(IUJA)+II(IUJA)-II(IAJU))*T3(I,J,V,BE,A,GA)
+C    .                   + II(IUJA) * T3(I,V,J,BE,A,GA)
+      S(VUGABE)=S(VUGABE)-(II(IUJA)+II(IUJA)-II(IAJU))*TAU(JVAGA)
+     .                   + II(IUJA) * TAU(VJAGA)
+ 3261 CONTINUE
+C
+ 3265 CONTINUE
+ 3270 CONTINUE
+ 3275 CONTINUE
+ 3280 CONTINUE
+ 3285 CONTINUE
+ 3290 CONTINUE
+      CALL FRTAU(TAU,T2,T1O,UOFF,VADD,ORBSYM,FLOV,NO,NV,
+     .           NDIMT2,NIRRED,FZO,FZV,OPTION)
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END CCSDT E TERMS'
+      CALL TIMIT(1,6)
+      END IF
+ 3293 CONTINUE
+C
+C     ADD EXTRA TERMS
+C
+      IF(OPTION.EQ.'CCD ')GO TO 1055
+      IF(OPTION.EQ.'LCCD')GO TO 1295
+      IF(OPTION.EQ.'VAR2')GO TO 1295
+      IF(OPTION.EQ.'LCSD')GO TO 1295
+      DO 1050 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 1050
+      USYM=ORBSYM(U)
+      DO 1048 BE=1,NV
+      IF(FZV(BE).EQ.1) GO TO 1048
+      BESYM=ORBSYM(BE+NO)
+      UBESYM=IEOR(USYM,BESYM)
+      XADD=AZERO
+      DO 1030 I=1,NO
+      IF(FZO(I ).EQ.1) GO TO 1030
+      ISYM=ORBSYM(I)
+      ASYM=IEOR(ISYM,UBESYM)+1
+      FA=FLOV(ASYM,3)-NO
+      LA=FLOV(ASYM,4)-NO
+      DO 1028 A=FA,LA
+      ZL=ZLX(BE,A)
+      UIBEA=UOFF(U,I,ZL)+VADD(BE,A)
+      UIABE=UOFF(I,U,ZL)+VADD(BE,A)
+      AI=IPQ(A+NO)+I
+      XADD =XADD -FOCK(AI)*(2.D0*T2(UIBEA)-TAU(UIABE))
+ 1028 CONTINUE
+      VAL=FO(U,I)
+      IU=IPQ(MAX0(I,U))+MIN0(I,U)
+      IF(I.NE.U)VAL=VAL+FOCK(IU)
+      T1N(U,BE)=T1N(U,BE)+VAL*T1O(I,BE)
+ 1030 CONTINUE
+      DO 1040 A=1,NV
+      IF(FZV(A ).EQ.1) GO TO 1040
+      VAL=FV(A,BE)
+      ABE=IPQ(MAX0(A,BE)+NO)+MIN0(A,BE)+NO
+      IF(A.NE.BE)VAL=VAL+FOCK(ABE)
+      T1N(U,BE)=T1N(U,BE)-VAL*T1O(U,A)
+ 1040 CONTINUE
+      UBE=IPQ(NO+BE)+U
+      T1N(U,BE)=T1N(U,BE)+XADD-FOCK(UBE)
+ 1048 CONTINUE
+ 1050 CONTINUE
+ 1055 CONTINUE
+C
+      CALL ZERO(FFV,NV*NV)
+      DO 1120 A=1,NV
+      DO 1118 GA=1,NV
+      DO 1116 I=1,NO
+      IA=IPQ(NO+A)+I
+      FFV(A,GA)=FFV(A,GA)+FOCK(IA)*T1O(I,GA)
+ 1116 CONTINUE
+ 1118 CONTINUE
+ 1120 CONTINUE
+      CALL ZERO(FFO,NO*NO)
+      DO 1130 I=1,NO
+      DO 1128 U=1,NO
+      DO 1126 A=1,NV
+      IA=IPQ(NO+A)+I
+      FFO(I,U)=FFO(I,U)+FOCK(IA)*T1O(U,A)
+ 1126 CONTINUE
+ 1128 CONTINUE
+ 1130 CONTINUE
+C     IF(OPTION.EQ.'LCCD')GO TO 1295
+      DO 1290 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 1290
+      USYM=ORBSYM(U)
+      DO 1288 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 1288
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 1240 IRA=1,NIRRED
+      FA=FLOV(IRA,3)-NO
+      LA=FLOV(IRA,4)-NO
+      UVASYM=IEOR(UVSYM,IRA-1)
+      FBE=FLOV(UVASYM+1,3)-NO
+      LBE=FLOV(UVASYM+1,4)-NO
+      DO 1240 A=FA,LA
+      DO 1230 GA=FA,LA
+      VAL=FV(A,GA)-FFV(A,GA)
+      AGA=IPQ(MAX0(A,GA)+NO)+MIN0(A,GA)+NO
+      IF(A.NE.GA)VAL=VAL+FOCK(AGA)
+      FBE2=FBE
+      IF(FBE.LT.GA)FBE2=GA
+      DO 1210 BE=FBE2,LBE
+      ZL=ZLX(BE,A)
+      UVBEA=UOFF(U,V,ZL)+VADD(BE,A)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+ 1210 S(UVBEGA)=S(UVBEGA)+VAL*T2(UVBEA)
+      LBE2=LBE
+      IF(LBE.GT.GA)LBE2=GA
+      DO 1220 BE=FBE,LBE2
+      ZL=ZLX(BE,A)
+      UVBEA=UOFF(U,V,ZL)+VADD(BE,A)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+ 1220 S(VUGABE)=S(VUGABE)+VAL*T2(UVBEA)
+ 1230 CONTINUE
+ 1240 CONTINUE
+      FI=FLOV(VSYM+1,1)
+      LI=FLOV(VSYM+1,2)
+      DO 1280 I=FI,LI
+      VAL=FO(V,I)+FFO(V,I)
+      VI=IPQ(MAX0(V,I))+MIN0(V,I)
+      IF(V.NE.I)VAL=VAL+FOCK(VI)
+      DO 1270 IRGA=1,NIRRED
+      FGA=FLOV(IRGA,3)-NO
+      LGA=FLOV(IRGA,4)-NO
+      BESYM=IEOR(IRGA-1,UVSYM)+1
+      FBE=FLOV(BESYM,3)-NO
+      LBE=FLOV(BESYM,4)-NO
+      DO 1270 GA=FGA,LGA
+      FBE2=FBE
+      IF(FBE.LT.GA)FBE2=GA
+      DO 1250 BE=FBE2,LBE
+      UIBEGA=UOFF(U,I,1)+VADD(BE,GA)
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+ 1250 S(UVBEGA)=S(UVBEGA)-VAL*T2(UIBEGA)
+      LBE2=LBE
+      IF(LBE.GT.GA)LBE2=GA
+      DO 1260 BE=FBE,LBE2
+      UIBEGA=UOFF(U,I,2)+VADD(BE,GA)
+      VUGABE=UOFF(V,U,1)+VADD(GA,BE)
+ 1260 S(VUGABE)=S(VUGABE)-VAL*T2(UIBEGA)
+ 1270 CONTINUE
+ 1280 CONTINUE
+ 1288 CONTINUE
+ 1290 CONTINUE
+ 1295 CONTINUE
+C     WRITE(*,*)'END OF GOCC AND GVIR TERMS'
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C     ADD NON-DIAGONAL FOCK MATRIX DEPENDENT TERMS
+C
+C
+C     DIVIDE BY MO ENERGIES DIFFERENCES AND ADD D INT TO T2
+C
+      CALL RDINTS(63,II,NTIN,NHOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            DOFF,DADD,NM  ,NM  ,ITR,NOV,ITR,NOV)
+C
+C     QUADRATIC ENERGY EXPRESSION FOR VARIATIONAL UNITARY CC
+C
+      IF(OPTION.EQ.'VAR2')THEN
+      VE=0.0D0
+      DO 424 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 424
+      USYM=ORBSYM(U)
+      UU=IPQ(U)+U
+      DO 423 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 423
+      GASYM=ORBSYM(GA+NO)
+      GAGA=IPQ(GA+NO)+GA+NO
+      VE=VE+4.D0*(-T1N(U,GA)-(FOCK(UU)-FOCK(GAGA))*T1O(U,GA))*T1O(U,GA)
+      DO 422 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 422
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      GAV=ITR(GA)+V
+C     DO 421 BE=GA,NV
+      DO 421 BE=1,NV
+      IF(FZV(BE).EQ.1) GO TO 421
+      BESYM=ORBSYM(BE+NO)
+      BEGSYM=IEOR(BESYM,GASYM)
+      IF(UVSYM.EQ.BEGSYM) THEN
+      ZLBEGA=ZLX(BE,GA)
+      BEU=ITR(BE)+U
+      BEUGAV=DOFF(MAX0(BEU,GAV))+DADD(MIN0(BEU,GAV))
+      UVBEGA=UOFF(U,V,ZLBEGA)+VADD(BE,GA)
+      VUBEGA=UOFF(V,U,ZLBEGA)+VADD(BE,GA)
+      VV=IPQ(V)+V
+      BEBE=IPQ(BE+NO)+BE+NO
+      VAL=FOCK(UU)+FOCK(VV)-FOCK(BEBE)-FOCK(GAGA)
+      VE= VE+2.0D0*(S(UVBEGA)+II(BEUGAV)+II(BEUGAV)-VAL*T2(UVBEGA))*
+     .       (T2(UVBEGA)+T2(UVBEGA)-T2(VUBEGA))
+      ENDIF
+  421 CONTINUE
+  422 CONTINUE
+  423 CONTINUE
+  424 CONTINUE
+      VE=VE/2.D0
+      WRITE(*,*)'VE=',VE
+      WRITE(4,*)'VE=',VE
+      ENDIF
+C
+      DO 1390 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 1390
+      USYM=ORBSYM(U)
+      DO 1380 V=1,NO
+      IF(FZO(V ).EQ.1) GO TO 1380
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 1370 GA=1,NV
+      IF(FZV(GA).EQ.1) GO TO 1370
+      GASYM=ORBSYM(GA+NO)
+      GAV=ITR(GA)+V
+      DO 1360 BE=GA,NV
+      IF(FZV(BE).EQ.1) GO TO 1360
+      BESYM=ORBSYM(BE+NO)
+      BEGSYM=IEOR(BESYM,GASYM)
+      IF(UVSYM.NE.BEGSYM) GO TO 1320
+      BEU=ITR(BE)+U
+      BEUGAV=DOFF(MAX0(BEU,GAV))+DADD(MIN0(BEU,GAV))
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      UU=IPQ(U)+U
+      VV=IPQ(V)+V
+      BEBE=IPQ(BE+NO)+BE+NO
+      GAGA=IPQ(GA+NO)+GA+NO
+      VAL=FOCK(UU)+FOCK(VV)-FOCK(BEBE)-FOCK(GAGA)
+      S(UVBEGA)=(S(UVBEGA)+II(BEUGAV))/VAL
+ 1320 CONTINUE
+ 1360 CONTINUE
+ 1370 CONTINUE
+ 1380 CONTINUE
+ 1390 CONTINUE
+      DO 1450 U=1,NO
+      IF(FZO(U ).EQ.1) GO TO 1450
+      DO 1448 BE=1,NV
+      IF(FZV(BE).EQ.1) GO TO 1448
+      UU=IPQ(U)+U
+      BEBE=IPQ(BE+NO)+BE+NO
+      VAL=-FOCK(UU)+FOCK(BEBE)
+      T1N(U,BE)=T1N(U,BE)/VAL
+ 1448 CONTINUE
+ 1450 CONTINUE
+C     WRITE(*,*)'D INT HAS BEEN ADDED TO T2 '
+C     WRITE(*,*)'T1=T1/E(VAC)-E(OCC) T2=T2/E(OCC)+E(OCC)-E(VAC)-E(VAC)'
+C     CALL TWRIT(T1N,NM,S,NDIMT2,6,FZO,NO,FZV,NV,ORBSYM,NT,
+C    .                 FLOV,NIRRED,UOFF,VADD)
+C
+C     CORRELATION ENERGY
+C
+C     CALL RDINTS(63,II,NTIN,NHOV,6,BUF,IBUF,INTBUF,
+C    .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+C    .            DOFF,DADD,NM  ,NM  ,ITR,NOV,ITR,NOV)
+      IF(OPTION.EQ.'CCD '.OR.OPTION.EQ.'LCCD')CALL ZERO(T1N,NM)
+      CALL ECORR(TAU,S,T1N,II,XE,UOFF,VADD,IPQ,ORBSYM,FLOV,ITR,
+     .           NIT,NO,NV,NT,NT2,NTIN,NDIMT2,NIRRED,FZO,FZV,
+     .           DOFF,DADD,NM,FOCK,XEO,OPTION)
+      CALL TDIFF(S,T1N,T2 ,T1O,DELT,NO,NV,NDIMT2,ORBSYM,FLOV,
+     .           NIRRED,UOFF,VADD,ZLX,FZO,FZV,XE,XEO)
+      WRITE(6,6011)NIT,XE,XEO-XE,DELT
+      WRITE(4,6011)NIT,XE,XEO-XE,DELT
+C
+C     SKIP DIIS EXTRAPOLATION (AND T3 EQUATION)
+C     IF CONVERGENCE HAS BEEN REACHED
+C
+      IF(DELT.LT.CONV)GO TO 1490
+      IF(OPTION.EQ.'SDT1')CALL RCLOSE(ITAP81,4)
+C
+C     DIIS EXTRAPOLATION
+C
+      IF(DIISFL.EQ.2)GO TO 1491
+      IF(DIISFL.EQ.1) THEN
+      CALL DIISC (T1O,T1N,T2,S,NO,NV,NDIMT2,NIT,IT,IFLAG,
+     .            EPSI,NGO,NDIIS,MINDIM,MAXDIM,
+     .            CC,BB,TT1,DT1,TT2,DT2)
+C     IF(IFLAG.EQ.1)THEN
+COUT  WRITE(6,*) 'DIIS HAS BEEN USED, EXTRAPOLATED CORR. ENRGY='
+CSCR  WRITE(4,*) 'DIIS HAS BEEN USED'
+      CALL ECORR(TAU,S,T1N,II,XE,UOFF,VADD,IPQ,ORBSYM,FLOV,ITR,
+     .           NIT,NO,NV,NT,NT2,NTIN,NDIMT2,NIRRED,FZO,FZV,
+     .           DOFF,DADD,NM,FOCK,XEO,OPTION)
+      WRITE(6,6012)NIT,XE
+      WRITE(4,6012)NIT,XE
+ 6012 FORMAT(2X,I4,'*',4X,F20.15)
+C     END IF
+      ELSE
+C     T2 IS SCRATCHED BY DIIS AND IS NEEDED FOR T3 EQUATION
+      DO 1492 I=1,NDIMT2
+      TAU(I)=T2(I)
+ 1492 CONTINUE
+      CALL DIISD (T1O,T1N,T2,S,NO,NV,NDIMT2,NIT,IT,IFLAG,
+     .            EPSI,NGO,NDIIS,MINDIM,MAXDIM,
+     .            CC,BB,ITAP98 ,ITAP99 ,ITC,BB2)
+      DO 1493 I=1,NDIMT2
+      T2(I)=TAU(I)
+ 1493 CONTINUE
+COUT  WRITE(6,*) 'DIIS HAS BEEN USED, EXTRAPOLATED CORR. ENRGY='
+CSCR  WRITE(4,*) 'DIIS HAS BEEN USED'
+      CALL ECORR(TAU,S,T1N,II,XE,UOFF,VADD,IPQ,ORBSYM,FLOV,ITR,
+     .           NIT,NO,NV,NT,NT2,NTIN,NDIMT2,NIRRED,FZO,FZV,
+     .           DOFF,DADD,NM,FOCK,XEO,OPTION)
+      WRITE(6,6012)NIT,XE
+      WRITE(4,6012)NIT,XE
+      END IF
+ 1491 CONTINUE
+C
+C     WRITE OUT T1,T2 TO FILE69
+C
+      CALL RFILE(ITAP69)
+      CALL SWRIT(ITAP69,NM,1)
+      CALL SWRIT(ITAP69,NDIMT2,1)
+      CALL SWRIT(ITAP69,T1N,INTOWP(NM))
+      CALL SWRIT(ITAP69,S,INTOWP(NDIMT2))
+      CALL SWRIT(ITAP69,EREF,INTOWP(1))
+      CALL SWRIT(ITAP69,XE,INTOWP(1))
+      CALL RCLOSE(ITAP69,3)
+ 5050 CONTINUE
+C
+C     *************
+C     GO FOR CCSDT1
+C     *************
+C
+      IF(OPTION.EQ.'SDT1')THEN
+C
+C     CALCULATE FIRST SET OF CCSDT CONTRIBUTIONS. E INTS.
+C
+      CALL RDINTS(64,II,NTIN,NLOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            EOFF,EADD,NM  ,NONO,ITR,NOV,ITR,NOV)
+      CALL RFILE(ITAP81)
+      I81=1
+      DO 2991 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 2991
+      ASYM=ORBSYM(A+NO)
+      DO 2981 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 2981
+      ISYM=ORBSYM(I)
+      IASYM=IEOR(ISYM,ASYM)+1
+      DIM=NT3(IASYM)
+CGES  CALL WREADW(ITAP81,TAU,INTOWP(DIM),I81,JUNK)
+      CALL ZERO(TAU,DIM)
+      AI=ITR(A)+I
+      DO 2971 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 2971
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 2961 B=1,NV
+      IF(FZV(B).EQ.1)GO TO 2961
+      BSYM=ORBSYM(B+NO)
+      ZLAB=ZLX(A,B)
+      BJ=ITR(B)+J
+      ABSYM=IEOR(ASYM,BSYM)
+C
+      DO 2952 C=1,B
+      IF(FZV(C).EQ.1)GO TO 2952
+      CSYM=ORBSYM(C+NO)
+      ZLAC=ZLX(A,C)
+      ZLBC=ZLX(B,C)
+      ACSYM=IEOR(ASYM,CSYM)
+      BCSYM=IEOR(BSYM,CSYM)
+      ABCSYM=IEOR(ABSYM,CSYM)
+      KSYM=IEOR(ABCSYM,IJSYM)
+      JKSYM=IEOR(JSYM,KSYM)
+      IKSYM=IEOR(ISYM,KSYM)
+      FK=FLOV(KSYM+1,1)
+      LK=FLOV(KSYM+1,2)
+      DO 2942 K=FK,LK
+      CK=ITR(C)+K
+      JKBC=TOFF(J,K,1,IASYM)+TADD(B,C,IASYM)
+C
+      MSYM=IEOR(BCSYM,KSYM)+1
+      FM=FLOV(MSYM,1)
+      LM=FLOV(MSYM,2)
+      DO 3042 M=FM,LM
+      MKBC=UOFF(M,K,ZLBC)+VADD(B,C)
+      MJ=ITR(MAX0(M,J))+MIN0(M,J)
+      AIMJ=EOFF(AI)+EADD(MJ)
+      VAL= II(AIMJ)*T2(MKBC)
+      TAU(JKBC)=TAU(JKBC)-VAL
+ 3042 CONTINUE
+C
+      IF(SORT.NE.'YES ')THEN
+      MSYM=IEOR(ACSYM,ISYM)+1
+      FM=FLOV(MSYM,1)
+      LM=FLOV(MSYM,2)
+      DO 3142 M=FM,LM
+      IMAC=UOFF(I,M,ZLAC)+VADD(A,C)
+      MK=ITR(MAX0(M,K))+MIN0(M,K)
+      MKBJ=EOFF(BJ)+EADD(MK)
+      VAL= II(MKBJ)*T2(IMAC)
+      TAU(JKBC)=TAU(JKBC)-VAL
+ 3142 CONTINUE
+C
+      MSYM=IEOR(ABSYM,JSYM)+1
+      FM=FLOV(MSYM,1)
+      LM=FLOV(MSYM,2)
+      DO 3242 M=FM,LM
+      MJAB=UOFF(M,J,ZLAB)+VADD(A,B)
+      MI=ITR(MAX0(M,I))+MIN0(M,I)
+      CKMI=EOFF(CK)+EADD(MI)
+      VAL= II(CKMI)*T2(MJAB)
+      TAU(JKBC)=TAU(JKBC)-VAL
+ 3242 CONTINUE
+      ENDIF
+ 2942 CONTINUE
+ 2952 CONTINUE
+C
+      DO 2954 C=B,NV
+      IF(FZV(C).EQ.1)GO TO 2954
+      CSYM=ORBSYM(C+NO)
+      ZLAC=ZLX(A,C)
+      ZLBC=ZLX(B,C)
+      ZLCB=ZLX(C,B)
+      ACSYM=IEOR(ASYM,CSYM)
+      BCSYM=IEOR(BSYM,CSYM)
+      ABCSYM=IEOR(ABSYM,CSYM)
+      KSYM=IEOR(ABCSYM,IJSYM)
+      JKSYM=IEOR(JSYM,KSYM)
+      IKSYM=IEOR(ISYM,KSYM)
+      FK=FLOV(KSYM+1,1)
+      LK=FLOV(KSYM+1,2)
+      DO 2944 K=FK,LK
+      CK=ITR(C)+K
+      KJCB=TOFF(K,J,1,IASYM)+TADD(C,B,IASYM)
+C
+C    WATCH OUT!! WHEN CONSTRUCTING TAU:
+C     NOTE THAT ZLX(A,B=A)=1
+C     THIS MEANS THAT IJAB=UOFF(I,J,ZLAB)+VADD(A,B) AND
+C                     IJAB=UOFF(J,I,ZLBA)+VADD(A,B)
+C     ARE DIFFERENT ADDRESSES WHEN A=B AND I.NE.J
+C     <ZLAB=ZLX(A,B); ZLBA=ZLX(B,A)>
+C     THIS IS NOT IMPORTANT IF TAU ALREADY HAS THE SYMMETRY
+C     TAU(IJ,AA)=TAU(JI,AA); THEN WHEN A=B ANY
+C     OF THE 2 ADDRESSES WRITTEN ABOVE WILL GIVE THE SAME NUMERICAL
+C     VALUE OBTAINED FROM 2 DIFFERENT PLACES. (IE NO PROBLEM!)
+C     HOWEVER, WHEN CONSTRUCTING TAU UNDER THE SYMMETRY OPERATION
+C     I'M USING HERE, IT IS NECESSARY TO DISTINGUISH BETWEEN THESE
+C     2 ADDRESSES IN ORDER TO PROPERLY STORE CONTRIBUTIONS SUCH THAT
+C     THE FINAL TAU HAS THE DESIRED SYMMETRY. NASTY BUG! 10-14-87. GES.
+C
+      MSYM=IEOR(BCSYM,KSYM)+1
+      FM=FLOV(MSYM,1)
+      LM=FLOV(MSYM,2)
+      DO 3044 M=FM,LM
+      MKBC=UOFF(M,K,ZLBC)+VADD(B,C)
+      MJ=ITR(MAX0(M,J))+MIN0(M,J)
+      AIMJ=EOFF(AI)+EADD(MJ)
+      VAL= II(AIMJ)*T2(MKBC)
+      TAU(KJCB)=TAU(KJCB)-VAL
+ 3044 CONTINUE
+C
+      IF(SORT.NE.'YES ')THEN
+      MSYM=IEOR(ACSYM,ISYM)+1
+      FM=FLOV(MSYM,1)
+      LM=FLOV(MSYM,2)
+      DO 3144 M=FM,LM
+      IMAC=UOFF(I,M,ZLAC)+VADD(A,C)
+      MK=ITR(MAX0(M,K))+MIN0(M,K)
+      MKBJ=EOFF(BJ)+EADD(MK)
+      VAL= II(MKBJ)*T2(IMAC)
+      TAU(KJCB)=TAU(KJCB)-VAL
+ 3144 CONTINUE
+C
+      MSYM=IEOR(ABSYM,JSYM)+1
+      FM=FLOV(MSYM,1)
+      LM=FLOV(MSYM,2)
+      DO 3244 M=FM,LM
+      MJAB=UOFF(M,J,ZLAB)+VADD(A,B)
+      MI=ITR(MAX0(M,I))+MIN0(M,I)
+      CKMI=EOFF(CK)+EADD(MI)
+      VAL= II(CKMI)*T2(MJAB)
+      TAU(KJCB)=TAU(KJCB)-VAL
+ 3244 CONTINUE
+      ENDIF
+ 2944 CONTINUE
+ 2954 CONTINUE
+ 2961 CONTINUE
+ 2971 CONTINUE
+      CALL WWRITW(ITAP81,TAU,INTOWP(DIM),I81,I81)
+ 2981 CONTINUE
+ 2991 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END E TERMS T3 EQUATION'
+      CALL TIMIT(1,6)
+      END IF
+C
+C     CALCULATE SECOND SET OF CCSDT CONTRIBUTIONS. F INTS.
+C
+      CALL RDINTS(65,II,NTIN,NLVO,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            FOFF,FADD,NVNV,NM  ,ITV,NV ,ITR,NOV)
+      I81=1
+      DO 2990 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 2990
+      ASYM=ORBSYM(A+NO)
+      DO 2980 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 2980
+      ISYM=ORBSYM(I)
+      AI=ITR(A)+I
+      IASYM=IEOR(ISYM,ASYM)+1
+      DIM=NT3(IASYM)
+      CALL WREADW(ITAP81,TAU,INTOWP(DIM),I81,JUNK)
+      DO 2970 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 2970
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 2960 B=1,NV
+      IF(FZV(B).EQ.1)GO TO 2960
+      BSYM=ORBSYM(B+NO)
+      ZLAB=ZLX(A,B)
+      BJ=ITR(B)+J
+      ABSYM=IEOR(ASYM,BSYM)
+C
+      DO 2953 C=1,B
+      IF(FZV(C).EQ.1)GO TO 2953
+      CSYM=ORBSYM(C+NO)
+      ZLAC=ZLX(A,C)
+      ZLBC=ZLX(B,C)
+      ACSYM=IEOR(ASYM,CSYM)
+      BCSYM=IEOR(BSYM,CSYM)
+      ABCSYM=IEOR(ABSYM,CSYM)
+      KSYM=IEOR(ABCSYM,IJSYM)
+      JKSYM=IEOR(JSYM,KSYM)
+      IKSYM=IEOR(ISYM,KSYM)
+      FK=FLOV(KSYM+1,1)
+      LK=FLOV(KSYM+1,2)
+      DO 2943 K=FK,LK
+      CK=ITR(C)+K
+      JKBC=TOFF(J,K,1,IASYM)+TADD(B,C,IASYM)
+C
+      ESYM=IEOR(JKSYM,CSYM)+1
+      FE=FLOV(ESYM,3)-NO
+      LE=FLOV(ESYM,4)-NO
+      DO 3032 E=FE,LE
+      ZLCE=ZLX(C,E)
+      KJCE=UOFF(K,J,ZLCE)+VADD(C,E)
+      BE=ITV(MAX0(B,E))+MIN0(B,E)
+      AIBE=FOFF(BE)+FADD(AI)
+      VAL=II(AIBE)*T2(KJCE)
+      TAU(JKBC)=TAU(JKBC)+VAL
+ 3032 CONTINUE
+C
+      IF(SORT.NE.'YES ')THEN
+      ESYM=IEOR(IKSYM,ASYM)+1
+      FE=FLOV(ESYM,3)-NO
+      LE=FLOV(ESYM,4)-NO
+      DO 3132 E=FE,LE
+      ZLAE=ZLX(A,E)
+      IKAE=UOFF(I,K,ZLAE)+VADD(A,E)
+      CE=ITV(MAX0(C,E))+MIN0(C,E)
+      BJCE=FOFF(CE)+FADD(BJ)
+      VAL=II(BJCE)*T2(IKAE)
+      TAU(JKBC)=TAU(JKBC)+VAL
+ 3132 CONTINUE
+C
+      ESYM=IEOR(IJSYM,BSYM)+1
+      FE=FLOV(ESYM,3)-NO
+      LE=FLOV(ESYM,4)-NO
+      DO 3232 E=FE,LE
+      ZLBE=ZLX(B,E)
+      JIBE=UOFF(J,I,ZLBE)+VADD(B,E)
+      AE=ITV(MAX0(A,E))+MIN0(A,E)
+      CKAE=FOFF(AE)+FADD(CK)
+      VAL=II(CKAE)*T2(JIBE)
+      TAU(JKBC)=TAU(JKBC)+VAL
+ 3232 CONTINUE
+      ENDIF
+ 2943 CONTINUE
+ 2953 CONTINUE
+C
+      DO 2955 C=B,NV
+      IF(FZV(C).EQ.1)GO TO 2955
+      CSYM=ORBSYM(C+NO)
+      ZLAC=ZLX(A,C)
+      ZLBC=ZLX(B,C)
+      ZLCB=ZLX(C,B)
+      ACSYM=IEOR(ASYM,CSYM)
+      BCSYM=IEOR(BSYM,CSYM)
+      ABCSYM=IEOR(ABSYM,CSYM)
+      KSYM=IEOR(ABCSYM,IJSYM)
+      JKSYM=IEOR(JSYM,KSYM)
+      IKSYM=IEOR(ISYM,KSYM)
+      FK=FLOV(KSYM+1,1)
+      LK=FLOV(KSYM+1,2)
+      DO 2945 K=FK,LK
+      CK=ITR(C)+K
+      KJCB=TOFF(K,J,1,IASYM)+TADD(C,B,IASYM)
+C
+      ESYM=IEOR(JKSYM,CSYM)+1
+      FE=FLOV(ESYM,3)-NO
+      LE=FLOV(ESYM,4)-NO
+      DO 3035 E=FE,LE
+      ZLCE=ZLX(C,E)
+      KJCE=UOFF(K,J,ZLCE)+VADD(C,E)
+      BE=ITV(MAX0(B,E))+MIN0(B,E)
+      AIBE=FOFF(BE)+FADD(AI)
+      VAL=II(AIBE)*T2(KJCE)
+      TAU(KJCB)=TAU(KJCB)+VAL
+ 3035 CONTINUE
+C
+      IF(SORT.NE.'YES ')THEN
+      ESYM=IEOR(IKSYM,ASYM)+1
+      FE=FLOV(ESYM,3)-NO
+      LE=FLOV(ESYM,4)-NO
+      DO 3135 E=FE,LE
+      ZLAE=ZLX(A,E)
+      IKAE=UOFF(I,K,ZLAE)+VADD(A,E)
+      CE=ITV(MAX0(C,E))+MIN0(C,E)
+      BJCE=FOFF(CE)+FADD(BJ)
+      VAL=II(BJCE)*T2(IKAE)
+      TAU(KJCB)=TAU(KJCB)+VAL
+ 3135 CONTINUE
+C
+      ESYM=IEOR(IJSYM,BSYM)+1
+      FE=FLOV(ESYM,3)-NO
+      LE=FLOV(ESYM,4)-NO
+      DO 3235 E=FE,LE
+      ZLBE=ZLX(B,E)
+      JIBE=UOFF(J,I,ZLBE)+VADD(B,E)
+      AE=ITV(MAX0(A,E))+MIN0(A,E)
+      CKAE=FOFF(AE)+FADD(CK)
+      VAL=II(CKAE)*T2(JIBE)
+      TAU(KJCB)=TAU(KJCB)+VAL
+ 3235 CONTINUE
+      ENDIF
+C
+ 2945 CONTINUE
+ 2955 CONTINUE
+ 2960 CONTINUE
+ 2970 CONTINUE
+      CALL WWRITW(ITAP81,TAU,INTOWP(DIM),I81,I81)
+ 2980 CONTINUE
+ 2990 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END F TERMS T3 EQUATION'
+      CALL TIMIT(1,6)
+      END IF
+C
+C     DIVIDE BY MO ENERGIES
+C
+      I81=1
+      DO 3590 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 3590
+      ASYM=ORBSYM(A+NO)
+      DO 3580 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 3580
+      ISYM=ORBSYM(I)
+      IASYM=IEOR(ISYM,ASYM)+1
+      DIM=NT3(IASYM)
+      CALL WREADW(ITAP81,TAU,INTOWP(DIM),I81,JUNK)
+      DO 3570 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 3570
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 3560 B=1,NV
+      IF(FZV(B).EQ.1)GO TO 3560
+      BSYM=ORBSYM(B+NO)
+      ABSYM=IEOR(ASYM,BSYM)
+      DO 3550 K=1,NO
+      IF(FZO(K).EQ.1)GO TO 3550
+      KSYM=ORBSYM(K)
+      IJKSYM=IEOR(IJSYM,KSYM)
+      CSYM=IEOR(IJKSYM,ABSYM)+1
+      FC=FLOV(CSYM,3)-NO
+      LC=FLOV(CSYM,4)-NO
+      LC2=LC
+      IF(LC.GT.B)LC2=B
+      DO 3541 C=FC,LC2
+      IF(FZV(C).EQ.1)GO TO 3541
+      ZLBC=ZLX(B,C)
+      JKBC=TOFF(J,K,ZLBC,IASYM)+TADD(B,C,IASYM)
+      VAL=EEE(I)+EEE(J)+EEE(K)-EEE(A+NO)-EEE(B+NO)-EEE(C+NO)
+      TAU(JKBC)=TAU(JKBC)/VAL
+ 6755 FORMAT(5(I4,1X),2(D12.6,2X))
+ 3541 CONTINUE
+ 3550 CONTINUE
+ 3560 CONTINUE
+ 3570 CONTINUE
+      CALL WWRITW(ITAP81,TAU,INTOWP(DIM),I81,I81)
+ 3580 CONTINUE
+ 3590 CONTINUE
+      IF(NIT.EQ.3)THEN
+      WRITE(6,*)'END MO DIV. T3 EQUATION'
+      CALL TIMIT(1,6)
+      END IF
+C
+      IF(SORT.EQ.'YES ')
+     .CALL SORTT(TAU,T2,NTAU,ORBSYM,NO,NV,FLOV,NIRRED,NT3,TOFF,TADD,
+     .           ITAP81,ITAP97,ZLX)
+      CALL RCLOSE(ITAP81,3)
+C
+C     IF(NIT.EQ.3)THEN
+C     WRITE(6,*)'END CCSDT T3 EQUATION'
+C     CALL TIMIT(1,6)
+C     END IF
+C         ******************
+C         ENDING CCSDT STUFF
+C         ******************
+          ENDIF
+ 1490 CONTINUE
+C
+      GO TO 50
+      END
+C
+C
+      SUBROUTINE DIISC (T1O,T1N,T2,S,NO,NV,NDIMT2,NIT,IT,IECORR,
+     .                  EPSI,NGO,NDIIS,MINDIM,MAXDIM,
+     .                  CC,BB,TT1,DT1,TT2,DT2)
+      IMPLICIT INTEGER (A-Z)
+clj      REAL * 16 DET
+      REAL * 8 DET
+      REAL * 8 BB,TT1,TT2,EPS,CC,ONE,XM,XMAX,XEN,DT1,DT2,XON,XLAM
+      REAL * 8 T1N,T1O,S,T2,ZERO,XFAC,XADD
+      DIMENSION CC(MAXDIM),BB(MAXDIM+1,MAXDIM+2),
+     .          TT1(MAXDIM,NO,NV),DT1(MAXDIM,NO,NV),
+     .          TT2(MAXDIM,NDIMT2),DT2(MAXDIM,NDIMT2)
+      DIMENSION T1O(NO,NV),T1N(NO,NV),T2(NDIMT2),S(NDIMT2)
+C
+      ZERO=0.0D0
+      ONE=1.D0
+      EPS=10.D0 **(-EPSI)
+      IECORR=0
+C
+C     DIIS EXTRAPOLATION
+C
+C     IF(NIT.LT.NDIIS) GO TO 2400
+C     IF(IFLAG.EQ.1) THEN
+      IFLAG=0
+      NCOUNT=0
+C     GO TO 2400
+C     END IF
+      NCOUNT=NCOUNT+1
+      IT=IT+1
+      IF(IT.LE.MAXDIM) GO TO 2040
+      DO 2030 N=1,MAXDIM-1
+      DO 2010 I=1,NO
+      DO 2010 A=1,NV
+      DT1(N,I,A)=DT1(N+1,I,A)
+ 2010 TT1(N,I,A)=TT1(N+1,I,A)
+      DO 2020 UVBG=1,NDIMT2
+      DT2(N,UVBG)=DT2(N+1,UVBG)
+ 2020 TT2(N,UVBG)=TT2(N+1,UVBG)
+ 2030 CONTINUE
+      IT=MAXDIM
+ 2040 CONTINUE
+      DO 2050 I=1,NO
+      DO 2050 A=1,NV
+      DT1(IT,I,A)=T1N(I,A)-T1O(I,A)
+ 2050 TT1(IT,I,A)=T1N(I,A)
+C2050 TT1(IT,I,A)=T1O(I,A)
+      DO 2060 UVBG=1,NDIMT2
+      DT2(IT,UVBG)=S(UVBG)-T2(UVBG)
+ 2060 TT2(IT,UVBG)= S(UVBG)
+C2060 TT2(IT,UVBG)=T2(UVBG)
+C     IF(IT.LT.MINDIM) GO TO 2400
+      DO 2090 N=1,IT
+      DO 2090 M=1,N
+      BB(N,M)=ZERO
+      DO 2070 I=1,NO
+      DO 2070 A=1,NV
+ 2070 BB(N,M)=BB(N,M)+DT1(N,I,A)*DT1(M,I,A)
+      DO 2080 UVBG=1,NDIMT2
+ 2080 BB(N,M)=BB(N,M)+DT2(N,UVBG)*DT2(M,UVBG)
+      BB(M,N)=BB(N,M)
+ 2090 CONTINUE
+C     FIND THE MAXIMUM AND SCALE
+      XM=DABS(BB(1,1))
+      DO 2094 N=1,IT
+      DO 2094 M=1,N
+      XFAC=DABS(BB(N,M))
+      XMAX=DMAX1(XM,XFAC)
+      XM=XMAX
+ 2094 CONTINUE
+      DO 2095 N=1,IT
+      DO 2095 M=1,IT
+ 2095 BB(N,M)=BB(N,M)/XM
+      IT1=IT+1
+      IT2=IT+2
+      DO 2100 N=1,IT
+      BB(N,IT1)=-ONE
+ 2100 BB(IT1,N)=-ONE
+      BB(IT1,IT1)= ZERO
+      DO 2110 N=1,IT
+ 2110 BB(N,IT2)= ZERO
+      BB(IT1,IT2)=-ONE
+      CALL FLINQ(BB,9,IT1,1,DET)
+C     WRITE(6,*)'DET=',DET
+C     WRITE(4,*)'DET=',DET
+      XADD=ZERO
+      DO 2120 N=1,IT
+      CC(N)= BB(N,IT2)
+      XADD=XADD+CC(N)
+C     WRITE(6,*)'N=',N,'CC(N)=',CC(N)
+ 2120 CONTINUE
+      XEN=BB(IT1,IT2)*XM
+      XEN=DSQRT(XEN)
+      XON=ZERO
+C     WRITE(6,*)'CSUM=',XADD
+C     WRITE(4,*)'CSUM=',XADD
+      DO 2124 I=1,NO
+      DO 2124 A=1,NV
+      XON = XON + DT1(IT,I,A)*DT1(IT,I,A)
+ 2124 CONTINUE
+      DO 2125 UVBG=1,NDIMT2
+      XON = XON + DT2(IT,UVBG)*DT2(IT,UVBG)
+ 2125 CONTINUE
+      XON=DSQRT(XON)
+C     WRITE(6,*)'XEN =',XEN
+      WRITE(4,*)'XEN =',XEN
+C     WRITE(6,*)'XON =',XON
+      WRITE(4,*)'XON =',XON
+C     IF(DABS(XEN).GT.EPS) GO TO 2400
+C     IF(NCOUNT.LE.NGO) GO TO 2400
+      DO 2140 I=1,NO
+      DO 2140 A=1,NV
+ 2140 T1N(I,A)= ZERO
+      DO 2160 UVBG=1,NDIMT2
+ 2160 S(UVBG)= ZERO
+      DO 2200 N=1,IT
+      DO 2170 I=1,NO
+      DO 2170 A=1,NV
+ 2170 T1N(I,A)= T1N(I,A)+CC(N)*TT1(N,I,A)
+      DO 2180 UVBG=1,NDIMT2
+ 2180 S(UVBG)= S(UVBG)+CC(N)*TT2(N,UVBG)
+ 2200 CONTINUE
+      IFLAG=1
+      IECORR=1
+ 2400 CONTINUE
+      END
+C
+C
+      SUBROUTINE DIISD (T1O,T1N,T2,S,NO,NV,NDIMT2,NIT,IT,IECORR,
+     .                  EPSI,NGO,NDIIS,MINDIM,MAXDIM,
+     .                  CC,BB,ITAP98,ITAP99,ITC,BB2)
+      IMPLICIT INTEGER (A-Z)
+clj      REAL * 16 DET
+      REAL * 8 DET
+      REAL*8 BB,EPS,CC,ONE,XM,XMAX,XEN,XON,XLAM,BB2
+      REAL*8 T1N,T1O,S,T2,A0,XFAC,XADD
+      DIMENSION CC(MAXDIM),BB(MAXDIM+1,MAXDIM+2),BB2(MAXDIM+1,MAXDIM+2)
+      DIMENSION T1O(NO,NV),T1N(NO,NV),T2(NDIMT2),S(NDIMT2)
+C
+      A0 = 0.0D0
+      ONE=1.D0
+      EPS=10.D0 **(-EPSI)
+      IECORR=0
+C
+C     DIIS EXTRAPOLATION
+C
+      IFLAG=0
+      NCOUNT=0
+      NCOUNT=NCOUNT+1
+      IT=IT+1
+      IF(IT.GT.MAXDIM) IT = MAXDIM
+      ITC = ITC + 1
+      IF(ITC.GT.MAXDIM) ITC = 1
+C
+      DO 2050 I=1,NO
+      DO 2051 A=1,NV
+      T1O(I,A) = T1N(I,A) - T1O(I,A)
+ 2051 CONTINUE
+ 2050 CONTINUE
+C
+      PT1 = (ITC-1)*INTOWP(NO*NV + NDIMT2) + 1
+      PT2 = PT1 + INTOWP(NO*NV)
+      CALL WWRITW(ITAP99,T1O,INTOWP(NO*NV),PT1,JUNK)
+      CALL WWRITW(ITAP98,T1N,INTOWP(NO*NV),PT1,JUNK)
+C
+      DO 2060 UVBG=1,NDIMT2
+      T2(UVBG) = S(UVBG) - T2(UVBG)
+ 2060 CONTINUE
+C
+      CALL WWRITW(ITAP99,T2,INTOWP(NDIMT2),PT2,JUNK)
+      CALL WWRITW(ITAP98,S,INTOWP(NDIMT2),PT2,JUNK)
+C
+      DO 2090 N=1,IT
+C
+      PT1 = (N-1)*INTOWP(NO*NV + NDIMT2) + 1
+      PT2 = PT1 + INTOWP(NO*NV)
+      CALL WREADW(ITAP99,T1N,INTOWP(NO*NV),PT1,JUNK)
+      CALL WREADW(ITAP99,S,INTOWP(NDIMT2),PT2,JUNK)
+C
+      BB2(N,ITC) = A0
+C
+      DO 2070 I=1,NO
+      DO 2071 A=1,NV
+      BB2(N,ITC) = BB2(N,ITC) + T1N(I,A)*T1O(I,A)
+ 2071 CONTINUE
+ 2070 CONTINUE
+C
+      DO 2080 UVBG=1,NDIMT2
+      BB2(N,ITC) = BB2(N,ITC) + S(UVBG)*T2(UVBG)
+ 2080 CONTINUE
+      BB2(ITC,N) = BB2(N,ITC)
+ 2090 CONTINUE
+C
+C  TRANSFER INTO THE BB ARRAY
+C
+      DO 10 N = 1,IT
+      DO 20 M = 1,N-1
+      BB(N,M) = BB2(N,M)
+      BB(M,N) = BB2(M,N)
+  20  CONTINUE
+      BB(N,N) = BB2(N,N)
+  10  CONTINUE
+C
+C     FIND THE MAXIMUM AND SCALE
+      XM=DABS(BB(1,1))
+      DO 2094 N=1,IT
+      DO 2094 M=1,N
+      XFAC=DABS(BB(N,M))
+      XMAX=DMAX1(XM,XFAC)
+      XM=XMAX
+ 2094 CONTINUE
+      DO 2095 N=1,IT
+      DO 2095 M=1,IT
+ 2095 BB(N,M)=BB(N,M)/XM
+      IT1=IT+1
+      IT2=IT+2
+      DO 2100 N=1,IT
+      BB(N,IT1)=-ONE
+ 2100 BB(IT1,N)=-ONE
+      BB(IT1,IT1)= A0
+      DO 2110 N=1,IT
+ 2110 BB(N,IT2)= A0
+      BB(IT1,IT2)=-ONE
+      CALL FLINQ(BB,9,IT1,1,DET)
+C     WRITE(6,*)'DET=',DET
+C     WRITE(4,*)'DET=',DET
+      XADD=A0
+      DO 2120 N=1,IT
+      CC(N)= BB(N,IT2)
+      XADD=XADD+CC(N)
+C     WRITE(6,*)'N=',N,'CC(N)=',CC(N)
+ 2120 CONTINUE
+      XEN=BB(IT1,IT2)*XM
+      XEN=DSQRT(XEN)
+      XON=A0
+C     WRITE(6,*)'CSUM=',XADD
+C     WRITE(4,*)'CSUM=',XADD
+COUT  WRITE(6,*)'  XEN = ',XEN,'  XON = ',XON
+C
+      CALL ZERO(T1N,NO*NV)
+      CALL ZERO(S,NDIMT2)
+C
+      DO 2200 N=1,IT
+C
+      PT1 = (N-1)*INTOWP(NO*NV + NDIMT2) + 1
+      PT2 = PT1 + INTOWP(NO*NV)
+      CALL WREADW(ITAP98,T1O,INTOWP(NO*NV),PT1,JUNK)
+      CALL WREADW(ITAP98,T2,INTOWP(NDIMT2),PT2,JUNK)
+C
+      DO 2170 I=1,NO
+      DO 2171 A=1,NV
+      T1N(I,A) = T1N(I,A) + CC(N)*T1O(I,A)
+ 2171 CONTINUE
+ 2170 CONTINUE
+C
+      DO 2180 UVBG=1,NDIMT2
+      S(UVBG) = S(UVBG) + CC(N)*T2(UVBG)
+ 2180 CONTINUE
+C
+ 2200 CONTINUE
+      IFLAG=1
+      IECORR=1
+ 2400 CONTINUE
+      RETURN
+      END
+C
+C
+      SUBROUTINE ECORR(TAU,T2,T1N,II,XE,UOFF,VADD,IPQ,ORBSYM,FLOV,ITR,
+     .                 NIT,NO,NV,NT,NT2,NTIN,NDIMT2,NIRRED,FZO,FZV,
+     .                 DOFF,DADD,NM,FOCK,XEO,OPTION)
+      IMPLICIT INTEGER (A-Z)
+      REAL * 8 XE,XEO,TAU,II,T2,T1N
+      REAL * 8 FOCK(NT2)
+      CHARACTER*4 OPTION
+      DIMENSION ORBSYM(NT),FLOV(NIRRED,4),IPQ(NT2),UOFF(NO,NO,2),
+     .          VADD(NV,NV),II(NTIN),TAU(NDIMT2),T2(NDIMT2),
+     .          T1N(NO,NV),FZO(NO),FZV(NV),ITR(NV),DOFF(NM),DADD(NM)
+C
+C     CONSTRUCT TAU
+C
+      CALL FRTAU(TAU,T2,T1N,UOFF,VADD,ORBSYM,FLOV,NO,NV,
+     .           NDIMT2,NIRRED,FZO,FZV,OPTION)
+C
+C     CALCULATE THE CORRELATION ENERGY
+C
+      XEO=XE
+      XE=AZERO
+      DO 81 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 81
+      ISYM=ORBSYM(I)
+      DO 80 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 80
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 78 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 78
+      ASYM=ORBSYM(A+NO)
+      BSYM=IEOR(IJSYM,ASYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      IF(LB.GT.A-1)LB=A-1
+      IA=ITR(A)+I
+      DO 76 B=FB,LB
+      JB=ITR(B)+J
+      IAJB=DOFF(MAX0(IA,JB))+DADD(MIN0(IA,JB))
+      IJAB=UOFF(I,J,1)+VADD(A,B)
+      JIAB=UOFF(J,I,1)+VADD(A,B)
+      XE=XE+II(IAJB)*(TAU(IJAB)+TAU(IJAB)-TAU(JIAB))
+   76 CONTINUE
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      IF(FB.LT.A)FB=A
+      DO 77 B=FB,LB
+      JB=ITR(B)+J
+      IAJB=DOFF(MAX0(IA,JB))+DADD(MIN0(IA,JB))
+      IJAB=UOFF(J,I,1)+VADD(B,A)
+      JIAB=UOFF(I,J,1)+VADD(B,A)
+      XE=XE+II(IAJB)*(TAU(IJAB)+TAU(IJAB)-TAU(JIAB))
+   77 CONTINUE
+   78 CONTINUE
+   80 CONTINUE
+   81 CONTINUE
+C
+C     ADD FOCK MATRIX DEPENDENT TERMS
+C
+      DO 95 I=1,NO
+      DO 95 A=1,NV
+      IA=IPQ(A+NO)+I
+   95 XE=XE+2.D0*FOCK(IA)*T1N(I,A)
+C
+COUT  WRITE(6,9000)
+C     WRITE(6,9010) NIT,XE,XE
+C     WRITE(4,9010) NIT,XE,XE
+C9000 FORMAT(///)
+C9010 FORMAT('NIT =',I3,5X,'CORREL.ENERGY =',F16.12,3X,D23.16)
+      END
+C
+C
+      SUBROUTINE FOCKI (D,IOUT,XVEC,WVEC,XARR,NT,Z,FLAG,FOCK,EREF,ENUC,
+     .                 II,NTIN,BUF,IBUF,INTBUF,
+     .            NGOO,NGOV,NHOV,NLOV,IPQ,ITR,ITV,ITRO,ITRV,FZO,FZV,
+     .            AOFF,AADD,COFF,CADD,DOFF,DADD,EOFF,EADD,
+     .            NT2,NO,NV,NM,IMX,NONO,NVNV,NOV)
+      IMPLICIT INTEGER (A-Z)
+      REAL * 8 D(NT,NT),XVEC(NT,NT),WVEC(NT*NT),ACRCY
+      REAL * 8 EREF,ENUC,FOCK(NT2)
+      REAL * 8 Z(NO*NV),XARR(NT)
+      REAL * 8 DUM,DAM,VAL,BUF
+      REAL * 8  II(NTIN)
+      DIMENSION AOFF(NONO),AADD(NONO),
+     .          COFF(NVNV),CADD(NONO),DOFF(NM)  ,DADD(NM),
+     .          EOFF(NM)  ,EADD(NONO)
+      DIMENSION IPQ(NT2),ITR(NOV),ITRO(IMX),ITRV(NM),
+     .          ITV(NV)
+      DIMENSION FZO(NO),FZV(NV)
+      DIMENSION BUF(INTBUF),IBUF(INTBUF*2)
+      DIMENSION IOUT(NT)
+      CHARACTER*4 IREWR
+      ITAP67=67
+      ACRCY=1.D-15
+C
+C     GET VECTOR FROM FILE30
+C
+      IREWR='READ'
+      CALL VECS(D,IOUT,ACRCY,XVEC,WVEC,IREWR,NT,NT)
+      WRITE(*,*)'EIGENVECTOR TO CONSTRUCT GENERALIZED FOCK MATRIX'
+      CALL MATOUT(D,NT,NT,NT,NT,6)
+C
+C     GET S AND H FROM FILE67
+C
+      CALL RFILE(ITAP67)
+      CALL SREAD (ITAP67,WVEC,INTOWP(NT2))
+C     WRITE(*,*)'AO OVERLAP MATRIX'
+C     CALL PRINT(WVEC,NT2,NT,6)
+      CALL SREAD (ITAP67,WVEC,INTOWP(NT2))
+      CALL RCLOSE(ITAP67,3)
+C     WRITE(*,*)'AO ONE E H MATRIX'
+C     CALL PRINT(WVEC,NT2,NT,6)
+      CALL ZERO (FOCK,NT2)
+      DO 148  I=1,NT
+      DO 146  J=1,I
+      DO 140 MU=1,NT
+      DO 140 NU=1,NT
+      MA=MAX0(MU,NU)
+      MI=MIN0(MU,NU)
+      MUNU=(MA*(MA-1))/2+MI
+      IJ=IPQ(I)+J
+      FOCK(IJ)=FOCK(IJ)+D(MU,I)*D(NU,J)*WVEC(MUNU)
+  140 CONTINUE
+  146 CONTINUE
+  148 CONTINUE
+C     WRITE(*,*)'ONE E HAMILTONIAN MO BASIS'
+C     CALL PRINT(FOCK,NT2,NT,6)
+      EREF=0.0D0
+      DO 200 I=1,NO
+      FII=IPQ(I)+I
+      EREF=EREF+FOCK(FII)
+  200 CONTINUE
+C
+      CALL RDINTS(60,II,NTIN,NGOO,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            AOFF,AADD,NONO,NONO,ITR,NOV,ITR,NOV)
+C     WRITE(*,645)(II(I),I=1,NGOO)
+  645 FORMAT(7(2X,F8.4))
+      DO 248  I=1,NO
+      DO 246  M=1,I
+      IM=ITR(MAX0(I,M))+MIN0(I,M)
+      FIM=IPQ(I)+M
+      DO 240  J=1,NO
+      IJ=ITR(MAX0(I,J))+MIN0(I,J)
+      MJ=ITR(MAX0(M,J))+MIN0(M,J)
+      JJ=ITR(J)+J
+      IMJJ=AOFF(MAX0(IM,JJ))+AADD(MIN0(IM,JJ))
+      IJMJ=AOFF(MAX0(IJ,MJ))+AADD(MIN0(IJ,MJ))
+      FOCK(FIM)=FOCK(FIM)+2.D0*II(IMJJ)-II(IJMJ)
+  240 CONTINUE
+  246 CONTINUE
+  248 CONTINUE
+C
+      CALL RDINTS(64,II,NTIN,NLOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            EOFF,EADD,NM  ,NONO,ITR,NOV,ITR,NOV)
+C     DO 348  I=1,NO
+C     DO 346  M=1,NV
+C     IM=ITR(M)+I
+C     FIM=IP
+C     DO 340  J=1,NO
+C     IJ=ITR(MAX0(I,J))+MIN0(I,J)
+C     MJ=ITR(M)+J
+C     JJ=ITR(J)+J
+C     IMJJ=EOFF(IM)+EADD(JJ)
+C     IJMJ=EOFF(MJ)+EADD(IJ)
+C     FOCK(I,M+NO)=FOCK(I,M+NO)+2.D0*II(IMJJ)-II(IJMJ)
+C 340 CONTINUE
+C 346 CONTINUE
+C 348 CONTINUE
+      DO 448  I=1,NV
+      DO 446  M=1,NO
+      IM=ITR(I)+M
+      FIM=IPQ(I+NO)+M
+      DO 440  J=1,NO
+      IJ=ITR(I)+J
+      MJ=ITR(MAX0(M,J))+MIN0(M,J)
+      JJ=ITR(J)+J
+      IMJJ=EOFF(IM)+EADD(JJ)
+      IJMJ=EOFF(IJ)+EADD(MJ)
+      FOCK(FIM)=FOCK(FIM)+2.D0*II(IMJJ)-II(IJMJ)
+  440 CONTINUE
+  446 CONTINUE
+  448 CONTINUE
+C
+      CALL RDINTS(62,II,NTIN,NGOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            COFF,CADD,NVNV,NONO,ITV,NV,ITR,NOV)
+C     WRITE(*,*)'NGOV',NGOV
+C     CALL MATOUT(FOCK,NT,NT,NT,NT,6)
+C     WRITE(*,645)(II(I),I=1,NGOV)
+      DO 548  I=1,NV
+      DO 546  M=1,I
+      FIM=IPQ(I+NO)+M+NO
+      IM=ITV(MAX0(I,M))+MIN0(I,M)
+      DO 540  J=1,NO
+      JJ=ITR(J)+J
+      IMJJ=COFF(IM)+CADD(JJ)
+      FOCK(FIM)=FOCK(FIM)+2.D0*II(IMJJ)
+  540 CONTINUE
+  546 CONTINUE
+  548 CONTINUE
+C
+      CALL RDINTS(63,II,NTIN,NHOV,6,BUF,IBUF,INTBUF,
+     .            IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .            DOFF,DADD,NM  ,NM  ,ITR,NOV,ITR,NOV)
+C     WRITE(*,*)'NHOV',NHOV
+C     CALL MATOUT(FOCK,NT,NT,NT,NT,6)
+C     WRITE(*,645)(II(I),I=1,NHOV)
+      DO 648  I=1,NV
+      DO 646  M=1,I
+      FIM=IPQ(I+NO)+M+NO
+      DO 640  J=1,NO
+      IJ=ITR(I)+J
+      MJ=ITR(M)+J
+      IJMJ=DOFF(MAX0(IJ,MJ))+MIN0(IJ,MJ)
+      FOCK(FIM)=FOCK(FIM)-II(IJMJ)
+  640 CONTINUE
+  646 CONTINUE
+  648 CONTINUE
+C
+      WRITE(*,*)'FOCK MATRIX IN MO BASIS'
+      CALL PRINT(FOCK,NT2,NT,6)
+C
+      DO 700 I=1,NO
+      FII=IPQ(I)+I
+      EREF=EREF+FOCK(FII)
+  700 CONTINUE
+      EREF=EREF+ENUC
+      WRITE(*,*)'NEW EREF', EREF
+      RETURN
+      END
+C
+C
+      SUBROUTINE FROZEN (FLOV,NOSYM,NVSYM,NFZO,NFZV,NDOC,NUOC,FZO,FZV,
+     .                   ITEP,NIRRED,NO,NV,IW)
+      IMPLICIT INTEGER(A-Z)
+      DIMENSION FLOV(NIRRED,4),NOSYM(NIRRED),NVSYM(NIRRED),NFZO(NIRRED),
+     .          NFZV(NIRRED),NDOC(NIRRED),NUOC(NIRRED),FZO(NO),FZV(NV),
+     .          ITEP(NIRRED)
+      DO 625 I=1,NIRRED
+      NOSYM(I)=FLOV(I,2)-FLOV(I,1)+1
+      IF(FLOV(I,2).LT.FLOV(I,1))NOSYM(I)=0
+      NVSYM(I)=FLOV(I,4)-FLOV(I,3)+1
+      IF(FLOV(I,4).LT.FLOV(I,3))NVSYM(I)=0
+  625 CONTINUE
+      WRITE(IW,6000)
+ 6000 FORMAT(2X,//,'******* CORES & VIRTUALS *******',/)
+      DO 627 I=1,NIRRED
+      NDOC(I)=NOSYM(I)-NFZO(I)
+      NUOC(I)=NVSYM(I)-NFZV(I)
+  627 WRITE(IW,6052)ITEP(I),NFZO(I),NDOC(I),NUOC(I),NFZV(I)
+ 6052 FORMAT(2X,A4,3X,I3,'COR',I3,'DOC',I3,'UOC',I3,'VIR')
+      JO=0
+      DO 633 IS=1,NIRRED
+      DO 631 I=1,NFZO(IS)
+      JO=JO+1
+  631 FZO(JO)=1
+      DO 632 I=1,NDOC(IS)
+      JO=JO+1
+  632 FZO(JO)=0
+  633 CONTINUE
+      JV=0
+      DO 636 IS=1,NIRRED
+      DO 634 I=1,NUOC(IS)
+      JV=JV+1
+  634 FZV(JV)=0
+      DO 635 I=1,NFZV(IS)
+      JV=JV+1
+  635 FZV(JV)=1
+  636 CONTINUE
+C     DO 650 I=1,NO
+C 650 WRITE(*,*)'I=',I,'FZO(I)=',FZO(I)
+C     DO 660 I=1,NV
+C 660 WRITE(*,*)'I=',I,'FZV(I)=',FZV(I)
+      DO 670 I=1,NIRRED
+C     WRITE(*,*)I,FLOV(I,1),FLOV(I,2)
+      FLOV(I,1)=FLOV(I,1)+NFZO(I)
+C     WRITE(*,*)I,FLOV(I,1),FLOV(I,2)
+C     WRITE(*,*)I,FLOV(I,3),FLOV(I,4)
+      FLOV(I,4)=FLOV(I,4)-NFZV(I)
+C     WRITE(*,*)I,FLOV(I,3),FLOV(I,4)
+  670 CONTINUE
+      RETURN
+      END
+C
+C
+      SUBROUTINE FRTAU(TAU,T2,T1N,UOFF,VADD,ORBSYM,FLOV,NO,NV,
+     .                 NDIMT2,NIRRED,FZO,FZV,OPTION)
+      IMPLICIT INTEGER (A-Z)
+      REAL * 8 TAU,T2,T1N
+      DIMENSION ORBSYM(NO+NV),FLOV(NIRRED,4),UOFF(NO,NO,2),VADD(NV,NV),
+     .          TAU(NDIMT2),T2(NDIMT2),T1N(NO,NV),FZO(NO),FZV(NV)
+      CHARACTER*4 OPTION
+C
+C     CONSTRUCT TAU
+C
+C     WRITE(*,*)'OPTION',OPTION
+      DO 70 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 70
+      ISYM=ORBSYM(I)
+      DO 69 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 69
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 68 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 68
+      ASYM=ORBSYM(A+NO)
+      BSYM=IEOR(IJSYM,ASYM)+1
+      FB=FLOV(BSYM,3)-NO
+      LB=FLOV(BSYM,4)-NO
+      IF(LB.GT.A)LB=A
+      DO 66 B=FB,LB
+      IJAB=UOFF(I,J,1)+VADD(A,B)
+      IF(OPTION.EQ.'VAR2'.OR.OPTION.EQ.'LCSD')THEN
+      TAU(IJAB)=T2(IJAB)
+      ELSE
+      TAU(IJAB)=T2(IJAB)+T1N(I,A)*T1N(J,B)
+      ENDIF
+   66 CONTINUE
+   68 CONTINUE
+   69 CONTINUE
+   70 CONTINUE
+C
+      RETURN
+      END
+C
+C
+      SUBROUTINE NCOUNT(ORBSYM,FLOV,NIRRED,NO,NV,NT,FZO,FZV,NT1,NT2,
+     .                  NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO,NT3,NTAU,
+     .                  OPTION)
+      IMPLICIT INTEGER (A-Z)
+      DIMENSION FLOV(NIRRED,4),ORBSYM(NT),FZO(NO),FZV(NV),NT3(8),MT1(8)
+      CHARACTER*4 OPTION
+C
+C     COUNT THE NON-ZERO SYMMETRY AND ACTIVE T COEFFICIENTS AND
+C     2E MO INTS ONLY FOR ALLOCATION PURPOSES
+C
+      NT1=0
+      DO 100 USYM=1,NIRRED
+      FU=FLOV(USYM,1)
+      LU=FLOV(USYM,2)
+      DO 100  U=FU,LU
+      FBE=FLOV(USYM,3)-NO
+      LBE=FLOV(USYM,4)-NO
+      DO 100 BE=FBE,LBE
+      NT1=NT1+1
+  100 CONTINUE
+C
+      NT2=0
+      DO 230 TSYM=1,NIRRED
+      DO 230 USYM=1,NIRRED
+      DO 230 VSYM=1,NIRRED
+      UVSYM=IEOR(USYM-1,VSYM-1)+1
+      IF(UVSYM.NE.TSYM) GO TO 225
+      DO 220 U=FLOV(USYM,1),FLOV(USYM,2)
+      DO 220 V=FLOV(VSYM,1),FLOV(VSYM,2)
+      DO 218 BE=1,NV
+      IF(FZV(BE).EQ.1)GO TO 218
+      BESYM=ORBSYM(BE+NO)
+      DO 217 GA=1,BE
+      IF(FZV(GA).EQ.1)GO TO 217
+      GASYM=ORBSYM(GA+NO)
+      BEGSYM=IEOR(BESYM,GASYM)+1
+      IF(BEGSYM.NE.TSYM)GO TO 215
+      NT2=NT2+1
+  215 CONTINUE
+  217 CONTINUE
+  218 CONTINUE
+  220 CONTINUE
+  225 CONTINUE
+  230 CONTINUE
+C
+C     COUNT SYMMETRY NON-ZERO T3
+C
+C     WRITE(*,*)'FZO',FZO
+C     WRITE(*,*)'FZV',FZV
+      NTAU=NT2
+      IF(OPTION.EQ.'SDT1')THEN
+      WRITE(6,*)
+      DO 440 KCSYM=1,NIRRED
+      NPFF=0
+      DO 430 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 430
+      USYM=ORBSYM(U)
+      DO 420 V=1,NO
+      IF(FZO(V).EQ.1)GO TO 420
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 418 BE=1,NV
+      IF(FZV(BE).EQ.1)GO TO 418
+      BESYM=ORBSYM(BE+NO)
+      DO 417 GA=1,BE
+      IF(FZV(GA).EQ.1)GO TO 417
+      GASYM=ORBSYM(GA+NO)
+      BEGSYM=IEOR(BESYM,GASYM)
+      TSYM=IEOR(UVSYM,BEGSYM)
+      IF((KCSYM-1).NE.TSYM)GO TO 415
+      NPFF=NPFF+1
+C     WRITE(*,657)U,V,BE,GA,NPFF
+  657 FORMAT(' U=',I3,' V=',I3,' BE=',I3,' GA=',I3,'NPFF= ',I6)
+  415 CONTINUE
+  417 CONTINUE
+  418 CONTINUE
+  420 CONTINUE
+  430 CONTINUE
+      NT3(KCSYM)=NPFF
+  440 CONTINUE
+      WRITE(6,7)NT3(1)
+    7 FORMAT(1X,'NT3(1) =',I6)
+      IF(NT3(1).NE.NT2)WRITE(*,*)'WARNING ...   NT3(1).NE.NT2'
+      NTAU=NT3(1)
+      DO 455 I=2,NIRRED
+      IF(NT3(I).GT.NT3(1))THEN
+      WRITE(*,*)'WARNING !!!  SOME NT3.GT.NT2'
+      NTAU=NT3(I)
+      ENDIF
+      WRITE(6,8)I,NT3(I)
+    8 FORMAT(1X,'NT3(',I1,') =',I6)
+  455 CONTINUE
+C
+      DO 1008 I=1,NIRRED
+ 1008 MT1(I)=0
+      DO 1010 I=1,NO
+      ISYM=ORBSYM(I)
+      IF(FZO(I).EQ.1)GO TO 1010
+      DO 1009 A=1,NV
+      ASYM=ORBSYM(A+NO)
+      IF(FZV(A).EQ.1)GO TO 1009
+      IASYM=IEOR(ISYM,ASYM)+1
+      MT1(IASYM)=MT1(IASYM)+1
+ 1009 CONTINUE
+ 1010 CONTINUE
+C
+      MT3=0
+      DO 1020 I=1,NIRRED
+      MT3=MT3+NT3(I)*MT1(I)
+ 1020 CONTINUE
+      WRITE(*,*)'THE NUMBER OF T3 AMPLITUDES NEEDED IN DISK IS ',MT3
+C
+      XT3=0
+      DO 1031 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 1031
+      ISYM=ORBSYM(I)
+      DO 1032 J=1,I
+      IF(FZO(J).EQ.1)GO TO 1032
+      JSYM=ORBSYM(J)
+      IJS=IEOR(ISYM,JSYM)
+      DO 1033 K=1,J
+      IF(FZO(K).EQ.1)GO TO 1033
+      KSYM=ORBSYM(K)
+      IJKS=IEOR(IJS,KSYM)
+      DO 1034 A=1,NV
+      IF(FZV(A).EQ.1)GO TO 1034
+      ASYM=ORBSYM(A+NO)
+      IJKAS=IEOR(IJKS,ASYM)
+      DO 1035 B=1,A
+      IF(FZV(B).EQ.1)GO TO 1035
+      BSYM=ORBSYM(B+NO)
+      IJKABS=IEOR(IJKAS,BSYM)
+      DO 1036 C=1,B
+      IF(FZV(C).EQ.1)GO TO 1036
+      CSYM=ORBSYM(C+NO)
+      TSYM=IEOR(IJKABS,CSYM)+1
+      IF(TSYM.EQ.1)XT3=XT3+1
+ 1036 CONTINUE
+ 1035 CONTINUE
+ 1034 CONTINUE
+ 1033 CONTINUE
+ 1032 CONTINUE
+ 1031 CONTINUE
+      WRITE(*,*)'THE NUMBER OF TRIPLE EXCITATIONS IS ONLY      ',XT3
+      ENDIF
+C
+      NSGOO=0
+      DO 390 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 390
+      ISYM=ORBSYM(I)
+      DO 380 J=1,I
+      IF(FZO(J).EQ.1)GO TO 380
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 370 K=1,I
+      IF(FZO(K).EQ.1)GO TO 370
+      KSYM=ORBSYM(K)
+      LL=K
+      IF(K.EQ.I)LL=J
+      DO 360 L=1,LL
+      IF(FZO(L).EQ.1)GO TO 360
+      LSYM=ORBSYM(L)
+      KLSYM=IEOR(KSYM,LSYM)
+      IF(IJSYM.NE.KLSYM) GO TO 350
+      NSGOO=NSGOO+1
+  350 CONTINUE
+  360 CONTINUE
+  370 CONTINUE
+  380 CONTINUE
+  390 CONTINUE
+C
+      NSGVV=0
+      DO 490 I=1,NV
+      IF(FZV(I).EQ.1)GO TO 490
+      ISYM=ORBSYM(I+NO)
+      DO 480 J=1,I
+      IF(FZV(J).EQ.1)GO TO 480
+      JSYM=ORBSYM(J+NO)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 470 K=1,I
+      IF(FZV(K).EQ.1)GO TO 470
+      KSYM=ORBSYM(K+NO)
+      LL=K
+      IF(K.EQ.I)LL=J
+      DO 460 L=1,LL
+      IF(FZV(L).EQ.1)GO TO 460
+      LSYM=ORBSYM(L+NO)
+      KLSYM=IEOR(KSYM,LSYM)
+      IF(IJSYM.NE.KLSYM) GO TO 450
+      NSGVV=NSGVV+1
+  450 CONTINUE
+  460 CONTINUE
+  470 CONTINUE
+  480 CONTINUE
+  490 CONTINUE
+C
+      NSGOV=0
+      DO 590 I=1,NO
+      IF(FZO(I).EQ.1)GO TO 590
+      ISYM=ORBSYM(I)
+      DO 580 J=1,I
+      IF(FZO(J).EQ.1)GO TO 580
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 570 K=1,NV
+      IF(FZV(K).EQ.1)GO TO 570
+      KSYM=ORBSYM(K+NO)
+      DO 560 L=1,K
+      IF(FZV(L).EQ.1)GO TO 560
+      LSYM=ORBSYM(L+NO)
+      KLSYM=IEOR(KSYM,LSYM)
+      IF(IJSYM.NE.KLSYM) GO TO 550
+      NSGOV=NSGOV+1
+  550 CONTINUE
+  560 CONTINUE
+  570 CONTINUE
+  580 CONTINUE
+  590 CONTINUE
+C
+      NSHOV=0
+      DO 690 I=1,NV
+      IF(FZV(I).EQ.1)GO TO 690
+      ISYM=ORBSYM(I+NO)
+      DO 680 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 680
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 670 K=1,I
+      IF(FZV(K).EQ.1)GO TO 670
+      KSYM=ORBSYM(K+NO)
+      LL=NO
+      IF(K.EQ.I)LL=J
+      DO 660 L=1,LL
+      IF(FZO(L).EQ.1)GO TO 660
+      LSYM=ORBSYM(L)
+      KLSYM=IEOR(KSYM,LSYM)
+      IF(IJSYM.NE.KLSYM) GO TO 650
+      NSHOV=NSHOV+1
+  650 CONTINUE
+  660 CONTINUE
+  670 CONTINUE
+  680 CONTINUE
+  690 CONTINUE
+C
+      NSLOV=0
+      DO 790 I=1,NV
+      IF(FZV(I).EQ.1)GO TO 790
+      ISYM=ORBSYM(I+NO)
+      DO 780 J=1,NO
+      IF(FZO(J).EQ.1)GO TO 780
+      JSYM=ORBSYM(J)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 770 K=1,NO
+      IF(FZO(K).EQ.1)GO TO 770
+      KSYM=ORBSYM(K)
+      DO 760 L=1,K
+      IF(FZO(L).EQ.1)GO TO 760
+      LSYM=ORBSYM(L)
+      KLSYM=IEOR(KSYM,LSYM)
+      IF(IJSYM.NE.KLSYM) GO TO 750
+      NSLOV=NSLOV+1
+  750 CONTINUE
+  760 CONTINUE
+  770 CONTINUE
+  780 CONTINUE
+  790 CONTINUE
+C
+      NSLVO=0
+      DO 890 I=1,NV
+      IF(FZV(I).EQ.1)GO TO 890
+      ISYM=ORBSYM(I+NO)
+      DO 880 J=1,I
+      IF(FZV(J).EQ.1)GO TO 880
+      JSYM=ORBSYM(J+NO)
+      IJSYM=IEOR(ISYM,JSYM)
+      DO 870 K=1,NV
+      IF(FZV(K).EQ.1)GO TO 870
+      KSYM=ORBSYM(K+NO)
+      DO 860 L=1,NO
+      IF(FZO(L).EQ.1)GO TO 860
+      LSYM=ORBSYM(L)
+      KLSYM=IEOR(KSYM,LSYM)
+      IF(IJSYM.NE.KLSYM) GO TO 850
+      NSLVO=NSLVO+1
+  850 CONTINUE
+  860 CONTINUE
+  870 CONTINUE
+  880 CONTINUE
+  890 CONTINUE
+      END
+C
+C
+      SUBROUTINE RDINTS (IDISK,MOINTS,LENINT,IDIM,JOUT,BUF,IBUF,LENBUF,
+     .                   IPQ,NT2,ITR,NV,ITRO,IMX,ITRV,NM,NO,FZO,FZV,
+     .                   IOFF,IADD,NIOFF,NIADD,IPP,NPP,IQQ,NQQ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*8 MOINTS(LENINT),BUF(LENBUF)
+      COMMON/INTS/NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO
+      INTEGER FZO(NO),FZV(NV)
+      DIMENSION IBUF(2*LENBUF)
+      DIMENSION IPQ(NT2),ITR(NV),ITRO(IMX),ITRV(NM)
+      DIMENSION IOFF(NIOFF),IADD(NIADD),IPP(NPP),IQQ(NQQ)
+      CALL SREW(IDISK)
+      CALL ZERO(MOINTS,LENINT)
+   29 FORMAT (4I3,F20.12)
+      ITEMP=255
+      INTLEN=(INTOWP(LENBUF)-2)/INTOWP(1)
+      MAXVAL=INTOWP(INTLEN)/(1+INTOWP(1))
+      IBOFF=(MAXVAL+2)/INTOWP(1)
+C***  A INTS  **** (OO|OO) *****
+      IF (IDISK.NE.60) GOTO 110
+  111 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 12 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)
+         J=IAND(ITEMP,ISHFT(IJKL,-16))
+         IJ=IPP(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))
+         L=IAND(ITEMP,IJKL)
+         KL=IQQ(K)+L
+         IJKL=IOFF(IJ)+IADD(KL)
+         IF(IJKL.GT.NSGOO) GO TO 12
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJKL,MOINTS(IJKL)
+   12 CONTINUE
+      IF (IFLG.EQ.0) GOTO 111
+  110 CONTINUE
+C***  B INTS  **** (VV|VV) *****
+      IF (IDISK.NE.61) GOTO 120
+  112 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 22 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)-NO
+         J=IAND(ITEMP,ISHFT(IJKL,-16))-NO
+         IJ=IPP(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))-NO
+         L=IAND(ITEMP,IJKL)-NO
+         KL=IPP(K)+L
+         IJKL=IOFF(IJ)+IADD(KL)
+         IF(IJKL.GT.NSGVV)GO TO 22
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJ,KL,IJKL,MOINTS(IJKL)
+   22 CONTINUE
+      IF (IFLG.EQ.0) GOTO 112
+  120 CONTINUE
+C***  C INTS  **** (VV|OO) *****
+      IF (IDISK.NE.62) GOTO 130
+  113 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 32 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)-NO
+         J=IAND(ITEMP,ISHFT(IJKL,-16))-NO
+         IJ=IPP(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))
+         L=IAND(ITEMP,IJKL)
+         KL=IQQ(K)+L
+         IJKL=IOFF(IJ)+IADD(KL)
+         IF(IJKL.GT.NSGOV)GO TO 32
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJKL,MOINTS(IJKL)
+   32 CONTINUE
+      IF (IFLG.EQ.0) GOTO 113
+  130 CONTINUE
+C***  D INTS  **** (VO|VO) *****
+      IF (IDISK.NE.63) GOTO 140
+  114 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 42 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)-NO
+         J=IAND(ITEMP,ISHFT(IJKL,-16))
+         IJ=IPP(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))-NO
+         L=IAND(ITEMP,IJKL)
+         KL=IQQ(K)+L
+         IJKL=IOFF(IJ)+IADD(KL)
+         IF(IJKL.GT.NSHOV)GO TO 42
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJKL,MOINTS(IJKL)
+   42 CONTINUE
+      IF (IFLG.EQ.0) GOTO 114
+  140 CONTINUE
+C***  E INTS  **** (VO|OO) *****
+      IF (IDISK.NE.64) GOTO 150
+  115 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 52 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)-NO
+         J=IAND(ITEMP,ISHFT(IJKL,-16))
+         IJ=IPP(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))
+         L=IAND(ITEMP,IJKL)
+         KL=IQQ(K)+L
+         IJKL=IOFF(IJ)+IADD(KL)
+         IF(IJKL.GT.NSLOV)GO TO 52
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJKL,MOINTS(IJKL)
+   52 CONTINUE
+      IF (IFLG.EQ.0) GOTO 115
+  150 CONTINUE
+C
+      IF (IDISK.NE.65) GOTO 160
+      CALL SREW(IDISK+1)
+C***  F INTS  **** (VV|VO) *****
+  116 CALL SREAD(IDISK,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 62 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)-NO
+         J=IAND(ITEMP,ISHFT(IJKL,-16))-NO
+         IJ=IPP(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))-NO
+         L=IAND(ITEMP,IJKL)
+         KL=IQQ(K)+L
+         IJKL=IADD(KL)+IOFF(IJ)
+         IF(IJKL.GT.NSLVO)GO TO 62
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJKL,MOINTS(IJKL)
+   62 CONTINUE
+      IF (IFLG.EQ.0) GOTO 116
+C***  F INTS  **** (VO|VV) *****
+  117 CALL SREAD(IDISK+1,BUF,INTOWP(LENBUF))
+      CALL SETMBF(IFLG,IBUF(1))
+      CALL SETMBF(MBUF,IBUF(2))
+      DO 72 II=1,MBUF
+         CALL SETMBF(IJKL,IBUF(II+2))
+         I=ISHFT(IJKL,-24)-NO
+         J=IAND(ITEMP,ISHFT(IJKL,-16))
+         IJ=IQQ(I)+J
+         K=IAND(ITEMP,ISHFT(IJKL,-8))-NO
+         L=IAND(ITEMP,IJKL)-NO
+         KL=IPP(K)+L
+         IJKL=IADD(IJ)+IOFF(KL)
+         IF(IJKL.GT.NSLVO)GO TO 72
+         MOINTS(IJKL)=BUF(II+IBOFF)
+C     WRITE(*,*)I,J,K,L,IJKL,MOINTS(IJKL)
+   72 CONTINUE
+      IF (IFLG.EQ.0) GOTO 117
+  160 CONTINUE
+C     CALL MATOUT(MOINTS,IDIM,IDIM,IDIM,IDIM,JOUT)
+      RETURN
+      END
+C
+C
+      SUBROUTINE READ30(ITAP30,MPOINT,MCONST,MCALCS,NCALCS,NT,
+     .               NSYMHF,NAT,MXCOEF,EIGVAL,NLAMDA,ITEMP,JOUT,NC,NO,
+     .                  WTEMP,PTOCC,ITYP,ORBSYM,FLOV,NIRRED,ITEP,
+     .                  ENUC,ESCF,CHAR,NORD,ZAN,COORD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      CHARACTER*4 ITYP(NSYMHF),ICSYM,ITEP(NIRRED)
+      CHARACTER*4 CHAR,LABEL(20)
+      INTEGER NORD
+      REAL*8 EIGVAL(NT),WTEMP(NT),ZAN(NAT),COORD(3,NAT)
+      INTEGER NLAMDA(NSYMHF),ITEMP(MCALCS),NC(NSYMHF),PTOCC(NT),
+     .        ORBSYM(NT),FLOV(NIRRED,4),SYMORB
+C
+      JPOINT = 101 + MCONST + MPOINT
+      CALL WREADW (ITAP30,ITEMP,MCALCS,JPOINT,JPOINT)
+      LOCCAL = ITEMP(NCALCS)
+      JPOINT = LOCCAL + 60
+      CALL WREADW (ITAP30,LOCVEC,1,JPOINT,JPOINT)
+      LOCVEC=LOCVEC+INTOWP(MXCOEF)
+      CALL WREADW (ITAP30,EIGVAL,INTOWP(NT),LOCVEC,LOCVEC)
+      CALL WREADW (ITAP30,ITYP,NSYMHF,LOCVEC,LOCVEC)
+C     LOCVEC = LOCVEC + NSYMHF
+C     WRITE(*,*) ' LOCVEC,MXCOEF = ',LOCVEC,MXCOEF
+      CALL WREADW (ITAP30,NLAMDA,NSYMHF,LOCVEC,LOCVEC)
+      CALL WREADW (ITAP30,NC,NSYMHF,LOCVEC,LOCVEC)
+      NO=0
+      DO 555 I=1,NSYMHF
+         NO=NO+NC(I)
+C        WRITE (6,*) ' I,NC=',I,NC(I)
+  555 CONTINUE
+      ICNT=0
+      IOF = 0
+      DO 558 I=1,NSYMHF
+      IF(I.NE.1) IOF = IOF + NLAMDA(I-1)
+      NOI=NC(I)
+      DO 557 J=1,NOI
+      ICNT=ICNT+1
+      IPT=IOF+J
+C     WRITE(6,*)'IPT=',IPT,ICNT
+  557 PTOCC(IPT)=ICNT
+  558 CONTINUE
+C     WRITE(*,*) '  VIRTUALS'
+      IOF = 0
+      DO 658 I=1,NSYMHF
+      IF(I.NE.1) IOF = IOF + NLAMDA(I-1)
+      NVI=NLAMDA(I)-NC(I)
+      DO 657 J=1,NVI
+      ICNT=ICNT+1
+      IPT=IOF+NC(I) + J
+C     WRITE(6,*) IOF,NC(I),J
+C     WRITE(6,*)'IPT=',IPT,ICNT
+  657 PTOCC(IPT)=ICNT
+  658 CONTINUE
+      DO 559 I=1,NT
+      IPT=PTOCC(I)
+  559 WTEMP(IPT)=EIGVAL(I)
+      DO 569 I=1,NT
+      EIGVAL(I)=WTEMP(I)
+C     WRITE(6,*)'I=',I,'E(I)=',EIGVAL(I)
+  569 CONTINUE
+C
+      DO 805 ISYM = 1,NIRRED
+      FLOV(ISYM,1) = 0
+      FLOV(ISYM,2) = -1
+      FLOV(ISYM,3) = 0
+      FLOV(ISYM,4) = -1
+  805 CONTINUE
+C
+C     GET SYMMETRY LABEL FROM INPUT
+C
+      CALL LOCATE (5,'# INPUT ###',IERR)
+      IF(IERR.NE.0) THEN
+      WRITE (6,*)'NO INPUT WAS FOUND!'
+      STOP
+      ELSE
+      READ(5,6004)LABEL
+      READ(5,6004)LABEL
+ 6004 FORMAT(20A4)
+ 6005 FORMAT(A4,5X,I1)
+      READ(5,6005)CHAR,NORD
+      END IF
+C
+      ICNT=0
+      DO 705 ISYM=1,NSYMHF
+      ICSYM=ITYP(ISYM)
+      ICNTH=ICNT+1
+      NOI=NC(ISYM)
+      DO 700 I=1,NOI
+      ICNT=ICNT+1
+      IF(ICSYM.EQ.'A1  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'A2  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B1  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B2  ')ORBSYM(ICNT)=3
+      IF(ICSYM.EQ.'A   ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B   ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'A''  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'A"  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'AG  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B1G ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B2G ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B3G ')ORBSYM(ICNT)=3
+      IF(ICSYM.EQ.'AU  ')ORBSYM(ICNT)=4
+      IF(ICSYM.EQ.'B1U ')ORBSYM(ICNT)=5
+      IF(ICSYM.EQ.'B2U ')ORBSYM(ICNT)=6
+      IF(ICSYM.EQ.'B3U ')ORBSYM(ICNT)=7
+      IF(NIRRED.GT.4)GO TO 690
+      IF(ICSYM.EQ.'AG  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'BG  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'AU  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'BU  ')ORBSYM(ICNT)=3
+  690 CONTINUE
+      IF(CHAR.EQ.'DN  '.AND.NORD.EQ.2)THEN
+      IF(ICSYM.EQ.'A1  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B1  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B2  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B3  ')ORBSYM(ICNT)=3
+      ENDIF
+  700 CONTINUE
+      IF(ICNTH-1.NE.ICNT) THEN
+      SYMORB = ORBSYM(ICNT) + 1
+      FLOV(SYMORB,1)=ICNTH
+      FLOV(SYMORB,2)=ICNT
+      END IF
+C     WRITE(*,*)'ISYM',ISYM,'F1',FLOV(ISYM,1)
+C     WRITE(*,*)'ISYM',ISYM,'F2',FLOV(ISYM,2)
+  705 CONTINUE
+      DO 715 ISYM=1,NSYMHF
+      ICSYM=ITYP(ISYM)
+      ICNTH=ICNT+1
+      NVI=NLAMDA(ISYM)-NC(ISYM)
+      DO 710 I=1,NVI
+      ICNT=ICNT+1
+      IF(ICSYM.EQ.'A1  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'A2  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B1  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B2  ')ORBSYM(ICNT)=3
+      IF(ICSYM.EQ.'A   ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B   ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'A''  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'A"  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'AG  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B1G ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B2G ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B3G ')ORBSYM(ICNT)=3
+      IF(ICSYM.EQ.'AU  ')ORBSYM(ICNT)=4
+      IF(ICSYM.EQ.'B1U ')ORBSYM(ICNT)=5
+      IF(ICSYM.EQ.'B2U ')ORBSYM(ICNT)=6
+      IF(ICSYM.EQ.'B3U ')ORBSYM(ICNT)=7
+      IF(NIRRED.GT.4)GO TO 691
+      IF(ICSYM.EQ.'AG  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'BG  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'AU  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'BU  ')ORBSYM(ICNT)=3
+  691 CONTINUE
+      IF(CHAR.EQ.'DN  '.AND.NORD.EQ.2)THEN
+      IF(ICSYM.EQ.'A1  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B1  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B2  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B3  ')ORBSYM(ICNT)=3
+      ENDIF
+  710 CONTINUE
+      IF(ICNTH-1.NE.ICNT) THEN
+      SYMORB = ORBSYM(ICNT) + 1
+      FLOV(SYMORB,3)=ICNTH
+      FLOV(SYMORB,4)=ICNT
+      END IF
+C     WRITE(*,*)'ISYM',ISYM,'F3',FLOV(ISYM,3)
+C     WRITE(*,*)'ISYM',ISYM,'F4',FLOV(ISYM,4)
+  715 CONTINUE
+C     WRITE(*,*)'ORBSYM',ORBSYM
+      DO 800 ISYM=1,NSYMHF
+      ICSYM=ITYP(ISYM)
+      IF(ICSYM.EQ.'A1  ')ITEP(1)=ICSYM
+      IF(ICSYM.EQ.'A2  ')ITEP(2)=ICSYM
+      IF(ICSYM.EQ.'B1  ')ITEP(3)=ICSYM
+      IF(ICSYM.EQ.'B2  ')ITEP(4)=ICSYM
+      IF(ICSYM.EQ.'A   ')ITEP(1)=ICSYM
+      IF(ICSYM.EQ.'B   ')ITEP(2)=ICSYM
+      IF(ICSYM.EQ.'A''  ')ITEP(1)=ICSYM
+      IF(ICSYM.EQ.'A"  ')ITEP(2)=ICSYM
+      IF(ICSYM.EQ.'AG  ')ITEP(1)=ICSYM
+      IF(ICSYM.EQ.'B1G ')ITEP(2)=ICSYM
+      IF(ICSYM.EQ.'B2G ')ITEP(3)=ICSYM
+      IF(ICSYM.EQ.'B3G ')ITEP(4)=ICSYM
+      IF(ICSYM.EQ.'AU  ')ITEP(5)=ICSYM
+      IF(ICSYM.EQ.'B1U ')ITEP(6)=ICSYM
+      IF(ICSYM.EQ.'B2U ')ITEP(7)=ICSYM
+      IF(ICSYM.EQ.'B3U ')ITEP(8)=ICSYM
+      IF(NIRRED.GT.4)GO TO 692
+      IF(ICSYM.EQ.'AG  ')ITEP(1)=ICSYM
+      IF(ICSYM.EQ.'BG  ')ITEP(2)=ICSYM
+      IF(ICSYM.EQ.'AU  ')ITEP(3)=ICSYM
+      IF(ICSYM.EQ.'BU  ')ITEP(4)=ICSYM
+  692 CONTINUE
+      IF(CHAR.EQ.'DN  '.AND.NORD.EQ.2)THEN
+      IF(ICSYM.EQ.'A1  ')ITEP(1)=ICSYM
+      IF(ICSYM.EQ.'B1  ')ITEP(2)=ICSYM
+      IF(ICSYM.EQ.'B2  ')ITEP(3)=ICSYM
+      IF(ICSYM.EQ.'B3  ')ITEP(4)=ICSYM
+      ENDIF
+  800 CONTINUE
+      CALL RFI30(ENUC,ESCF,ZAN,COORD,NAT)
+      END
+C
+C
+      SUBROUTINE RFI30 (ENUC,ESCF,ZAN,GEOM,NAT)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*8 A30(100)
+      INTEGER IA30(400),IPTR30(400)
+      INTEGER IALBEL(20),IBLBEL(20),LBLDRT(26)
+      DIMENSION ZAN(NAT),GEOM(3,NAT)
+      EQUIVALENCE (IA30,A30)
+      ITAP11 = 11
+      IT30 = 30
+      NOUT = 6
+C
+C     ----- GET CONSTANTS FROM TAPE30 -----
+C
+      CALL SREW(IT30)
+      CALL WREADW(IT30,IA30,200,101,JUNK)
+C
+      IEND   =  IA30(1)
+      MPOINT =  IA30(2)
+      MCONST =  IA30(3)
+      MCALCS =  IA30(4)
+      NCALCS =  IA30(5)
+      NAT    = IA30(19)
+      NUM    = IA30(22)
+      NNP    = IA30(23)
+      NSHELL = IA30(27)
+      NIRRED = IA30(28)
+      NT     = IA30(29)
+      NPRIM  = IA30(32)
+      MXT    = IA30(36)
+      NISO   = IA30(40)
+C
+C     ----- READ POINTERS FROM TAPE30 -----
+C
+      JUNK   = 101+MCONST
+      CALL WREADW(IT30,IPTR30,MPOINT,JUNK,JUNK)
+      CALL WREADW(IT30,   ZAN,    INTOWP(NAT),IPTR30(1),JUNK)
+      JUNK   = 101+MCONST+MPOINT+NCALCS-1
+      CALL WREADW(IT30, LOCCAL, 1,JUNK,JUNK)
+      CALL WREADW(IT30, IA30, 60,LOCCAL,LOCCAL)
+      DO 500  ILBL=1,20
+         IALBEL(ILBL) =  IA30(ILBL)
+  500 CONTINUE
+      WRITE(NOUT,905)IALBEL
+  905 FORMAT(1X,/,'  LABEL FROM FILE30 : ',20A4,/)
+      LOCCAL=LOCCAL+20
+      CALL WREADW(IT30,  GEOM,  INTOWP(3*NAT),LOCCAL,LOCCAL)
+      WRITE(NOUT,*)' GEOMETRY FROM FILE30'
+      WRITE(NOUT,*)'                     '
+      DO 523 I=1,NAT
+      WRITE(NOUT,909)I,ZAN(I),GEOM(1,I),GEOM(2,I),GEOM(3,I)
+  909 FORMAT(1X,I4,3X,F5.2,5X,3(4X,F13.10))
+  523 CONTINUE
+C
+C     ----- GET ENERGIES AND WRITE OUT -----
+C
+      CALL WREADW(IT30,IA30,INTOWP(10),LOCCAL,LOCCAL)
+      ESCF = A30(2)
+      ENUC=A30(1)
+      EE=ESCF-ENUC
+      WRITE (NOUT,900)
+  900 FORMAT (/,2X,'ENERGIES FROM FILE30 ',/)
+      WRITE (NOUT,901) ENUC
+  901 FORMAT (1X,' NUCLEAR REPULSION ENERGY =',F20.12)
+      WRITE (NOUT,902) ESCF
+  902 FORMAT (1X,' SCF ENERGY               =',F20.12)
+      WRITE (NOUT,903) EE
+  903 FORMAT (1X,' TOTAL ELECTRONIC  ENERGY =',F20.12)
+      CALL RCLOSE(IT30,3)
+      RETURN
+      END
+C
+C
+      SUBROUTINE SETMBF(MBUF,IBUF)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      MBUF=IBUF
+      RETURN
+      END
+      SUBROUTINE SORTT(TAU,T2,NTAU,ORBSYM,NO,NV,FLOV,NIRRED,NT3,TOFF,
+     .           TADD,ITAP81,ITAP97,ZLX)
+      IMPLICIT INTEGER (A-Z)
+      REAL * 8 TAU(NTAU),T2(NTAU)
+      DIMENSION ORBSYM(NO+NV),FLOV(NIRRED,4),NT3(NIRRED),
+     .          TOFF(NO,NO,2,NIRRED),TADD(NV,NV,NIRRED),ZLX(NV,NV)
+C
+C     COPY TAPE81 ONTO FILE97
+C
+      I97=1
+      I81=1
+      DO  90 A=1,NV
+      ASYM=ORBSYM(A+NO)
+      DO  80 I=1,NO
+      ISYM=ORBSYM(I)
+      IASYM=IEOR(ASYM,ISYM)+1
+      DIM=NT3(IASYM)
+      CALL WREADW(ITAP81,TAU,INTOWP(DIM),I81,I81)
+      CALL WWRITW(ITAP97,TAU,INTOWP(DIM),I97,I97)
+   80 CONTINUE
+   90 CONTINUE
+C
+C     SORT IJKABC TO IJKABC+JKIBCA+KIJCAB
+C
+      I81=1
+      DO 290 A=1,NV
+      ASYM=ORBSYM(A+NO)
+      DO 280 I=1,NO
+      ISYM=ORBSYM(I)
+      IASYM=IEOR(ASYM,ISYM)+1
+      DIM=NT3(IASYM)
+      CALL WREADW(ITAP81,TAU,INTOWP(DIM),I81,I81)
+      I97=1
+      DO 170 B=1,NV
+      BSYM=ORBSYM(B+NO)
+      DO 160 J=1,NO
+      JSYM=ORBSYM(J)
+      JBSYM=IEOR(BSYM,JSYM)+1
+      DAM=NT3(JBSYM)
+      CALL WREADW(ITAP97,T2 ,INTOWP(DAM),I97,JUNK)
+      IAJBS=IEOR(IASYM-1,JBSYM-1)
+C
+      DO 150 C=1,A
+      CSYM=ORBSYM(C+NO)
+      ZLCB=ZLX(C,B)
+      KSYM=IEOR(IAJBS,CSYM)
+      FK=FLOV(KSYM+1,1)
+      LK=FLOV(KSYM+1,2)
+      DO 140 K=FK,LK
+      IKAC=TOFF(I,K,1   ,JBSYM)+TADD(A,C,JBSYM)
+      KJCB=TOFF(K,J,ZLCB,IASYM)+TADD(C,B,IASYM)
+      T2(IKAC)=T2(IKAC)+TAU(KJCB)
+  140 CONTINUE
+  150 CONTINUE
+C
+      DO 151 C=A,NV
+      CSYM=ORBSYM(C+NO)
+      ZLBC=ZLX(B,C)
+      KSYM=IEOR(IAJBS,CSYM)
+      FK=FLOV(KSYM+1,1)
+      LK=FLOV(KSYM+1,2)
+      DO 141 K=FK,LK
+      KICA=TOFF(K,I,1   ,JBSYM)+TADD(C,A,JBSYM)
+      JKBC=TOFF(J,K,ZLBC,IASYM)+TADD(B,C,IASYM)
+      T2(KICA)=T2(KICA)+TAU(JKBC)
+  141 CONTINUE
+  151 CONTINUE
+C
+      CALL WWRITW(ITAP97,T2,INTOWP(DAM),I97,I97)
+  160 CONTINUE
+  170 CONTINUE
+C
+  280 CONTINUE
+  290 CONTINUE
+C
+C     COPY TAPE97 ONTO FILE81
+C
+      I97=1
+      I81=1
+      DO 390 A=1,NV
+      ASYM=ORBSYM(A+NO)
+      DO 380 I=1,NO
+      ISYM=ORBSYM(I)
+      IASYM=IEOR(ASYM,ISYM)+1
+      DIM=NT3(IASYM)
+      CALL WREADW(ITAP97,TAU,INTOWP(DIM),I97,I97)
+      CALL WWRITW(ITAP81,TAU,INTOWP(DIM),I81,I81)
+  380 CONTINUE
+  390 CONTINUE
+C
+      RETURN
+      END
+C
+C
+      SUBROUTINE SYMARR(ORBSYM,FLOV,NIRRED,NO,NV,NT,NOV,NM,
+     .                  FZO,FZV,NFZO,NFZV,
+     .                  UOFF,VADD,ZLX,ITR,ITV,NONO,NVNV,
+     .                  AOFF,AADD,BOFF,BADD,COFF,CADD,
+     .                  DOFF,DADD,EOFF,EADD,FOFF,FADD,TOFF,TADD)
+      IMPLICIT INTEGER (A-Z)
+      COMMON/INTS/NSGOO,NSGVV,NSGOV,NSHOV,NSLOV,NSLVO
+      DIMENSION FLOV(NIRRED,4),ORBSYM(NT),UOFF(NO,NO,2),VADD(NV,NV),
+     .          ZLX(NV,NV),FZO(NO),FZV(NV),NFZO(NIRRED),NFZV(NIRRED)
+      DIMENSION AOFF(NONO),AADD(NONO),BOFF(NVNV),BADD(NVNV),COFF(NVNV),
+     .          CADD(NONO),DOFF(NM)  ,DADD(NM)  ,EOFF(NM)  ,EADD(NONO),
+     .          FOFF(NVNV),FADD(NM)
+      DIMENSION TOFF(NO,NO,2,NIRRED),TADD(NV,NV,NIRRED)
+      DIMENSION ITR(NOV),ITV(NV)
+C
+C     SET UP ARRAYS TO ADRESS T COEFF. AND 2E MO INTS.
+C
+      NOFF=0
+      DO 130 TSYM=1,NIRRED
+      DO 130 USYM=1,NIRRED
+      DO 130 VSYM=1,NIRRED
+      UVSYM=IEOR(USYM-1,VSYM-1)+1
+      IF(UVSYM.NE.TSYM) GO TO 125
+      DO 120 U=FLOV(USYM,1),FLOV(USYM,2)
+      DO 120 V=FLOV(VSYM,1),FLOV(VSYM,2)
+      NADD=0
+      UOFF(U,V,1)=NOFF
+      DO 119 BE=1,NV
+      BESYM=ORBSYM(BE+NO)
+      IF(FZV(BE).EQ.1) GO TO 119
+      DO 118 GA=1,BE
+      IF(FZV(GA).EQ.1) GO TO 118
+      GASYM=ORBSYM(GA+NO)
+      BEGSYM=IEOR(BESYM,GASYM)+1
+      IF(BEGSYM.NE.TSYM)GO TO 115
+      NOFF=NOFF+1
+      NADD=NADD+1
+      VADD(BE,GA)=NADD
+      TOT=UOFF(U,V,1)+VADD(BE,GA)
+C     WRITE(6,657) U,V,UOFF(U,V,1),BE,GA,VADD(BE,GA),TOT
+  115 CONTINUE
+  118 CONTINUE
+  119 CONTINUE
+  120 CONTINUE
+  125 CONTINUE
+  130 CONTINUE
+      DO 150 U=1,NO
+      DO 150 V=1,NO
+  150 UOFF(V,U,2)=UOFF(U,V,1)
+      DO 160 A=1,NV
+      DO 160 B=1,A
+      ZLX(B,A)=2
+      ZLX(A,B)=1
+  160 VADD(B,A)=VADD(A,B)
+  657 FORMAT(' U=',I3,' V=',I3,' UOFF=',I6,' BE=',I3,' GA=',I3,
+     .                        ' VADD=',I6,' TOT= ',I6)
+C
+C     FORM ARRAYS FOR T3
+C
+      DO 890 T3SYM=1,NIRRED
+      NOFF=0
+      DO 880 TSYM=1,NIRRED
+      DO 875 USYM=1,NIRRED
+      DO 870 VSYM=1,NIRRED
+      UVSYM=IEOR(USYM-1,VSYM-1)
+      IF(UVSYM.NE.TSYM-1)GO TO 870
+      DO 865 U=FLOV(USYM,1),FLOV(USYM,2)
+      DO 860 V=FLOV(VSYM,1),FLOV(VSYM,2)
+      NADD=0
+      TOFF(U,V,1,T3SYM)=NOFF
+      DO 850 BE=1,NV
+      IF(FZV(BE).EQ.1)GO TO 850
+      BESYM=ORBSYM(BE+NO)
+      DO 840 GA=1,BE
+      IF(FZV(GA).EQ.1)GO TO 840
+      GASYM=ORBSYM(GA+NO)
+      BEGSYM=IEOR(BESYM,GASYM)
+      XSYM=IEOR(UVSYM,BEGSYM)+1
+      IF(XSYM.NE.T3SYM)GO TO 820
+      NOFF=NOFF+1
+      NADD=NADD+1
+      TADD(BE,GA,T3SYM)=NADD
+      TOT=TOFF(U,V,1,T3SYM)+TADD(BE,GA,T3SYM)
+C     WRITE(6,657) U,V,TOFF(U,V,1,T3SYM),BE,GA,TADD(BE,GA,T3SYM),TOT
+  820 CONTINUE
+  840 CONTINUE
+  850 CONTINUE
+  860 CONTINUE
+  865 CONTINUE
+  870 CONTINUE
+  875 CONTINUE
+  880 CONTINUE
+      DO 885 U=1,NO
+      DO 885 V=1,NO
+  885 TOFF(V,U,2,T3SYM)=TOFF(U,V,1,T3SYM)
+      DO 887 BE=1,NV
+      DO 887 GA=1,BE
+  887 TADD(GA,BE,T3SYM)=TADD(BE,GA,T3SYM)
+  890 CONTINUE
+C
+C     A INTS  (OO,OO)
+C
+      NOFF=0
+      DO 280 TSYM=1,NIRRED
+      DO 270 ISYM=1,NIRRED
+      DO 260 JSYM=1,ISYM
+      IJSYM=IEOR(ISYM-1,JSYM-1)+1
+      IF(IJSYM.NE.TSYM) GO TO 260
+      FI=FLOV(ISYM,1)-NFZO(ISYM)
+      DO 250 I=FI,FLOV(ISYM,2)
+      JLIM=FLOV(JSYM,2)
+      IF(ISYM.EQ.JSYM)JLIM=I
+      FJ=FLOV(JSYM,1)-NFZO(JSYM)
+      DO 250 J=FJ,JLIM
+      NADD=0
+      IJ=ITR(I)+J
+      IF(FZO(I).EQ.1.OR.FZO(J).EQ.1)THEN
+      AOFF(IJ)=NSGOO+1
+      GO TO 202
+      END IF
+      AOFF(IJ)=NOFF
+  202 CONTINUE
+      DO 230 K=1,I
+      KSYM=ORBSYM(K)
+      LL=K
+      IF(K.EQ.I)LL=J
+      DO 220 L=1,LL
+      LSYM=ORBSYM(L)
+      KL=ITR(K)+L
+      KLSYM=IEOR(KSYM,LSYM)+1
+      IF(KLSYM.NE.TSYM)GO TO 210
+      IF(FZO(I).EQ.1.OR.FZO(J).EQ.1)GO TO 205
+      IF(FZO(K).EQ.1.OR.FZO(L).EQ.1)THEN
+      AADD(KL)=NSGOO+1
+      GO TO 205
+      END IF
+      NOFF=NOFF+1
+      NADD=NADD+1
+      AADD(KL)=NADD
+  205 CONTINUE
+C     TOT=AOFF(IJ)+AADD(KL)
+C     WRITE(6,657) I,J,AOFF(IJ),K,L,AADD(KL),TOT
+  210 CONTINUE
+  220 CONTINUE
+  230 CONTINUE
+  240 CONTINUE
+  250 CONTINUE
+  260 CONTINUE
+  270 CONTINUE
+  280 CONTINUE
+C
+C     B INTS   (VV,VV)
+      NOFF=0
+      DO 380 TSYM=1,NIRRED
+      DO 370 ISYM=1,NIRRED
+      DO 360 JSYM=1,ISYM
+      IJSYM=IEOR(ISYM-1,JSYM-1)+1
+      IF(IJSYM.NE.TSYM) GO TO 360
+      FI=FLOV(ISYM,3)-NO
+      LI=FLOV(ISYM,4)+NFZV(ISYM)-NO
+      DO 350 I=FI,LI
+      JLIM=FLOV(JSYM,4) +NFZV(JSYM)-NO
+      IF(ISYM.EQ.JSYM)JLIM=I
+      DO 350 J=FLOV(JSYM,3)-NO,JLIM
+      NADD=0
+      IJ=ITV(I)+J
+      IF(FZV(I).EQ.1.OR.FZV(J).EQ.1)THEN
+      BOFF(IJ)=NSGVV+1
+      GO TO 302
+      END IF
+      BOFF(IJ)=NOFF
+  302 CONTINUE
+      DO 330 K=1,I
+      KSYM=ORBSYM(K+NO)
+      LL=K
+      IF(K.EQ.I)LL=J
+      DO 320 L=1,LL
+      LSYM=ORBSYM(L+NO)
+      KL=ITV(K)+L
+      KLSYM=IEOR(KSYM,LSYM)+1
+      IF(KLSYM.NE.TSYM)GO TO 310
+      IF(FZV(I).EQ.1.OR.FZV(J).EQ.1)GO TO 305
+      IF(FZV(K).EQ.1.OR.FZV(L).EQ.1)THEN
+      BADD(KL)=NSGVV+1
+      GO TO 305
+      END IF
+      NOFF=NOFF+1
+      NADD=NADD+1
+      BADD(KL)=NADD
+  305 CONTINUE
+C     TOT=BOFF(IJ)+BADD(KL)
+C     WRITE(6,657) I,J,BOFF(IJ),K,L,BADD(KL),TOT
+  310 CONTINUE
+  320 CONTINUE
+  330 CONTINUE
+  340 CONTINUE
+  350 CONTINUE
+  360 CONTINUE
+  370 CONTINUE
+  380 CONTINUE
+C
+C     C INTS   (VV,OO)
+      NOFF=0
+      DO 460 TSYM=1,NIRRED
+      DO 460 ISYM=1,NIRRED
+      DO 460 JSYM=1,ISYM
+      IJSYM=IEOR(ISYM-1,JSYM-1)+1
+      IF(IJSYM.NE.TSYM) GO TO 460
+      FI=FLOV(ISYM,3)-NO
+      LI=FLOV(ISYM,4)+NFZV(ISYM)-NO
+      DO 450 I=FI,LI
+      FJ=FLOV(JSYM,3)-NO
+      LJ=FLOV(JSYM,4)+NFZV(JSYM)-NO
+      IF(ISYM.EQ.JSYM)LJ=I
+      DO 450 J=FJ,LJ
+      NADD=0
+      IJ=ITV(I)+J
+      IF(FZV(I).EQ.1.OR.FZV(J).EQ.1)THEN
+      COFF(IJ)=NSGOV+1
+      GO TO 402
+      END IF
+      COFF(IJ)=NOFF
+  402 CONTINUE
+      DO 430 K=1,NO
+      KSYM=ORBSYM(K)
+      DO 420 L=1,K
+      LSYM=ORBSYM(L)
+      KL=ITR(K)+L
+      KLSYM=IEOR(KSYM,LSYM)+1
+      IF(KLSYM.NE.TSYM)GO TO 410
+      IF(FZV(I).EQ.1.OR.FZV(J).EQ.1)GO TO 405
+      IF(FZO(K).EQ.1.OR.FZO(L).EQ.1)THEN
+      CADD(KL)=NSGOV+1
+      GO TO 405
+      END IF
+      NOFF=NOFF+1
+      NADD=NADD+1
+      CADD(KL)=NADD
+  405 CONTINUE
+C     TOT=COFF(IJ)+CADD(KL)
+C     WRITE(6,657) I,J,COFF(IJ),K,L,CADD(KL),TOT
+  410 CONTINUE
+  420 CONTINUE
+  430 CONTINUE
+  440 CONTINUE
+  450 CONTINUE
+  460 CONTINUE
+  470 CONTINUE
+  480 CONTINUE
+C
+C     D INTS   (VO,VO)
+      NOFF=0
+      DO 560 TSYM=1,NIRRED
+      DO 560 ISYM=1,NIRRED
+      DO 560 JSYM=1,NIRRED
+      IJSYM=IEOR(ISYM-1,JSYM-1)+1
+      IF(IJSYM.NE.TSYM) GO TO 560
+      FI=FLOV(ISYM,3)-NO
+      LI=FLOV(ISYM,4)+NFZV(ISYM)-NO
+      DO 550 I=FI,LI
+      FJ=FLOV(JSYM,1)-NFZO(JSYM)
+      LJ=FLOV(JSYM,2)
+      DO 550 J=FJ,LJ
+      NADD=0
+      IJ=ITR(I)+J
+      IF(FZV(I).EQ.1.OR.FZO(J).EQ.1)THEN
+      DOFF(IJ)=NSHOV+1
+      GO TO 502
+      END IF
+      DOFF(IJ)=NOFF
+  502 CONTINUE
+      DO 530 K=1,I
+      KSYM=ORBSYM(K+NO)
+      LL=NO
+      IF(K.EQ.I)LL=J
+      DO 520 L=1,LL
+      LSYM=ORBSYM(L)
+      KL=ITR(K)+L
+      KLSYM=IEOR(KSYM,LSYM)+1
+      IF(KLSYM.NE.TSYM)GO TO 510
+      IF(FZV(I).EQ.1.OR.FZO(J).EQ.1)GO TO 505
+      IF(FZV(K).EQ.1.OR.FZO(L).EQ.1)THEN
+      DADD(KL)=NSHOV+1
+      GO TO 505
+      END IF
+      NOFF=NOFF+1
+      NADD=NADD+1
+      DADD(KL)=NADD
+  505 CONTINUE
+C     TOT=DOFF(IJ)+DADD(KL)
+C     WRITE(6,657) I,J,DOFF(IJ),K,L,DADD(KL),TOT
+  510 CONTINUE
+  520 CONTINUE
+  530 CONTINUE
+  540 CONTINUE
+  550 CONTINUE
+  560 CONTINUE
+  570 CONTINUE
+  580 CONTINUE
+C
+C     E INTS   (VO,OO)
+      NOFF=0
+      DO 660 TSYM=1,NIRRED
+      DO 660 ISYM=1,NIRRED
+      DO 660 JSYM=1,NIRRED
+      IJSYM=IEOR(ISYM-1,JSYM-1)+1
+      IF(IJSYM.NE.TSYM) GO TO 660
+      FI=FLOV(ISYM,3)-NO
+      LI=FLOV(ISYM,4)+NFZV(ISYM)-NO
+      DO 650 I=FI,LI
+      FJ=FLOV(JSYM,1)-NFZO(JSYM)
+      LJ=FLOV(JSYM,2)
+      DO 650 J=FJ,LJ
+      NADD=0
+      IJ=ITR(I)+J
+      IF(FZV(I).EQ.1.OR.FZO(J).EQ.1)THEN
+      EOFF(IJ)=NSLOV+1
+      GO TO 602
+      END IF
+      EOFF(IJ)=NOFF
+  602 CONTINUE
+      DO 630 K=1,NO
+      KSYM=ORBSYM(K)
+      DO 620 L=1,K
+      LSYM=ORBSYM(L)
+      KL=ITR(K)+L
+      KLSYM=IEOR(KSYM,LSYM)+1
+      IF(KLSYM.NE.TSYM)GO TO 610
+      IF(FZV(I).EQ.1.OR.FZO(J).EQ.1)GO TO 605
+      IF(FZO(K).EQ.1.OR.FZO(L).EQ.1)THEN
+      EADD(KL)=NSLOV+1
+      GO TO 605
+      END IF
+      NOFF=NOFF+1
+      NADD=NADD+1
+      EADD(KL)=NADD
+  605 CONTINUE
+C     TOT=EOFF(IJ)+EADD(KL)
+C     WRITE(6,657) I,J,EOFF(IJ),K,L,EADD(KL),TOT
+  610 CONTINUE
+  620 CONTINUE
+  630 CONTINUE
+  640 CONTINUE
+  650 CONTINUE
+  660 CONTINUE
+  670 CONTINUE
+  680 CONTINUE
+C
+C     F INTS   (VV,VO)
+      NOFF=0
+      DO 760 TSYM=1,NIRRED
+      DO 760 ISYM=1,NIRRED
+      DO 760 JSYM=1,ISYM
+      IJSYM=IEOR(ISYM-1,JSYM-1)+1
+      IF(IJSYM.NE.TSYM) GO TO 760
+      FI=FLOV(ISYM,3)-NO
+      LI=FLOV(ISYM,4)+NFZV(ISYM)-NO
+      DO 750 I=FI,LI
+      FJ=FLOV(JSYM,3)-NO
+      LJ=FLOV(JSYM,4)+NFZV(JSYM)-NO
+      IF(ISYM.EQ.JSYM)LJ=I
+      DO 750 J=FJ,LJ
+      NADD=0
+      IJ=ITV(I)+J
+      IF(FZV(I).EQ.1.OR.FZV(J).EQ.1)THEN
+      FOFF(IJ)=NSLVO+1
+      GO TO 702
+      END IF
+      FOFF(IJ)=NOFF
+  702 CONTINUE
+      DO 730 K=1,NV
+      KSYM=ORBSYM(K+NO)
+      DO 720 L=1,NO
+      LSYM=ORBSYM(L)
+      KL=ITR(K)+L
+      KLSYM=IEOR(KSYM,LSYM)+1
+      IF(KLSYM.NE.TSYM)GO TO 710
+      IF(FZV(I).EQ.1.OR.FZV(J).EQ.1)GO TO 705
+      IF(FZV(K).EQ.1.OR.FZO(L).EQ.1)THEN
+      FADD(KL)=NSLVO+1
+      GO TO 705
+      END IF
+      NOFF=NOFF+1
+      NADD=NADD+1
+      FADD(KL)=NADD
+  705 CONTINUE
+C     TOT=FOFF(IJ)+FADD(KL)
+C     WRITE(6,657) I,J,FOFF(IJ),K,L,FADD(KL),TOT
+  710 CONTINUE
+  720 CONTINUE
+  730 CONTINUE
+  740 CONTINUE
+  750 CONTINUE
+  760 CONTINUE
+  770 CONTINUE
+  780 CONTINUE
+      END
+C
+      SUBROUTINE TDIFF(T2,T1,T2O,T1O,DELT,NO,NV,NDIMT2,ORBSYM,FLOV,
+     .                 NIRRED,TOFF,TADD,ZLX,FZO,FZV,XE,XEO)
+      IMPLICIT INTEGER(A-Z)
+      REAL*8 T2(NDIMT2),T1(NO,NV),T2O(NDIMT2),T1O(NO,NV),
+     .       XE,XEO,DELE,DELT
+      INTEGER ORBSYM(NO+NV),FLOV(NIRRED,4),TOFF(NO,NO,2),TADD(NV,NV),
+     .        ZLX(NV,NV),FZO(NO),FZV(NV)
+C
+      DELT=0.0D+00
+      DO 10 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 10
+      USYM=ORBSYM(U)
+         DO 20 BE=1,NV
+         IF(FZV(BE).EQ.1)GO TO 20
+         BESYM=ORBSYM(BE+NO)
+            IF(USYM.EQ.BESYM)THEN
+            DELT=DELT+DSQRT((T1O(U,BE)-T1(U,BE))*(T1O(U,BE)-T1(U,BE)))
+            ENDIF
+         UBESYM=IEOR(USYM,BESYM)
+            DO 30 V=1,NO
+            IF(FZO(V).EQ.1)GO TO 30
+            VSYM=ORBSYM(V)
+            GASYM=IEOR(UBESYM,VSYM)+1
+            FGA=FLOV(GASYM,3)-NO
+            LGA=FLOV(GASYM,4)-NO
+               DO 40 GA=FGA,LGA
+               ZL=ZLX(BE,GA)
+               UVBEGA=TOFF(U,V,ZL)+TADD(BE,GA)
+                  DELT=DELT
+     .   +DSQRT((T2O(UVBEGA)-T2(UVBEGA))*(T2O(UVBEGA)-T2(UVBEGA)))
+   40          CONTINUE
+   30       CONTINUE
+   20    CONTINUE
+   10 CONTINUE
+C     DELE=XE-XEO
+C     WRITE(6,601)DELE,DELT
+C     WRITE(4,601)DELE,DELT
+C 601 FORMAT(1X,'DELTA ECORR =',3X,D12.6,10X,'NORM OF DELTA T =',3X,
+C    .      D12.6)
+C
+      RETURN
+      END
+C
+C
+      SUBROUTINE TSOUT (OPTION,FZO,FZV,ORBSYM,FLOV,UOFF,VADD,NT,
+     .                  T1N,T2,NIRRED,NO,NV,NDIMT2,ITAP69,IOUT12,PRTS)
+      IMPLICIT INTEGER (A-Z)
+      REAL * 8 T1N(NO,NV),T2(NDIMT2),WT2(4)
+      DIMENSION FZO(NO),FZV(NV),ORBSYM(NT),FLOV(NIRRED,4),
+     .          UOFF(NO,NO,2),VADD(NV,NV)
+      DIMENSION WU(4),WV(4),WB(4),WG(4)
+      CHARACTER * 4 OPTION
+      NM=NO*NV
+      CALL RFILE(ITAP69)
+      CALL SREAD(ITAP69,JU,1)
+      CALL SREAD(ITAP69,JU,1)
+      CALL SREAD(ITAP69,T1N,INTOWP(NM))
+      CALL SREAD(ITAP69,T2,INTOWP(NDIMT2))
+      CALL RCLOSE(ITAP69,3)
+C
+      IF(OPTION.EQ.'CCD '.OR.OPTION.EQ.'MP2 ')GO TO 30
+      IK=0
+      DO 25 U=1,NO
+      DO 25 BE=1,NV
+      IF(DABS(T1N(U,BE)).LT.1.D-10)GO TO 24
+      IK=IK+1
+      WT2(IK)=T1N(U,BE)
+      WU(IK)=U
+      WV(IK)=0
+      WB(IK)=BE+NO
+      WG(IK)=0
+      IF(IK.LT.3)GO TO 24
+      IK=0
+      WRITE(IOUT12,602)(WT2(I),WU(I),WV(I),WB(I),WG(I),I=1,3)
+   24 CONTINUE
+   25 CONTINUE
+      IF(IK.NE.0)THEN
+      WRITE(IOUT12,602)(WT2(I),WU(I),WV(I),WB(I),WG(I),I=1,IK)
+      ENDIF
+C     WRITE(IOUT12,*)'END1'
+   30 CONTINUE
+      IK=0
+      DO 40 U=1,NO
+C     IF(FZO(U).EQ.1)GO TO 40
+      USYM=ORBSYM(U)
+      DO 39 V=1,NO
+C     IF(FZO(V).EQ.1)GO TO 39
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 38 BE=1,NV
+C     IF(FZV(BE).EQ.1)GO TO 38
+      BESYM=ORBSYM(BE+NO)
+      GASYM=IEOR(UVSYM,BESYM)+1
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      IF(LGA.GT.BE)LGA=BE
+      DO 36 GA=FGA,LGA
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      IF(DABS(T2(UVBEGA)).LT.1.D-10)GO TO 35
+      IK=IK+1
+      WT2(IK)=T2(UVBEGA)
+      WU(IK)=U
+      WV(IK)=V
+      WB(IK)=BE+NO
+      WG(IK)=GA+NO
+      IF(IK.LT.3)GO TO 35
+      IK=0
+      WRITE(IOUT12,602)(WT2(I),WU(I),WV(I),WB(I),WG(I),I=1,3)
+   35 CONTINUE
+   36 CONTINUE
+   38 CONTINUE
+   39 CONTINUE
+   40 CONTINUE
+      IF(IK.NE.0)THEN
+      WRITE(IOUT12,602)(WT2(I),WU(I),WV(I),WB(I),WG(I),I=1,IK)
+      ENDIF
+  602 FORMAT(4(E16.9,I2,I2,I2,I2))
+C     WRITE(IOUT12,*)'END2'
+      RETURN
+      END
+C
+C-----------------------------------------------------------------------
+C
+      SUBROUTINE TWRIT(T1,NM,T2,NDIMT2,IW,FZO,NO,FZV,NV,ORBSYM,NT,
+     .                 FLOV,NIRRED,UOFF,VADD)
+      IMPLICIT INTEGER (A-Z)
+      REAL * 8 T1(NO,NV),T2(NDIMT2)
+      DIMENSION FZO(NO),FZV(NV),ORBSYM(NT),FLOV(NIRRED,4),
+     .          UOFF(NO,NO,2),VADD(NV,NV)
+C     WRITE(IW,605)
+  605 FORMAT(1X,'T1 AMPLITUDES',/,'OCC VIR ')
+  607 FORMAT(1X,I4,1X,I4,F12.4)
+      DO 25 U=1,NO
+      DO 25 BE=1,NV
+      WRITE(IW,607)U,NO+BE,T1(U,BE)
+   25 CONTINUE
+C     WRITE(IW,602)
+C 602 FORMAT(1X,'T2 AMPLITUDES',/,' ALP  BET  ALP  BET')
+      DO 40 U=1,NO
+      IF(FZO(U).EQ.1)GO TO 40
+      USYM=ORBSYM(U)
+      DO 39 V=1,NO
+      IF(FZO(V).EQ.1)GO TO 39
+      VSYM=ORBSYM(V)
+      UVSYM=IEOR(USYM,VSYM)
+      DO 38 BE=1,NV
+      IF(FZV(BE).EQ.1)GO TO 38
+      BESYM=ORBSYM(BE+NO)
+      GASYM=IEOR(UVSYM,BESYM)+1
+      FGA=FLOV(GASYM,3)-NO
+      LGA=FLOV(GASYM,4)-NO
+      IF(LGA.GT.BE)LGA=BE
+      DO 36 GA=FGA,LGA
+      UVBEGA=UOFF(U,V,1)+VADD(BE,GA)
+      WRITE(IW,609)U,V,NO+BE,NO+GA,T2(UVBEGA)
+   36 CONTINUE
+   38 CONTINUE
+   39 CONTINUE
+   40 CONTINUE
+  609 FORMAT(4(1X,I4),3X,F12.4)
+      WRITE(6,610)
+  610 FORMAT (1X)
+      RETURN
+      END
+C
+C
+      SUBROUTINE VECS(D,IOUT,ACRCY,XVEC,WVEC,IREWR,NBF,NBFAO)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER IOUT(NBF),NLAMDA(8),OUT,CHK
+      REAL*8 D(NBFAO,NBF),XVEC(1),WVEC(NBFAO,NBFAO),ACRCY
+      CHARACTER * 4 IREWR
+      DIMENSION I30(200)
+      OUT=6
+C
+C     WRITE(OUT,701) ACRCY
+  701 FORMAT (1X,'THRESHOLD FOR ELIMINATION OF VECTOR ELEMENTS = ',
+     #1PE10.2,/)
+      CALL ZERO(D,NBF**2)
+C
+C     ----- OPEN TAPE30 AND GET CONSTANTS AND POINTER TO CALC ----
+C
+      IT30=30
+      CALL RFILE(IT30)
+      CALL WREADW(IT30,I30,200,101,JUNK)
+      MPOINT=I30(2)
+      MCONST=I30(3)
+      MCALCS=I30(4)
+      NCALCS=I30(5)
+      MSFRU = I30(18)
+      NUM = I30(22)
+      NSYMHF=I30(41)
+      MXCF=I30(42)
+C
+      JUNK=101+MCONST+MPOINT
+      CALL WREADW(IT30,I30,MCALCS,JUNK,JUNK)
+C
+      LOCCAL=I30(NCALCS)
+      JUNK=LOCCAL+60
+      CALL WREADW(IT30,LOCVEC,1,JUNK,JUNK)
+C
+C     ----- READ OR WRITE VECTOR -----
+C
+      IF(IREWR.EQ.'WRIT')THEN
+      CALL WWRITW(IT30,WVEC,INTOWP(NBF*NBF),LOCVEC,LOCVEC)
+      CALL RCLOSE(IT30,3)
+      WRITE(*,*)'WRITING NEW MO VECTOR IN FILE 30'
+      CALL MATOUT(WVEC,NBFAO,NBF,NBFAO,NBF,6)
+      RETURN
+      ENDIF
+      CALL WREADW(IT30,XVEC,INTOWP(MXCF),LOCVEC,LOCVEC)
+COUT  WRITE(*,*)'EIGENVECTOR FROM TAPE 30'
+COUT  CALL MATOUT(XVEC,NBFAO,NBF,NBFAO,NBF,6)
+C
+      LOCVEC=LOCVEC+INTOWP(NBF)+NSYMHF
+      CALL WREADW(IT30,NLAMDA,NSYMHF,LOCVEC,LOCVEC)
+C
+C     ----- TRANSFER VECTOR TO D MATRIX -----
+C
+      DO 1 I=1,MXCF
+           IF (ABS(XVEC(I)).LT.ACRCY) XVEC(I)=0.0D+00
+    1 CONTINUE
+      IOF=0
+      IJ=0
+      DO 10 ISYM=1,NSYMHF
+           N=NLAMDA(ISYM)
+           DO 9 J=1,N
+                DO 8 I=1,N
+                     IJ=IJ+1
+                     D(IOF+I,IOF+J)=XVEC(IJ)
+    8           CONTINUE
+    9      CONTINUE
+           IOF=IOF+N
+   10 CONTINUE
+C
+      JUNK=101+MCONST
+      CALL WREADW(IT30,I30,MPOINT,JUNK,JUNK)
+C
+      LAOTSO=I30(29)
+      CALL WREADW(IT30,XVEC,INTOWP(NUM*MSFRU),LAOTSO,LAOTSO)
+CGES  WRITE(*,*) ' SO TO AO TRANSFORMATION MATRIX '
+CGES  CALL MATOUT(XVEC,NBFAO,NBF,NBFAO,NBF,6)
+C
+      CALL ZERO(WVEC,NBFAO*NBFAO)
+      CALL MXMB(XVEC,1,NBFAO,D,1,NBF,WVEC,1,NBFAO,NBFAO,NBF,NBF)
+CGES  WRITE(*,*) ' AO TO MO EIGENVECTOR FROM TAPE 30 '
+CGES  CALL MATOUT(WVEC,NBFAO,NBF,NBFAO,NBF,6)
+C
+      DO 20 IBF = 1,NBF
+      NIBF = IOUT(IBF)
+      DO 30 IAO = 1,NBFAO
+      D(IAO,NIBF) = WVEC(IAO,IBF)
+   30 CONTINUE
+   20 CONTINUE
+C
+COUT  WRITE(*,*) ' AO TO MO EIGENVECTOR FROM TAPE 30 '
+COUT  CALL MATOUT(D,NBFAO,NBF,NBFAO,NBF,6)
+      CALL RCLOSE(IT30,3)
+      RETURN
+      END

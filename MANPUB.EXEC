@@ -1,0 +1,5 @@
+EXEC HFSINIT                                                                    
+FI  3 TERM                                                                      
+FI  5 DISK &1 DOC     A                                                         
+FI  6 DISK &1 DOCPUB  A                                                         
+LOAD MANPUB (START CLEAR                                                        

@@ -1,0 +1,8 @@
+>start
+>owner
+>node
+>include linkinit
+>EXECUTE GVB2ND$  CH2DZ6T  CPPXAO
+listfile '* * a ( l'
+q disk
+>end

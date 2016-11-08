@@ -1,0 +1,11 @@
+/* THIS EXEC RE-EXECUTES THE PSF ENVIRONMENT */
+arg filename
+'CP SP PRT ',
+'FOR * ',
+'COPY     1 ',
+'CLASS    A ',
+'DEST     CCQC3820 ',
+' '
+PSF filename            ' (OPTIONS(MYPSF    PSFOPTS    ))'
+' '
+EXIT

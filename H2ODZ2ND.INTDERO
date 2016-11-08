@@ -1,0 +1,127 @@
+************************************************************************************************************************
+ tstart called:
+ Timing turned off.      
+ 
+ INTDER
+ A PROGRAM TO PERFORM GENERAL CURVILINEAR TRANSFORMATIONS
+ AMONG HIGHER-ORDER DERIVATIVES
+ WRITTEN BY WESLEY D. ALLEN
+ 
+   PROGRAM OPTIONS
+ 
+   NA      NSYM       NEQ      NINV     NTEST     NFREQ      NDIP     MULTI
+        NS      NDER      NPRT      NDUM     NGEOM     IRINT     NSTOP
+    3    3    2    2    0 3000    0    0    0    0    1    0    0    0    0    0
+ 
+ 
+ NUCLEAR CARTESIAN COORDINATES (BOHR)
+ 
+         0.0000000000        0.0000000000        0.0000000000
+         0.0000000000        1.4949590000        0.9985920600
+         0.0000000000       -1.4949590000        0.9985920600
+ 
+ 
+ DEFINITION OF INTERNAL COORDINATES
+ 
+ SIMPLE INTERNAL COORDINATES
+ 
+L( 1)=   STRE    1    2    0    0     
+L( 2)=   STRE    1    3    0    0     
+L( 3)=   BEND    2    1    3    0     
+ 
+ SYMMETRY INTERNAL COORDINATES
+ 
+S( 1)=   0.7071067812 L( 1)    0.7071067812 L( 2)
+S( 2)=   1.0000000000 L( 3)
+ 
+ 
+ 
+ VALUES OF SIMPLE INTERNAL COORDINATES (ANG. OR DEG.)
+ 
+   1    0.9513550592   2    0.9513550592   3  112.5163025435
+ 
+ 
+ 
+ VALUES OF SYMMETRY INTERNAL COORDINATES (ANG. OR RAD.)
+ 
+   1    1.3454192273   2    1.9637799417
+ 
+ DETERMINANT OF B*BT MATRIX=  6.6293    
+ 
+ 
+ FINAL INTERNAL (SYMMETRY) COORDINATE FORCE CONSTANTS
+ 
+ QUADRATIC FORCE CONSTANTS
+ 
+    9.300740    0.424331
+    0.424331    0.742860
+ 
+ 
+ NORMAL MODE ANALYSIS IN INTERNAL COORDINATES
+ 
+ 
+ NUCLEAR CARTESIAN COORDINATES (ANG.) AND MASSES
+ 
+  ATOM    MASS             X             Y             Z
+ 
+    1   15.994910     0.0000000000  0.0000000000  0.0000000000
+    2    1.007825     0.0000000000  0.7910980084  0.5284320105
+    3    1.007825     0.0000000000 -0.7910980084  0.5284320105
+ 
+ 
+ QUADRATIC FORCE CONSTANTS IN MDYN/A, MDYN/RAD, OR MDYN*A/RAD**2
+ 
+    1  1  9.300740    1  2  0.424331
+    2  1  0.424331    2  2  0.742860
+ 
+ 
+ 
+ LOWEST EIGENVALUES OF THE G MATRIX
+ 
+    1.025387    2.389087
+ 
+ 
+ 
+ VIBRATIONAL FREQUENCIES (CM-1) AND EIGENVECTORS
+ 
+ 
+ ------------------------------
+                1         2
+ COORDINATE  1710.631  4028.326
+ ------------------------------
+      1     -0.073691 -1.012612
+      2      1.543665 -0.027553
+ ------------------------------
+ 
+ 
+ 
+ 
+ 
+ POTENTIAL ENERGY DISTRIBUTIONS (%) AMONG DIAGONAL ELEMENTS
+ 
+ 
+ ------------------------------
+                1         2
+ COORDINATE  1710.631  4028.326
+ ------------------------------
+      1       2.77402  99.99409
+      2      97.22598   0.00591
+ ------------------------------
+ 
+ 
+ 
+ 
+ 
+ VIBRATIONAL ASSIGNMENTS
+ 
+ 
+   MODE    CM-1                 DOMINANT COMPONENTS OF PED
+ 
+     1    1710.6      2 ( 97.2)
+     2    4028.3      1 (100.0)
+ tstop called:
+ Timing turned off.      
+ Elapsed total time =           0 seconds
+ Elapsed user time =   0.000000000E+00 seconds
+ Elapsed system time = 0.000000000E+00 seconds
+************************************************************************************************************************

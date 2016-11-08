@@ -1,0 +1,125 @@
+* Essential for all job sequences                                               
+ INPUT                                                                          
+* Scf up to 2nd derivatives                                                     
+* CI up to gradients                                                            
+ ANHARM                                                                         
+ ANHASY                                                                         
+ ANHDIA                                                                         
+ ANHLIN                                                                         
+ ANHPOLY                                                                        
+ ANHSPH                                                                         
+ ANHSYM                                                                         
+ BMATIN6                                                                        
+ BMWRTG                                                                         
+ BONDEX                                                                         
+ BORN                                                                           
+ CIPROP                                                                         
+ CISORT                                                                         
+ CL3RD                                                                          
+ CPCLAO                                                                         
+ CPCLAOS                                                                        
+ CPCLMO                                                                         
+ CPGRAO                                                                         
+ CPGRAOB                                                                        
+ CPGRAOS                                                                        
+ CPGRMO                                                                         
+ CPSIZE                                                                         
+ CPTCAO                                                                         
+ CPTCAOS                                                                        
+ CPTCMO                                                                         
+ DERIV                                                                          
+LDER1                                                                           
+LDER2                                                                           
+LDER3                                                                           
+ DERTFK                                                                         
+LDER1TFK                                                                        
+LDER2TFK                                                                        
+LDER3TFK                                                                        
+LDER4TFK                                                                        
+ DER3RD                                                                         
+ DIPDER                                                                         
+ DRT                                                                            
+ DRTRD                                                                          
+ EFGRAD                                                                         
+ FDGEOM                                                                         
+ FORMGC                                                                         
+ GEOM                                                                           
+ GEOMIU                                                                         
+ GEOMUP                                                                         
+ GETINT                                                                         
+ GNEXTS                                                                         
+ GRCPHF                                                                         
+ GR3RD                                                                          
+ GTINT2                                                                         
+ GTINT3                                                                         
+ GTINT4                                                                         
+ GUGACI                                                                         
+ HVIB                                                                           
+ HVIBTJL                                                                        
+ HYCLAO                                                                         
+ HYCLMO                                                                         
+ HYGRAO                                                                         
+ HYGRMO                                                                         
+ INPUTFG                                                                        
+ INPUTL                                                                         
+ INPUTTH                                                                        
+ INTCOS                                                                         
+ INTDER                                                                         
+ INTDIF                                                                         
+ INTS                                                                           
+ INTSFG                                                                         
+ INTSTH                                                                         
+ IOMR                                                                           
+ IOMRTH                                                                         
+ LAGTR                                                                          
+ MAKE37                                                                         
+ MASTER                                                                         
+ MCGRADN                                                                        
+ MKFCM                                                                          
+ MOCPHF                                                                         
+ NEWTON                                                                         
+ NGETINT                                                                        
+ NGRCPHF                                                                        
+ NGTINT2                                                                        
+ NORMCO                                                                         
+ ONEPDM                                                                         
+ ORBDER                                                                         
+ PINPUT                                                                         
+ PINTS                                                                          
+ POLYMODE                                                                       
+ PROPER                                                                         
+ RAMANC                                                                         
+ RAMANG                                                                         
+ RAMINT                                                                         
+ RAMINTH                                                                        
+ RAM101                                                                         
+ RAM101TH                                                                       
+ READ30                                                                         
+ READ30TH                                                                       
+ REPLACE                                                                        
+ SCF                                                                            
+ SCFAC                                                                          
+ SCFP                                                                           
+ SCFTFK                                                                         
+ SCFX                                                                           
+ SRBIBM                                                                         
+ STARTMC1                                                                       
+ TEN230                                                                         
+ THIRD1                                                                         
+ THIRD2                                                                         
+ TIMIT                                                                          
+ TIMIT1                                                                         
+ TRANS                                                                          
+ TRANSOLD                                                                       
+ TRANSYY                                                                        
+ TRLIN3                                                                         
+ TSMAT                                                                          
+ TWOPDM                                                                         
+LTWOPDMLI                                                                       
+ UPDATE                                                                         
+ VIBLRG                                                                         
+ WRIT17                                                                         
+ WRIT20                                                                         
+ WRIT24                                                                         
+ ZCCSDT                                                                         
+ ZMAT                                                                           

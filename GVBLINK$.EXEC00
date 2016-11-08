@@ -1,0 +1,61 @@
+/**********************************************************************/
+/**   EXEC HFSLINK: USED TO RELINK TO MINIDISKS BEFORE LOADING PRGMS **/
+/**********************************************************************/
+/**   LAST UPDATE: 4-4-88       BY:  RICHARD REMINGTON               **/
+/**   REASON:  change links for use on 9370                          **/
+/**********************************************************************/
+/**   LAST UPDATE: 3-6-88       BY:  RICHARD REMINGTON               **/
+/**   REASON:  SWITCH TO REXX                                        **/
+/**********************************************************************/
+TRACE ERR
+PARSE ARG  ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9 ARG10 ARG11 ARG1
+XECERASE = "NO"
+ 
+'IDENTIFY (STACK LIFO';
+PULL USERID . . . . . . . .
+BAT_USER = LEFT(USERID,5)
+IF BAT_USER ^= 'BATCH' THEN SIGNAL NONBATCH;
+ 
+STARS = "**********"
+JOB_LABEL = STARS "" HFSLINK "" STARS "" ARG1 "" STARS "" ARG2 "" STARS
+JOB_LABEL = CENTER(JOB_LABEL,80,"*")
+SAY JOB_LABEL ;
+SAY "JOB BEING RUN IN USERID = " USERID
+ 
+" REL  M  (DET "
+" REL  B  (DET "
+" REL  E  (DET "
+" REL  F  (DET "
+" CP LINK TO FRITZ    191 101 RR "
+" CP LINK TO FRITZ2   192 122 RR "
+" CP LINK TO MAINT    319 319 RR "
+" CP LINK TO MAINT    323 323 RR "
+" ACCESS 101 M "
+" ACCESS 122 B "
+" ACCESS 319 E "
+" ACCESS 323 F "
+ 
+STATE  ARG1 EXEC A
+ IF RC = 0  THEN SIGNAL GOT_EXEC ;
+" COPYFILE " ARG1 " EXEC *  = = A "
+ XECERASE = "YES"
+GOT_EXEC:
+SAY "NOW CALLING EXEC = " ARG1 " FROM HFSLINK$ "
+ 
+EXEC   ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9 ARG10 ARG11 ARG12
+ 
+IF  XECERASE ^= YES THEN EXIT
+" ERASE " ARG1 " EXEC A "
+EXIT
+ 
+/* &TYPE &LSTPRGM                THIS IS TO BE USED IN FUTURE TO STOP */
+/* EXEC JOBCNTRL$ &LSTPRGM &2       JOBS OR BRANCH JOBS AS RESULTS    */
+/* &JOBCHEK = &RETCODE                   DETERMINE                    */
+/* &IF &JOBCHEK ^= 0 &STACK LIFO NOGO                                 */
+/* &EXIT &JOBCHEK                                                     */
+ 
+NONBATCH:
+ 
+EXEC   ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9 ARG10 ARG11 ARG12
+ 
+EXIT

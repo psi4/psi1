@@ -1,0 +1,4225 @@
+C**********************************************************************
+C   THIRD DERIVATIVE PROGRAM PART 5 : "CENT3B"
+C**********************************************************************
+C
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+c Moved to PSI distribution disk on 020389 - clj.
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         search:  c7-14-88  *
+C*  DATE:  July  14,   1988                                           *
+C*  REASON: Migration to run in 7Mb on 9370                           *
+C**********************************************************************
+C                                                                     *
+C   LAST UPDATED ON NOVEMBER 26, 1985 BY YUKIO YAMAGUCHI              *
+C                                                                     *
+C**********************************************************************
+C                                                                     *
+C   CENTER 2 AND 4  DERIVATIVES ARE CALCULATED                        *
+C                                                                     *
+C######################################################################
+      SUBROUTINE CENT24(GT,GU,GV,XX0,XY0,XZ0,XXFIR,XYFIR,XZFIR
+     *,                 XXSEC,XYSEC,XZSEC,XXMXFF,XYMXFF,XZMXFF,GMXFIR
+     *,                 GMXSEC,GMXFF,LO,XXTHR,XYTHR,XZTHR
+     *,                 XXFFF,XYFFF,XZFFF,XXFSMX,XYFSMX,XZFSMX,GMXTHR
+     *,                 GMXFFF,GMXFS)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER GSPOT
+      LOGICAL BOTH1,BOTH2
+      LOGICAL EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+      DIMENSION YX(8,14),YY(8,14),YZ(8,14)
+      DIMENSION GT(I4LARL,I2LARL),GU(I4LARL,I2LARL)
+      DIMENSION GV(I4LARL,I2LARL)
+      DIMENSION ITEST(10)
+      DIMENSION YYX(8,18),YYY(8,18),YYZ(8,18)
+      DIMENSION XX0(IANGSQ,IANGSQ),XY0(IANGSQ,IANGSQ),XZ0(IANGSQ,IANGSQ)
+      DIMENSION XXFIR(IANGSQ,IANGSQ,3),XYFIR(IANGSQ,IANGSQ,3)
+      DIMENSION XZFIR(IANGSQ,IANGSQ,3),XXSEC(IANGSQ,IANGSQ,3)
+      DIMENSION XYSEC(IANGSQ,IANGSQ,3),XZSEC(IANGSQ,IANGSQ,3)
+      DIMENSION XXMXFF(IANGSQ,IANGSQ,3),XYMXFF(IANGSQ,IANGSQ,3)
+      DIMENSION XZMXFF(IANGSQ,IANGSQ,3),GMXFIR(IMEM4,3,3)
+      DIMENSION GMXSEC(IMEM4,6,3),GMXFF(IMEM4,9,3)
+      DIMENSION LO(IMEM4*5)
+      DIMENSION XXTHR(IANGSQ,IANGSQ,3),XYTHR(IANGSQ,IANGSQ,3)
+     *,         XZTHR(IANGSQ,IANGSQ,3),XXFFF(IANGSQ,IANGSQ)
+     *,         XYFFF(IANGSQ,IANGSQ),XZFFF(IANGSQ,IANGSQ)
+      DIMENSION XXFSMX(IANGSQ,IANGSQ,6),XYFSMX(IANGSQ,IANGSQ,6)
+     *,         XZFSMX(IANGSQ,IANGSQ,6)
+      DIMENSION GMXTHR(IMEM4,10,3),GMXFFF(IMEM4,27),GMXFS(IMEM4,18,6)
+      COMMON/CALQN/ISTYPE,ICTYPE,NDERIV,NTYPES,NBSET
+      COMMON/EINFO/IPLACE(49),ISAME(49)
+      COMMON/EXYZS/EX(686),EY(686),EZ(686)
+      COMMON/FILES/IOUT,INPUT,IDBG
+      COMMON/IPAR1/NS,N3N,I2N3N,I3N3N
+      COMMON/IPAR2/NBFAO,NUMIJ,NUMNUM
+      COMMON/IPAR4/IMEM,IMEM2,IMEM4
+      COMMON/IPAR5/IANG,IANGSQ,LARGL,LARGL2,I2LARL,I4LARL
+      COMMON/LOGIC/EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+      COMMON/ORBIN/IORB1,JORB1,KORB1,LORB1,NUMI,NUMJ,NUMK,NUML
+      COMMON/PASS /II,JJ,KK,LL
+      COMMON/POSNS/IJX(50),IJY(50),IJZ(50),KLX(50),KLY(50),KLZ(50)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TWINF/ISHELL,JSHELL,KSHELL,LSHELL
+C
+      ISIZ=   7
+      ISIZ2= 14
+      ISIZ3= 21
+      IESZ=343
+C
+      RETURN
+C
+      ENTRY DER24(BOTH1,BOTH2,IQN,JQN,KQN,LQN,IGCNT,NROOT0,AA,BB,CC,DD,
+     *ITEST)
+C
+      BB2=BB + BB
+      DD2=DD + DD
+      B4=BB2 * BB2
+      D4=DD2 * DD2
+      B8=B4 * BB2
+      D8=D4 * DD2
+      BD4=BB2*DD2
+      BBD8=BD4 * BB2
+      DDB8=BD4 * DD2
+C
+      NROOT=NROOT0 + NDERIV
+      KLQN=KQN+LQN -1
+      KLQNP1=KLQN + 1
+      KLQNP2=KLQN + 2
+      KLQNP3=KLQN + 3
+      MAX=KLQN + IQN + JQN -1
+C
+      DO 10000 IROOT=1,NROOT
+C
+        IN=-IANG
+        IM=-ISIZ
+C
+        DO 9000 INO=1,IQN
+C
+          IN=IN + IANG
+          IM=IM + ISIZ
+C
+          DO 8000 JNO=1,JQN
+C
+            JN=JNO + IN
+            JM=JNO + IM
+C
+            DUMJ=DBLE(JNO-1)
+            DUMJM1=DBLE((JNO-1)*(JNO-2))
+            DUMJ2=DBLE(2*JNO -1)
+            B2DJ=BB2*DUMJ2
+            D2DJ=DD2*DUMJ
+            B12DJ=3.0D0*B4*DBLE(JNO)
+            B6DJ=3.0D0*BB2*DUMJ*DUMJ
+C
+            IPL=IPLACE(JM)
+            ITWO=2
+            IF(ISAME(JM) .EQ. 1) ITWO=1
+C
+              JP0P1=JM + 1
+              IP0P1=IPLACE(JP0P1)
+              I2P0P1=2
+              IF(ISAME(JP0P1) .EQ. 1) I2P0P1=1
+              JP0P2=JM + 2
+              IP0P2=IPLACE(JP0P2)
+              I2P0P2=2
+              IF(ISAME(JP0P2) .EQ. 1) I2P0P2=1
+              JP0P3=JM + 3
+              IP0P3=IPLACE(JP0P3)
+              I2P0P3=2
+              IF(ISAME(JP0P3) .EQ. 1) I2P0P3=1
+              IF(JNO .GT. 1) THEN
+                JM0M1=JM-1
+                IM0M1=IPLACE(JM0M1)
+                I2M0M1=2
+                IF(ISAME(JM0M1) .EQ. 1) I2M0M1=1
+                IF(JNO .GT. 2) THEN
+                  JM0M2=JM - 2
+                  IM0M2=IPLACE(JM0M2)
+                  I2M0M2=2
+                  IF(ISAME(JM0M2) .EQ. 1) I2M0M2=1
+                END IF
+              END IF
+C
+            IT=INO + JNO - 1
+            ITM1=IT-1
+            ITM2=IT-2
+            ITM3=IT-3
+            ITZERO=IT
+            ITFIR=IT + 1
+            ITSEC=IT + 2
+            ITTHR=IT + 3
+C
+C   ZEROTH ORDER SECTION
+C
+            DO 150 IKL=1,KLQN
+              YX0=0.0D0
+              YY0=0.0D0
+              YZ0=0.0D0
+              DO 100 IJ=1,IT
+                IJM1=IJ-1
+                ISPOT=IPL + IJM1*ITWO
+                GSPOT=IKL + IJM1
+                YX0=YX0 + EX(ISPOT)*GT(GSPOT,IROOT)
+                YY0=YY0 + EY(ISPOT)*GU(GSPOT,IROOT)
+                YZ0=YZ0 + EZ(ISPOT)*GV(GSPOT,IROOT)
+  100         CONTINUE
+C
+              YX(IKL,1)=YX0
+              YY(IKL,1)=YY0
+              YZ(IKL,1)=YZ0
+C
+  150       CONTINUE
+C
+              DO 300 IKL=1,KLQN
+                YX0=YX(IKL,1)
+                YY0=YY(IKL,1)
+                YZ0=YZ(IKL,1)
+                  YXB1=0.0D0
+                  YYB1=0.0D0
+                  YZB1=0.0D0
+                  YXB2=0.0D0
+                  YYB2=0.0D0
+                  YZB2=0.0D0
+                  YX2B1=0.0D0
+                  YY2B1=0.0D0
+                  YZ2B1=0.0D0
+                  YX2B2=0.0D0
+                  YY2B2=0.0D0
+                  YZ2B2=0.0D0
+                  YX3B1=0.0D0
+                  YY3B1=0.0D0
+                  YZ3B1=0.0D0
+                DO 200 IJ=1,ITTHR
+                  IJM1=IJ-1
+                  GSPOT=IKL + IJM1
+C
+C   FIRST DERIVATIVE SECTION
+C
+                  IF(IJ .GT. ITFIR) GO TO 160
+                    ISPOT=IP0P1 +  IJM1*I2P0P1
+                    YXB1=YXB1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYB1=YYB1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZB1=YZB1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(JNO .GT. 1) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM0M1 + IJM1*I2M0M1
+                        YXB2=YXB2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYB2=YYB2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZB2=YZB2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+  160             CONTINUE
+C
+C   SECOND DERIVATIVE SECTION
+C
+                  IF(IJ .GT. ITSEC) GO TO 170
+C
+                    ISPOT=IP0P2 + IJM1*I2P0P2
+                    YX2B1=YX2B1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YY2B1=YY2B1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZ2B1=YZ2B1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(JNO .GT. 2) THEN
+                      IF(IJ .LE. ITM2) THEN
+                        ISPOT=IM0M2 + IJM1*I2M0M2
+                        YX2B2=YX2B2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YY2B2=YY2B2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZ2B2=YZ2B2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+  170             CONTINUE
+C
+C   THIRD DERIVATIVES
+C
+C
+                    ISPOT=IP0P3 + IJM1*I2P0P3
+                    YX3B1=YX3B1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YY3B1=YY3B1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZ3B1=YZ3B1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+C
+  200           CONTINUE
+C
+                  YX(IKL,4)=YXB1*BB2 - DUMJ*YXB2
+                  YY(IKL,4)=YYB1*BB2 - DUMJ*YYB2
+                  YZ(IKL,4)=YZB1*BB2 - DUMJ*YZB2
+C
+                  YX(IKL,5)=YX2B1*B4 - B2DJ*YX0 + DUMJM1*YX2B2
+                  YY(IKL,5)=YY2B1*B4 - B2DJ*YY0 + DUMJM1*YY2B2
+                  YZ(IKL,5)=YZ2B1*B4 - B2DJ*YZ0 + DUMJM1*YZ2B2
+C
+                  YX(IKL,10)=YX3B1*B8 - B12DJ*YXB1 + YXB2*B6DJ
+                  YY(IKL,10)=YY3B1*B8 - B12DJ*YYB1 + YYB2*B6DJ
+                  YZ(IKL,10)=YZ3B1*B8 - B12DJ*YZB1 + YZB2*B6DJ
+C
+                    YYX(IKL,15)=YXB1
+                    YYY(IKL,15)=YYB1
+                    YYZ(IKL,15)=YZB1
+C
+                    YYX(IKL,16)=YXB2
+                    YYY(IKL,16)=YYB2
+                    YYZ(IKL,16)=YZB2
+C
+  300         CONTINUE
+C
+            DO 375 IKL=1,KLQNP3
+              YX3=0.0D0
+              YY3=0.0D0
+              YZ3=0.0D0
+              DO 350 IJ=1,IT
+                IJM1=IJ-1
+                ISPOT=IPL + IJM1*ITWO
+                GSPOT=IKL + IJ -1
+                YX3=YX3 + EX(ISPOT)*GT(GSPOT,IROOT)
+                YY3=YY3 + EY(ISPOT)*GU(GSPOT,IROOT)
+                YZ3=YZ3 + EZ(ISPOT)*GV(GSPOT,IROOT)
+  350         CONTINUE
+              IF(IKL .LE. KLQNP1) THEN
+                YX(IKL,7)=YX3
+                YY(IKL,7)=YY3
+                YZ(IKL,7)=YZ3
+              END IF
+              IF(IKL .LE. KLQNP2) THEN
+                YX(IKL,8)=YX3
+                YY(IKL,8)=YY3
+                YZ(IKL,8)=YZ3
+              END IF
+              YX(IKL,13)=YX3
+              YY(IKL,13)=YY3
+              YZ(IKL,13)=YZ3
+  375       CONTINUE
+C
+C   MIXED CENTER DERIVATIVES
+C
+              DO 500 IKL=1,KLQNP2
+                  YXB1=0.0D0
+                  YYB1=0.0D0
+                  YZB1=0.0D0
+                  YXB2=0.0D0
+                  YYB2=0.0D0
+                  YZB2=0.0D0
+                  YXB3=0.0D0
+                  YYB3=0.0D0
+                  YZB3=0.0D0
+                  YXB4=0.0D0
+                  YYB4=0.0D0
+                  YZB4=0.0D0
+                  YXB5=0.0D0
+                  YYB5=0.0D0
+                  YZB5=0.0D0
+                  YXB6=0.0D0
+                  YYB6=0.0D0
+                  YZB6=0.0D0
+                DO 450 IJ=1,ITSEC
+                  IJM1=IJ - 1
+                  GSPOT=IJM1 + IKL
+C
+C
+                    IF(IJ .GT. ITFIR) GO TO 410
+                    ISPOT=IP0P1 + IJM1*I2P0P1
+                    EXCNST=EX(ISPOT)*GT(GSPOT,IROOT)
+                    EYCNST=EY(ISPOT)*GU(GSPOT,IROOT)
+                    EZCNST=EZ(ISPOT)*GV(GSPOT,IROOT)
+                    IF(IKL .LE. KLQNP1) THEN
+                      YXB1=YXB1 + EXCNST
+                      YYB1=YYB1 + EYCNST
+                      YZB1=YZB1 + EZCNST
+                    END IF
+                    YXB3=YXB3 + EXCNST
+                    YYB3=YYB3 + EYCNST
+                    YZB3=YZB3 + EZCNST
+C
+                    IF(JNO .GT. 1) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM0M1 + IJM1*I2M0M1
+                        EXCNST=EX(ISPOT)*GT(GSPOT,IROOT)
+                        EYCNST=EY(ISPOT)*GU(GSPOT,IROOT)
+                        EZCNST=EZ(ISPOT)*GV(GSPOT,IROOT)
+                        IF(IKL .LE. KLQNP1) THEN
+                          YXB2=YXB2 + EXCNST
+                          YYB2=YYB2 + EYCNST
+                          YZB2=YZB2 + EZCNST
+                        END IF
+                        YXB4=YXB4 + EXCNST
+                        YYB4=YYB4 + EYCNST
+                        YZB4=YZB4 + EZCNST
+                      END IF
+                    END IF
+C
+  410               CONTINUE
+                    IF(IKL .GT. KLQNP1) GO TO 420
+                    ISPOT=IP0P2 + IJM1*I2P0P2
+                    YXB5=YXB5 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYB5=YYB5 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZB5=YZB5 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(JNO .GT. 2) THEN
+                      IF(IJ .LE. ITM2) THEN
+                        ISPOT=IM0M2 + IJM1*I2M0M2
+                        YXB6=YXB6 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYB6=YYB6 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZB6=YZB6 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+  420               CONTINUE
+  450           CONTINUE
+C
+                  YYX(IKL,3)=YXB1
+                  YYY(IKL,3)=YYB1
+                  YYZ(IKL,3)=YZB1
+C
+                  YYX(IKL,4)=YXB2
+                  YYY(IKL,4)=YYB2
+                  YYZ(IKL,4)=YZB2
+C
+                  YYX(IKL,7)=YXB3
+                  YYY(IKL,7)=YYB3
+                  YYZ(IKL,7)=YZB3
+C
+                  YYX(IKL,8)=YXB4
+                  YYY(IKL,8)=YYB4
+                  YYZ(IKL,8)=YZB4
+C
+                  YYX(IKL,11)=YXB5
+                  YYY(IKL,11)=YYB5
+                  YYZ(IKL,11)=YZB5
+C
+                  YYX(IKL,12)=YXB6
+                  YYY(IKL,12)=YYB6
+                  YYZ(IKL,12)=YZB6
+C
+C
+  500         CONTINUE
+C
+            KN=-IANG
+            KM=-ISIZ
+C
+            DO 7000 KNO=1,KQN
+C
+              KN=KN + IANG
+              KM=KM + ISIZ
+C
+              DO 6000 LNO=1,LQN
+C
+                LN=LNO + KN
+                LM=LNO + KM
+C
+                DUML=DBLE(LNO-1)
+                DUMLM1=DBLE((LNO-1)*(LNO-2))
+                DUML2=DBLE(2*LNO -1)
+                D2DL=DD2*DUML2
+                D12DL=3.0D0*D4*DBLE(LNO)
+                D6DL=3.0D0*DD2*DUML*DUML
+                B2DL=BB2*DUML
+                DJDL=DUMJ*DUML
+C
+                ITT=KNO + LNO -1
+                ITTM1=ITT-1
+                ITTM2=ITT-2
+                ITTM3=ITT-3
+                ITTFIR=ITT + 1
+                ITTSEC=ITT + 2
+                ITTTHR=ITT + 3
+C
+                KPL=IPLACE(LM)
+                KTWO=2
+                IF(ISAME(LM) .EQ. 1) KTWO=1
+C
+                  LP0P1=LM + 1
+                  KP0P1=IPLACE(LP0P1)
+                  K2P0P1=2
+                  IF(ISAME(LP0P1) .EQ. 1) K2P0P1=1
+                  LP0P2=LM + 2
+                  KP0P2=IPLACE(LP0P2)
+                  K2P0P2=2
+                  IF(ISAME(LP0P2) .EQ. 1) K2P0P2=1
+                  LP0P3=LM + 3
+                  KP0P3=IPLACE(LP0P3)
+                  K2P0P3=2
+                  IF(ISAME(LP0P3) .EQ. 1) K2P0P3=1
+                  IF(LNO .GT. 1) THEN
+                    LM0M1=LM - 1
+                    KM0M1=IPLACE(LM0M1)
+                    K2M0M1=2
+                    IF(ISAME(LM0M1) .EQ. 1) K2M0M1=1
+                    IF(LNO .GT. 2) THEN
+                      LM0M2=LM - 2
+                      KM0M2=IPLACE(LM0M2)
+                      K2M0M2=2
+                      IF(ISAME(LM0M2) .EQ. 1) K2M0M2=1
+                    END IF
+                  END IF
+C
+                XXX1=0.0D0
+                XYY1=0.0D0
+                XZZ1=0.0D0
+                  XXX4=0.0D0
+                  XYY4=0.0D0
+                  XZZ4=0.0D0
+                  XXX5=0.0D0
+                  XYY5=0.0D0
+                  XZZ5=0.0D0
+                  XXX10=0.0D0
+                  XYY10=0.0D0
+                  XZZ10=0.0D0
+                  XXD1=0.0D0
+                  XYD1=0.0D0
+                  XZD1=0.0D0
+                  XXD2=0.0D0
+                  XYD2=0.0D0
+                  XZD2=0.0D0
+                  XX2D1=0.0D0
+                  XY2D1=0.0D0
+                  XZ2D1=0.0D0
+                  XX2D2=0.0D0
+                  XY2D2=0.0D0
+                  XZ2D2=0.0D0
+                  XX3D1=0.0D0
+                  XY3D1=0.0D0
+                  XZ3D1=0.0D0
+                  XXSF1=0.0D0
+                  XYSF1=0.0D0
+                  XZSF1=0.0D0
+                  XXSF2=0.0D0
+                  XYSF2=0.0D0
+                  XZSF2=0.0D0
+                  XXSF3=0.0D0
+                  XYSF3=0.0D0
+                  XZSF3=0.0D0
+                  XXSF4=0.0D0
+                  XYSF4=0.0D0
+                  XZSF4=0.0D0
+                  XXSF5=0.0D0
+                  XYSF5=0.0D0
+                  XZSF5=0.0D0
+                  XXSF6=0.0D0
+                  XYSF6=0.0D0
+                  XZSF6=0.0D0
+                  XXFS1=0.0D0
+                  XYFS1=0.0D0
+                  XZFS1=0.0D0
+                  XXFS2=0.0D0
+                  XYFS2=0.0D0
+                  XZFS2=0.0D0
+                  XXFS3=0.0D0
+                  XYFS3=0.0D0
+                  XZFS3=0.0D0
+                  XXFS4=0.0D0
+                  XYFS4=0.0D0
+                  XZFS4=0.0D0
+                  XXFS5=0.0D0
+                  XYFS5=0.0D0
+                  XZFS5=0.0D0
+                  XXFS6=0.0D0
+                  XYFS6=0.0D0
+                  XZFS6=0.0D0
+                  XXBD1=0.0D0
+                  XXBD2=0.0D0
+                  XXBD3=0.0D0
+                  XXBD4=0.0D0
+                  XYBD1=0.0D0
+                  XYBD2=0.0D0
+                  XYBD3=0.0D0
+                  XYBD4=0.0D0
+                  XZBD1=0.0D0
+                  XZBD2=0.0D0
+                  XZBD3=0.0D0
+                  XZBD4=0.0D0
+C
+                CONST=-1.0D0
+                DO 600 KL=1,ITTTHR
+                  KLM1=KL - 1
+                  CONST=-CONST
+C
+                  IF(KL .LE. ITT) THEN
+C
+C   ZEROTH ORDER SECTION
+C
+                    KSPOT=KPL + KLM1*KTWO
+                    EXCNST=EX(IESZ+KSPOT)*CONST
+                    EYCNST=EY(IESZ+KSPOT)*CONST
+                    EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                    XXX1=XXX1 + YX(KL,1)*EXCNST
+                    XYY1=XYY1 + YY(KL,1)*EYCNST
+                    XZZ1=XZZ1 + YZ(KL,1)*EZCNST
+C
+C   CENTER 2 FIRST, SECOND, AND THIRD DERIVATIVES
+C
+                      XXX4=XXX4 + YX(KL,4)*EXCNST
+                      XYY4=XYY4 + YY(KL,4)*EYCNST
+                      XZZ4=XZZ4 + YZ(KL,4)*EZCNST
+C
+                      XXX5=XXX5 + YX(KL,5)*EXCNST
+                      XYY5=XYY5 + YY(KL,5)*EYCNST
+                      XZZ5=XZZ5 + YZ(KL,5)*EZCNST
+C
+                      XXX10=XXX10 + YX(KL,10)*EXCNST
+                      XYY10=XYY10 + YY(KL,10)*EYCNST
+                      XZZ10=XZZ10 + YZ(KL,10)*EZCNST
+                    END IF
+C
+C   CENTER 4 FIRST, SECOND, AND THIRD DERIVATIVES
+C
+                    IF(KL .GT. ITTFIR) GO TO 505
+                    KSPOT=KP0P1 + KLM1*K2P0P1
+                    XXD1=XXD1 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                    XYD1=XYD1 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                    XZD1=XZD1 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(LNO .GT. 1) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM0M1 + KLM1*K2M0M1
+                        XXD2=XXD2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                        XYD2=XYD2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                        XZD2=XZD2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  505               CONTINUE
+C
+                    IF(KL .GT. ITTSEC) GO TO 510
+                    KSPOT=KP0P2 + KLM1*K2P0P2
+                    XX2D1=XX2D1 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                    XY2D1=XY2D1 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                    XZ2D1=XZ2D1 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(LNO .GT. 2) THEN
+                      IF(KL .LE. ITTM2) THEN
+                        KSPOT=KM0M2 + KLM1*K2M0M2
+                        XX2D2=XX2D2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                        XY2D2=XY2D2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                        XZ2D2=XZ2D2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  510               CONTINUE
+C
+                  KSPOT=KP0P3 + KLM1*K2P0P3
+                  XX3D1=XX3D1 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                  XY3D1=XY3D1 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                  XZ3D1=XZ3D1 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+C
+C   CENTERS 2 AND 4 MIXED DERIVATIVES
+C
+                    IF(KL .GT. ITTSEC) GO TO 600
+C
+                    IF(KL .LE. ITTFIR) THEN
+                      KSPOT=KP0P1 + KLM1*K2P0P1
+                      EXCNST=EX(IESZ+KSPOT)*CONST
+                      EYCNST=EY(IESZ+KSPOT)*CONST
+                      EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                      XXBD1=XXBD1 + YYX(KL,3)*EXCNST
+                      XYBD1=XYBD1 + YYY(KL,3)*EYCNST
+                      XZBD1=XZBD1 + YYZ(KL,3)*EZCNST
+C
+                      XXBD4=XXBD4 + YYX(KL,4)*EXCNST
+                      XYBD4=XYBD4 + YYY(KL,4)*EYCNST
+                      XZBD4=XZBD4 + YYZ(KL,4)*EZCNST
+C
+                      XXSF1=XXSF1 + YYX(KL,11)*EXCNST
+                      XYSF1=XYSF1 + YYY(KL,11)*EYCNST
+                      XZSF1=XZSF1 + YYZ(KL,11)*EZCNST
+C
+                      XXSF2=XXSF2 + YYX(KL,12)*EXCNST
+                      XYSF2=XYSF2 + YYY(KL,12)*EYCNST
+                      XZSF2=XZSF2 + YYZ(KL,12)*EZCNST
+C
+                      XXSF3=XXSF3 + YX(KL,7)*EXCNST
+                      XYSF3=XYSF3 + YY(KL,7)*EYCNST
+                      XZSF3=XZSF3 + YZ(KL,7)*EZCNST
+C
+                    END IF
+                    IF(LNO .GT. 1) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM0M1 + KLM1*K2M0M1
+                        EXCNST=EX(IESZ+KSPOT)*CONST
+                        EYCNST=EY(IESZ+KSPOT)*CONST
+                        EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                        XXBD2=XXBD2 + YYX(KL,3)*EXCNST
+                        XYBD2=XYBD2 + YYY(KL,3)*EYCNST
+                        XZBD2=XZBD2 + YYZ(KL,3)*EZCNST
+C
+                        XXBD3=XXBD3 + YYX(KL,4)*EXCNST
+                        XYBD3=XYBD3 + YYY(KL,4)*EYCNST
+                        XZBD3=XZBD3 + YYZ(KL,4)*EZCNST
+C
+                        XXSF4=XXSF4 + YYX(KL,11)*EXCNST
+                        XYSF4=XYSF4 + YYY(KL,11)*EYCNST
+                        XZSF4=XZSF4 + YYZ(KL,11)*EZCNST
+C
+                        XXSF5=XXSF5 + YYX(KL,12)*EXCNST
+                        XYSF5=XYSF5 + YYY(KL,12)*EYCNST
+                        XZSF5=XZSF5 + YYZ(KL,12)*EZCNST
+C
+                        XXSF6=XXSF6 + YX(KL,7)*EXCNST
+                        XYSF6=XYSF6 + YY(KL,7)*EYCNST
+                        XZSF6=XZSF6 + YZ(KL,7)*EZCNST
+                      END IF
+                    END IF
+C
+                    KSPOT=KP0P2 + KLM1*K2P0P2
+                    EXCNST=EX(IESZ+KSPOT)*CONST
+                    EYCNST=EY(IESZ+KSPOT)*CONST
+                    EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                    XXFS1=XXFS1 + YYX(KL,7)*EXCNST
+                    XYFS1=XYFS1 + YYY(KL,7)*EYCNST
+                    XZFS1=XZFS1 + YYZ(KL,7)*EZCNST
+C
+                    XXFS2=XXFS2 + YYX(KL,8)*EXCNST
+                    XYFS2=XYFS2 + YYY(KL,8)*EYCNST
+                    XZFS2=XZFS2 + YYZ(KL,8)*EZCNST
+C
+                    IF(KL .LE. ITT) THEN
+                      KSPOT=KPL + KTWO*KLM1
+                      EXCNST=EX(IESZ+KSPOT)*CONST
+                      EYCNST=EY(IESZ+KSPOT)*CONST
+                      EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                      XXFS3=XXFS3 + YYX(KL,15)*EXCNST
+                      XYFS3=XYFS3 + YYY(KL,15)*EYCNST
+                      XZFS3=XZFS3 + YYZ(KL,15)*EZCNST
+C
+                      XXFS4=XXFS4 + YYX(KL,16)*EXCNST
+                      XYFS4=XYFS4 + YYY(KL,16)*EYCNST
+                      XZFS4=XZFS4 + YYZ(KL,16)*EZCNST
+                    END IF
+C
+                    IF(LNO .GT. 2) THEN
+                      IF(KL .LE. ITTM2) THEN
+                        KSPOT=KM0M2 + KLM1*K2M0M2
+                        EXCNST=EX(IESZ+KSPOT)*CONST
+                        EYCNST=EY(IESZ+KSPOT)*CONST
+                        EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                        XXFS5=XXFS5 + YYX(KL,7)*EXCNST
+                        XYFS5=XYFS5 + YYY(KL,7)*EYCNST
+                        XZFS5=XZFS5 + YYZ(KL,7)*EZCNST
+C
+                        XXFS6=XXFS6 + YYX(KL,8)*EXCNST
+                        XYFS6=XYFS6 + YYY(KL,8)*EYCNST
+                        XZFS6=XZFS6 + YYZ(KL,8)*EZCNST
+                      END IF
+                    END IF
+C
+  600           CONTINUE
+                IF(JN .GT. 9) WRITE(IOUT,*) 'JN TOO BIG  JN=',JN
+                IF(LN .GT. 9) WRITE(IOUT,*) 'LN TOO BIG  LN=',LN
+C
+                XX0(JN,LN)=XXX1
+                XY0(JN,LN)=XYY1
+                XZ0(JN,LN)=XZZ1
+C
+                INT=0
+                  INT=INT+1
+                  XXFIR(JN,LN,INT)=XXX4
+                  XYFIR(JN,LN,INT)=XYY4
+                  XZFIR(JN,LN,INT)=XZZ4
+C
+                  XXSEC(JN,LN,INT)=XXX5
+                  XYSEC(JN,LN,INT)=XYY5
+                  XZSEC(JN,LN,INT)=XZZ5
+C
+                  XXTHR(JN,LN,INT)=XXX10
+                  XYTHR(JN,LN,INT)=XYY10
+                  XZTHR(JN,LN,INT)=XZZ10
+C
+                  INT=INT+1
+                  XXFIR(JN,LN,INT)=XXD1*DD2 - DUML*XXD2
+                  XYFIR(JN,LN,INT)=XYD1*DD2 - DUML*XYD2
+                  XZFIR(JN,LN,INT)=XZD1*DD2 - DUML*XZD2
+C
+                  XXSEC(JN,LN,INT)=D4*XX2D1 - D2DL*XXX1 + DUMLM1*XX2D2
+                  XYSEC(JN,LN,INT)=D4*XY2D1 - D2DL*XYY1 + DUMLM1*XY2D2
+                  XZSEC(JN,LN,INT)=D4*XZ2D1 - D2DL*XZZ1 + DUMLM1*XZ2D2
+C
+                  XXTHR(JN,LN,INT)=D8*XX3D1 - D12DL*XXD1 + D6DL*XXD2
+                  XYTHR(JN,LN,INT)=D8*XY3D1 - D12DL*XYD1 + D6DL*XYD2
+                  XZTHR(JN,LN,INT)=D8*XZ3D1 - D12DL*XZD1 + D6DL*XZD2
+C
+                IMX=0
+                IFS=0
+C
+                  IMX=IMX+1
+                  XXMXFF(JN,LN,IMX)=BD4*XXBD1 - B2DL*XXBD2 + DJDL*XXBD3
+     *            - D2DJ*XXBD4
+                  XYMXFF(JN,LN,IMX)=BD4*XYBD1 - B2DL*XYBD2 + DJDL*XYBD3
+     *            - D2DJ*XYBD4
+                  XZMXFF(JN,LN,IMX)=BD4*XZBD1 - B2DL*XZBD2 + DJDL*XZBD3
+     *            - D2DJ*XZBD4
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= BBD8*XXSF1 - BD4*DUMJ2*XXSF3
+     *                             + DD2*DUMJM1*XXSF2 - B4*DUML*XXSF4
+     *                      + BB2*DUML*DUMJ2*XXSF6 - DUMJM1*DUML*XXSF5
+                  XYFSMX(JN,LN,IFS)= BBD8*XYSF1 - BD4*DUMJ2*XYSF3
+     *                             + DD2*DUMJM1*XYSF2 - B4*DUML*XYSF4
+     *                      + BB2*DUML*DUMJ2*XYSF6 - DUMJM1*DUML*XYSF5
+                  XZFSMX(JN,LN,IFS)= BBD8*XZSF1 - BD4*DUMJ2*XZSF3
+     *                             + DD2*DUMJM1*XZSF2 - B4*DUML*XZSF4
+     *                      + BB2*DUML*DUMJ2*XZSF6 - DUMJM1*DUML*XZSF5
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= DDB8*XXFS1 - BD4*DUML2*XXFS3
+     *                             + BB2*DUMLM1*XXFS5 - D4*DUMJ*XXFS2
+     *                      + DD2*DUMJ*DUML2*XXFS4 - DUMLM1*DUMJ*XXFS6
+                  XYFSMX(JN,LN,IFS)= DDB8*XYFS1 - BD4*DUML2*XYFS3
+     *                             + BB2*DUMLM1*XYFS5 - D4*DUMJ*XYFS2
+     *                      + DD2*DUMJ*DUML2*XYFS4 - DUMLM1*DUMJ*XYFS6
+                  XZFSMX(JN,LN,IFS)= DDB8*XZFS1 - BD4*DUML2*XZFS3
+     *                             + BB2*DUMLM1*XZFS5 - D4*DUMJ*XZFS2
+     *                      + DD2*DUMJ*DUML2*XZFS4 - DUMLM1*DUMJ*XZFS6
+C
+C
+ 6000         CONTINUE
+ 7000       CONTINUE
+C
+ 8000     CONTINUE
+ 9000   CONTINUE
+C
+C
+C   ACTUALLY FORM THE INTEGRALS
+C
+        ICNT=0
+        IJCNT=0
+        IORBMX=IORB1 -1 + NUMI
+        JORBMX=JORB1 -1 + NUMJ
+        DO 5000 IORB=IORB1,IORBMX
+          IF(BOTH1) JORBMX=IORB
+          DO 4000 JORB=JORB1,JORBMX
+            IJORB=IOFF(MAX0(IORB,JORB)) + MIN0(IORB,JORB)
+            IJCNT=IJCNT + 1
+            JNX=IJX(IJCNT)
+            JNY=IJY(IJCNT)
+            JNZ=IJZ(IJCNT)
+            KLCNT=0
+            KORBMX=KORB1 -1 + NUMK
+            LORBMX=LORB1 -1 + NUML
+            IF(ISHELL .EQ. KSHELL) KORBMX=IORB
+            DO 3000 KORB=KORB1,KORBMX
+              IF(BOTH2) LORBMX=KORB
+              DO 2000 LORB=LORB1,LORBMX
+                KLORB=IOFF(MAX0(KORB,LORB)) + MIN0(KORB,LORB)
+                IJKL=IOFF(MAX0(IJORB,KLORB)) + MIN0(IJORB,KLORB)
+                IF(KLORB .GT. IJORB) GO TO 3000
+C
+                ICNT=ICNT + 1
+                IF(ICNT .GT. IMEM4) WRITE(IOUT,*) ' ICNT = ',ICNT
+                KLCNT=KLCNT + 1
+                LNX=KLX(KLCNT)
+                LNY=KLY(KLCNT)
+                LNZ=KLZ(KLCNT)
+                INT=0
+C
+C   CENTER 2 DERIVATIVES
+C
+                  INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                  GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                  GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                  GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *            XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *            XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *            XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *            INT)
+                  GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+C
+C   CENTER 4 DERIVATIVES
+C
+                  INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                  GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                  GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                  GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *            XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *            XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *            XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *            INT)
+                  GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+C
+C   MIXED DERIVATIVE ON CENTERS 2 AND 4
+C
+                  IMX=0
+                  IFS=0
+ 
+C
+C   SECOND DERIVATIVES
+C
+                  IMX=IMX + 1
+                  GMXFF(ICNT,1,IMX)= GMXFF(ICNT,1,IMX) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,2,IMX)= GMXFF(ICNT,2,IMX) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,3,IMX)= GMXFF(ICNT,3,IMX) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,4,IMX)= GMXFF(ICNT,4,IMX) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,5,IMX)= GMXFF(ICNT,5,IMX) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,6,IMX)= GMXFF(ICNT,6,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,7,IMX)= GMXFF(ICNT,7,IMX) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,8,IMX)= GMXFF(ICNT,8,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,9,IMX)= GMXFF(ICNT,9,IMX) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+C
+C   THIRD DERIVATIVES
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,1)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYSEC(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,1)
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,2)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYSEC(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,2)
+ 2000         CONTINUE
+ 3000       CONTINUE
+ 4000     CONTINUE
+ 5000   CONTINUE
+C
+10000 CONTINUE
+C
+      IGCNT=ICNT
+C
+      RETURN
+      END
+C***********************************************************************
+C
+C   CENTER 3 AND 4  DERIVATIVES ARE CALCULATED
+C
+C***********************************************************************
+      SUBROUTINE CENT34(GT,GU,GV,XX0,XY0,XZ0,XXFIR,XYFIR,XZFIR
+     *,                 XXSEC,XYSEC,XZSEC,XXMXFF,XYMXFF,XZMXFF,GMXFIR
+     *,                 GMXSEC,GMXFF,LO,XXTHR,XYTHR,XZTHR
+     *,                 XXFFF,XYFFF,XZFFF,XXFSMX,XYFSMX,XZFSMX,GMXTHR
+     *,                 GMXFFF,GMXFS)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER GSPOT
+      LOGICAL BOTH1,BOTH2,DO3,DO5
+      LOGICAL EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+      DIMENSION YX(8,14),YY(8,14),YZ(8,14)
+      DIMENSION GT(I4LARL,I2LARL),GU(I4LARL,I2LARL)
+      DIMENSION GV(I4LARL,I2LARL)
+      DIMENSION ITEST(10)
+      DIMENSION YYX(8,18),YYY(8,18),YYZ(8,18)
+      DIMENSION XX0(IANGSQ,IANGSQ),XY0(IANGSQ,IANGSQ),XZ0(IANGSQ,IANGSQ)
+      DIMENSION XXFIR(IANGSQ,IANGSQ,3),XYFIR(IANGSQ,IANGSQ,3)
+      DIMENSION XZFIR(IANGSQ,IANGSQ,3),XXSEC(IANGSQ,IANGSQ,3)
+      DIMENSION XYSEC(IANGSQ,IANGSQ,3),XZSEC(IANGSQ,IANGSQ,3)
+      DIMENSION XXMXFF(IANGSQ,IANGSQ,3),XYMXFF(IANGSQ,IANGSQ,3)
+      DIMENSION XZMXFF(IANGSQ,IANGSQ,3),GMXFIR(IMEM4,3,3)
+      DIMENSION GMXSEC(IMEM4,6,3),GMXFF(IMEM4,9,3)
+      DIMENSION LO(IMEM4*5)
+      DIMENSION XXTHR(IANGSQ,IANGSQ,3),XYTHR(IANGSQ,IANGSQ,3)
+     *,         XZTHR(IANGSQ,IANGSQ,3),XXFFF(IANGSQ,IANGSQ)
+     *,         XYFFF(IANGSQ,IANGSQ),XZFFF(IANGSQ,IANGSQ)
+      DIMENSION XXFSMX(IANGSQ,IANGSQ,6),XYFSMX(IANGSQ,IANGSQ,6)
+     *,         XZFSMX(IANGSQ,IANGSQ,6)
+      DIMENSION GMXTHR(IMEM4,10,3),GMXFFF(IMEM4,27),GMXFS(IMEM4,18,6)
+      COMMON/CALQN/ISTYPE,ICTYPE,NDERIV,NTYPES,NBSET
+      COMMON/EINFO/IPLACE(49),ISAME(49)
+      COMMON/EXYZS/EX(686),EY(686),EZ(686)
+      COMMON/FILES/IOUT,INPUT,IDBG
+      COMMON/IPAR1/NS,N3N,I2N3N,I3N3N
+      COMMON/IPAR2/NBFAO,NUMIJ,NUMNUM
+      COMMON/IPAR4/IMEM,IMEM2,IMEM4
+      COMMON/IPAR5/IANG,IANGSQ,LARGL,LARGL2,I2LARL,I4LARL
+      COMMON/LOGIC/EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+      COMMON/ORBIN/IORB1,JORB1,KORB1,LORB1,NUMI,NUMJ,NUMK,NUML
+      COMMON/PASS /II,JJ,KK,LL
+      COMMON/POSNS/IJX(50),IJY(50),IJZ(50),KLX(50),KLY(50),KLZ(50)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TWINF/ISHELL,JSHELL,KSHELL,LSHELL
+C
+      ISIZ=   7
+      ISIZ2= 14
+      ISIZ3= 21
+      IESZ=343
+C
+      RETURN
+C
+      ENTRY DER34(BOTH1,BOTH2,IQN,JQN,KQN,LQN,IGCNT,NROOT0,AA,BB,CC,DD,
+     *ITEST)
+C
+      CC2=CC + CC
+      DD2=DD + DD
+      C4=CC2 * CC2
+      D4=DD2 * DD2
+      C8=C4 * CC2
+      D8=D4 * DD2
+      CD4=CC2*DD2
+      CCD8=CD4 * CC2
+      DDC8=CD4 * DD2
+C
+      NROOT=NROOT0 + NDERIV
+C
+      DO3=ITEST(3).EQ.1
+      DO5=ITEST(5).EQ.1
+C
+      KLQN=KQN+LQN -1
+      KLQNP1=KLQN + 1
+      KLQNP2=KLQN + 2
+      KLQNP3=KLQN + 3
+      MAX=KLQN + IQN + JQN -1
+C
+      DO 10000 IROOT=1,NROOT
+C
+        IN=-IANG
+        IM=-ISIZ
+C
+        DO 9000 INO=1,IQN
+C
+          IN=IN + IANG
+          IM=IM + ISIZ
+C
+          DO 8000 JNO=1,JQN
+C
+            JN=JNO + IN
+            JM=JNO + IM
+C
+C
+            IPL=IPLACE(JM)
+            ITWO=2
+            IF(ISAME(JM) .EQ. 1) ITWO=1
+C
+C
+            IT=INO + JNO - 1
+C
+C   ZEROTH ORDER SECTION
+C
+            DO 150 IKL=1,KLQN
+              YX0=0.0D0
+              YY0=0.0D0
+              YZ0=0.0D0
+              DO 100 IJ=1,IT
+                IJM1=IJ-1
+                ISPOT=IPL + IJM1*ITWO
+                GSPOT=IKL + IJM1
+                YX0=YX0 + EX(ISPOT)*GT(GSPOT,IROOT)
+                YY0=YY0 + EY(ISPOT)*GU(GSPOT,IROOT)
+                YZ0=YZ0 + EZ(ISPOT)*GV(GSPOT,IROOT)
+  100         CONTINUE
+C
+              YX(IKL,1)=YX0
+              YY(IKL,1)=YY0
+              YZ(IKL,1)=YZ0
+C
+  150       CONTINUE
+C
+            DO 250 IKL=1,KLQNP3
+              YX3=0.0D0
+              YY3=0.0D0
+              YZ3=0.0D0
+              DO 200 IJ=1,IT
+                IJM1=IJ-1
+                ISPOT=IPL + IJM1*ITWO
+                GSPOT=IKL + IJM1
+                YX3=YX3 + EX(ISPOT)*GT(GSPOT,IROOT)
+                YY3=YY3 + EY(ISPOT)*GU(GSPOT,IROOT)
+                YZ3=YZ3 + EZ(ISPOT)*GV(GSPOT,IROOT)
+  200         CONTINUE
+              IF(IKL .LE. KLQNP1) THEN
+                YX(IKL,7)=YX3
+                YY(IKL,7)=YY3
+                YZ(IKL,7)=YZ3
+              END IF
+              IF(IKL .LE. KLQNP2) THEN
+                YX(IKL,8)=YX3
+                YY(IKL,8)=YY3
+                YZ(IKL,8)=YZ3
+              END IF
+              YX(IKL,13)=YX3
+              YY(IKL,13)=YY3
+              YZ(IKL,13)=YZ3
+  250       CONTINUE
+C
+            KN=-IANG
+            KM=-ISIZ
+C
+            DO 7000 KNO=1,KQN
+C
+              KN=KN + IANG
+              KM=KM + ISIZ
+C
+              DUMK=DBLE(KNO-1)
+              D2DK=DD2*DUMK
+              DUMKM1=DBLE((KNO-1)*(KNO-2))
+              DUMK2=DBLE(2*KNO -1)
+              C2DK=CC2*DUMK2
+              C12DK=3.0D0*C4*DBLE(KNO)
+              C6DK=3.0D0*CC2*DUMK*DUMK
+C
+              DO 6000 LNO=1,LQN
+C
+                LN=LNO + KN
+                LM=LNO + KM
+C
+                DUML=DBLE(LNO-1)
+                DUMLM1=DBLE((LNO-1)*(LNO-2))
+                DUML2=DBLE(2*LNO -1)
+                D2DL=DD2*DUML2
+                D12DL=3.0D0*D4*DBLE(LNO)
+                D6DL=3.0D0*DD2*DUML*DUML
+                C2DL=CC2*DUML
+                DKDL=DUMK*DUML
+C
+                ITT=KNO + LNO -1
+                ITTM1=ITT-1
+                ITTM2=ITT-2
+                ITTM3=ITT-3
+                ITTFIR=ITT + 1
+                ITTSEC=ITT + 2
+                ITTTHR=ITT + 3
+C
+                KPL=IPLACE(LM)
+                KTWO=2
+                IF(ISAME(LM) .EQ. 1) KTWO=1
+C
+                LP0P1=LM + 1
+                KP0P1=IPLACE(LP0P1)
+                K2P0P1=2
+                IF(ISAME(LP0P1) .EQ. 1) K2P0P1=1
+                LP0P2=LM + 2
+                KP0P2=IPLACE(LP0P2)
+                K2P0P2=2
+                IF(ISAME(LP0P2) .EQ. 1) K2P0P2=1
+                LP0P3=LM + 3
+                KP0P3=IPLACE(LP0P3)
+                K2P0P3=2
+                IF(ISAME(LP0P3) .EQ. 1) K2P0P3=1
+                IF(LNO .GT. 1) THEN
+                  LM0M1=LM - 1
+                  KM0M1=IPLACE(LM0M1)
+                  K2M0M1=2
+                  IF(ISAME(LM0M1) .EQ. 1) K2M0M1=1
+                  IF(LNO .GT. 2) THEN
+                    LM0M2=LM - 2
+                    KM0M2=IPLACE(LM0M2)
+                    K2M0M2=2
+                    IF(ISAME(LM0M2) .EQ. 1) K2M0M2=1
+                  END IF
+                END IF
+C
+                IF(DO3) THEN
+                  LP1P0=LM + ISIZ
+                  KP1P0=IPLACE(LP1P0)
+                  K2P1P0=2
+                  IF(ISAME(LP1P0) .EQ. 1) K2P1P0=1
+                  LP2P0=LM + ISIZ2
+                  KP2P0=IPLACE(LP2P0)
+                  K2P2P0=2
+                  IF(ISAME(LP2P0) .EQ. 1) K2P2P0=1
+                  LP3P0=LM + ISIZ3
+                  KP3P0=IPLACE(LP3P0)
+                  K2P3P0=2
+                  IF(ISAME(LP3P0) .EQ. 1) K2P3P0=1
+                  IF(KNO .GT. 1) THEN
+                    LM1M0=LM - ISIZ
+                    KM1M0=IPLACE(LM1M0)
+                    K2M1M0=2
+                    IF(ISAME(LM1M0) .EQ. 1) K2M1M0=1
+                    IF(KNO .GT. 2) THEN
+                      LM2M0=LM - ISIZ2
+                      KM2M0=IPLACE(LM2M0)
+                      K2M2M0=2
+                      IF(ISAME(LM2M0) .EQ. 1) K2M2M0=1
+                    END IF
+                  END IF
+                END IF
+C
+                IF(DO5) THEN
+                  LP1P1=LM + ISIZ + 1
+                  KP1P1=IPLACE(LP1P1)
+                  K2P1P1=2
+                  IF(ISAME(LP1P1) .EQ. 1) K2P1P1=1
+                  LP2P1=LM + ISIZ2 + 1
+                  KP2P1=IPLACE(LP2P1)
+                  K2P2P1=2
+                  IF(ISAME(LP2P1) .EQ. 1) K2P2P1=1
+                  LP1P2=LM + ISIZ + 2
+                  KP1P2=IPLACE(LP1P2)
+                  K2P1P2=2
+                  IF(ISAME(LP1P2) .EQ. 1) K2P1P2=1
+                  IF(KNO .GT. 1) THEN
+                    LM1P1=LM - ISIZ + 1
+                    KM1P1=IPLACE(LM1P1)
+                    K2M1P1=2
+                    IF(ISAME(LM1P1) .EQ. 1) K2M1P1=1
+                    LM1P2=LM - ISIZ + 2
+                    KM1P2=IPLACE(LM1P2)
+                    K2M1P2=2
+                    IF(ISAME(LM1P2) .EQ. 1) K2M1P2=1
+                    IF(LNO .GT. 1) THEN
+                      LM1M1=LM - ISIZ - 1
+                      KM1M1=IPLACE(LM1M1)
+                      K2M1M1=2
+                      IF(ISAME(LM1M1) .EQ. 1) K2M1M1=1
+                      IF(LNO .GT. 2) THEN
+                        LM1M2=LM - ISIZ - 2
+                        KM1M2=IPLACE(LM1M2)
+                        K2M1M2=2
+                        IF(ISAME(LM1M2) .EQ. 1) K2M1M2=1
+                      END IF
+                    END IF
+                    IF(KNO .GT. 2) THEN
+                      LM2P1=LM - ISIZ2 + 1
+                      KM2P1=IPLACE(LM2P1)
+                      K2M2P1=2
+                      IF(ISAME(LM2P1) .EQ. 1) K2M2P1=1
+                    END IF
+                  END IF
+                  IF(LNO .GT. 1) THEN
+                    LP1M1=LM + ISIZ - 1
+                    KP1M1=IPLACE(LP1M1)
+                    K2P1M1=2
+                    IF(ISAME(LP1M1) .EQ. 1) K2P1M1=1
+                    LP2M1=LM + ISIZ2 - 1
+                    KP2M1=IPLACE(LP2M1)
+                    K2P2M1=2
+                    IF(ISAME(LP2M1) .EQ. 1) K2P2M1=1
+                    IF(KNO .GT. 2) THEN
+                      LM2M1=LM - ISIZ2 - 1
+                      KM2M1=IPLACE(LM2M1)
+                      K2M2M1=2
+                      IF(ISAME(LM2M1) .EQ. 1) K2M2M1=1
+                    END IF
+                    IF(LNO .GT. 2) THEN
+                      LP1M2=LM + ISIZ - 2
+                      KP1M2=IPLACE(LP1M2)
+                      K2P1M2=2
+                      IF(ISAME(LP1M2) .EQ. 1) K2P1M2=1
+                    END IF
+                  END IF
+                END IF
+C
+                XXX1=0.0D0
+                XYY1=0.0D0
+                XZZ1=0.0D0
+                IF(DO3) THEN
+                  XXC1=0.0D0
+                  XYC1=0.0D0
+                  XZC1=0.0D0
+                  XXC2=0.0D0
+                  XYC2=0.0D0
+                  XZC2=0.0D0
+                  XX2C1=0.0D0
+                  XY2C1=0.0D0
+                  XZ2C1=0.0D0
+                  XX2C2=0.0D0
+                  XY2C2=0.0D0
+                  XZ2C2=0.0D0
+                  XX3C1=0.0D0
+                  XY3C1=0.0D0
+                  XZ3C1=0.0D0
+                END IF
+                XXD1=0.0D0
+                XYD1=0.0D0
+                XZD1=0.0D0
+                XXD2=0.0D0
+                XYD2=0.0D0
+                XZD2=0.0D0
+                XX2D1=0.0D0
+                XY2D1=0.0D0
+                XZ2D1=0.0D0
+                XX2D2=0.0D0
+                XY2D2=0.0D0
+                XZ2D2=0.0D0
+                XX3D1=0.0D0
+                XY3D1=0.0D0
+                XZ3D1=0.0D0
+                IF(DO5) THEN
+                  XXCD1=0.0D0
+                  XXCD2=0.0D0
+                  XXCD3=0.0D0
+                  XXCD4=0.0D0
+                  XYCD1=0.0D0
+                  XYCD2=0.0D0
+                  XYCD3=0.0D0
+                  XYCD4=0.0D0
+                  XZCD1=0.0D0
+                  XZCD2=0.0D0
+                  XZCD3=0.0D0
+                  XZCD4=0.0D0
+                  XXSF1=0.0D0
+                  XYSF1=0.0D0
+                  XZSF1=0.0D0
+                  XXSF2=0.0D0
+                  XYSF2=0.0D0
+                  XZSF2=0.0D0
+                  XXSF3=0.0D0
+                  XYSF3=0.0D0
+                  XZSF3=0.0D0
+                  XXSF4=0.0D0
+                  XYSF4=0.0D0
+                  XZSF4=0.0D0
+                  XXSF5=0.0D0
+                  XYSF5=0.0D0
+                  XZSF5=0.0D0
+                  XXSF6=0.0D0
+                  XYSF6=0.0D0
+                  XZSF6=0.0D0
+                  XXFS1=0.0D0
+                  XYFS1=0.0D0
+                  XZFS1=0.0D0
+                  XXFS2=0.0D0
+                  XYFS2=0.0D0
+                  XZFS2=0.0D0
+                  XXFS3=0.0D0
+                  XYFS3=0.0D0
+                  XZFS3=0.0D0
+                  XXFS4=0.0D0
+                  XYFS4=0.0D0
+                  XZFS4=0.0D0
+                  XXFS5=0.0D0
+                  XYFS5=0.0D0
+                  XZFS5=0.0D0
+                  XXFS6=0.0D0
+                  XYFS6=0.0D0
+                  XZFS6=0.0D0
+                END IF
+C
+                CONST=-1.0D0
+                DO 600 KL=1,ITTTHR
+                  KLM1=KL - 1
+                  CONST=-CONST
+C
+                  IF(KL .LE. ITT) THEN
+C
+C   ZEROTH ORDER SECTION
+C
+                    KSPOT=KPL + KLM1*KTWO
+                    EXCNST=EX(IESZ+KSPOT)*CONST
+                    EYCNST=EY(IESZ+KSPOT)*CONST
+                    EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                    XXX1=XXX1 + YX(KL,1)*EXCNST
+                    XYY1=XYY1 + YY(KL,1)*EYCNST
+                    XZZ1=XZZ1 + YZ(KL,1)*EZCNST
+                  END IF
+C
+C   CENTER 4 FIRST, SECOND, AND THIRD DERIVATIVES
+C
+                  IF(KL .GT. ITTFIR) GO TO 505
+                  KSPOT=KP0P1 + KLM1*K2P0P1
+                  XXD1=XXD1 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                  XYD1=XYD1 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                  XZD1=XZD1 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+C
+                  IF(LNO .GT. 1) THEN
+                    IF(KL .LE. ITTM1) THEN
+                      KSPOT=KM0M1 + KLM1*K2M0M1
+                      XXD2=XXD2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                      XYD2=XYD2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                      XZD2=XZD2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                    END IF
+                  END IF
+  505             CONTINUE
+C
+                  IF(KL .GT. ITTSEC) GO TO 510
+                  KSPOT=KP0P2 + KLM1*K2P0P2
+                  XX2D1=XX2D1 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                  XY2D1=XY2D1 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                  XZ2D1=XZ2D1 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+C
+                  IF(LNO .GT. 2) THEN
+                    IF(KL .LE. ITTM2) THEN
+                      KSPOT=KM0M2 + KLM1*K2M0M2
+                      XX2D2=XX2D2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                      XY2D2=XY2D2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                      XZ2D2=XZ2D2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                    END IF
+                  END IF
+  510             CONTINUE
+C
+                  KSPOT=KP0P3 + KLM1*K2P0P3
+                  XX3D1=XX3D1 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                  XY3D1=XY3D1 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                  XZ3D1=XZ3D1 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+C
+C   CENTER 3 FIRST, SECOND, AND THIRD DERIVATIVES
+C
+                  IF(DO3) THEN
+                    IF(KL .GT. ITTFIR) GO TO 520
+                    KSPOT=KP1P0 + KLM1*K2P1P0
+                    XXC1=XXC1 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                    XYC1=XYC1 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                    XZC1=XZC1 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(KNO .GT. 1) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM1M0 + KLM1*K2M1M0
+                        XXC2=XXC2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                        XYC2=XYC2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                        XZC2=XZC2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  520               CONTINUE
+C
+                    IF(KL .GT. ITTSEC) GO TO 530
+                    KSPOT=KP2P0 + KLM1*K2P2P0
+                    XX2C1=XX2C1 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                    XY2C1=XY2C1 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                    XZ2C1=XZ2C1 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(KNO .GT. 2) THEN
+                      IF(KL .LE. ITTM2) THEN
+                        KSPOT=KM2M0 + KLM1*K2M2M0
+                        XX2C2=XX2C2 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                        XY2C2=XY2C2 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                        XZ2C2=XZ2C2 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  530               CONTINUE
+C
+                  KSPOT=KP3P0 + KLM1*K2P3P0
+                  XX3C1=XX3C1 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                  XY3C1=XY3C1 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                  XZ3C1=XZ3C1 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                  END IF
+C
+C   CENTERS 3 AND 4 MIXED DERIVATIVES
+C
+                  IF(DO5) THEN
+                    IF(KL .GT. ITTSEC) GO TO 540
+                    KSPOT=KP1P1 + KLM1*K2P1P1
+                    XXCD1=XXCD1 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                    XYCD1=XYCD1 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                    XZCD1=XZCD1 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(KNO .GT. 1) THEN
+                      IF(KL .LE. ITT) THEN
+                        KSPOT=KM1P1 + KLM1*K2M1P1
+                        XXCD2=XXCD2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                        XYCD2=XYCD2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                        XZCD2=XZCD2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                      IF(LNO .GT. 1) THEN
+                        IF(KL .LE. ITTM2) THEN
+                          KSPOT=KM1M1 + KLM1*K2M1M1
+                          XXCD3=XXCD3 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                          XYCD3=XYCD3 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                          XZCD3=XZCD3 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                        END IF
+                      END IF
+                    END IF
+                    IF(LNO .GT. 1) THEN
+                      IF(KL .LE. ITT) THEN
+                        KSPOT=KP1M1 + KLM1*K2P1M1
+                        XXCD4=XXCD4 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                        XYCD4=XYCD4 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                        XZCD4=XZCD4 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  540               CONTINUE
+C
+                    KSPOT=KP2P1 + KLM1*K2P2P1
+                    XXSF1=XXSF1 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                    XYSF1=XYSF1 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                    XZSF1=XZSF1 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+C
+                    KSPOT=KP1P2 + KLM1*K2P1P2
+                    XXFS1=XXFS1 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                    XYFS1=XYFS1 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                    XZFS1=XZFS1 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(KNO .GT. 2) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM2P1 + KLM1*K2M2P1
+                        XXSF2=XXSF2 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                        XYSF2=XYSF2 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                        XZSF2=XZSF2 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                      IF(LNO .GT. 1) THEN
+                        IF(KL .LE. ITTM3) THEN
+                          KSPOT=KM2M1 + KLM1*K2M2M1
+                          XXSF3=XXSF3 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                          XYSF3=XYSF3 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                          XZSF3=XZSF3 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                        END IF
+                      END IF
+                    END IF
+C
+                    IF(LNO .GT. 1) THEN
+                      IF(KL .LE. ITTFIR) THEN
+                        KSPOT=KP2M1 + KLM1*K2P2M1
+                        XXSF4=XXSF4 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                        XYSF4=XYSF4 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                        XZSF4=XZSF4 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                       END IF
+                     END IF
+C
+                    IF(LNO .GT. 2) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KP1M2 + KLM1*K2P1M2
+                        XXFS2=XXFS2 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                        XYFS2=XYFS2 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                        XZFS2=XZFS2 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                      IF(KNO .GT. 1) THEN
+                        IF(KL .LE. ITTM3) THEN
+                          KSPOT=KM1M2 + KLM1*K2M1M2
+                          XXFS3=XXFS3 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                          XYFS3=XYFS3 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                          XZFS3=XZFS3 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                        END IF
+                      END IF
+                    END IF
+C
+                    IF(KNO .GT. 1) THEN
+                      IF(KL .LE. ITTFIR) THEN
+                        KSPOT=KM1P2 + KLM1*K2M1P2
+                        XXFS4=XXFS4 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                        XYFS4=XYFS4 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                        XZFS4=XZFS4 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                       END IF
+                     END IF
+                  END IF
+  600           CONTINUE
+C
+                XX0(JN,LN)=XXX1
+                XY0(JN,LN)=XYY1
+                XZ0(JN,LN)=XZZ1
+C
+                INT=0
+C
+                IF(DO3) THEN
+                  INT=INT+1
+                  XXFIR(JN,LN,INT)=XXC1*CC2 - DUMK*XXC2
+                  XYFIR(JN,LN,INT)=XYC1*CC2 - DUMK*XYC2
+                  XZFIR(JN,LN,INT)=XZC1*CC2 - DUMK*XZC2
+C
+                  XXSEC(JN,LN,INT)=C4*XX2C1 - C2DK*XXX1 + DUMKM1*XX2C2
+                  XYSEC(JN,LN,INT)=C4*XY2C1 - C2DK*XYY1 + DUMKM1*XY2C2
+                  XZSEC(JN,LN,INT)=C4*XZ2C1 - C2DK*XZZ1 + DUMKM1*XZ2C2
+C
+                  XXTHR(JN,LN,INT)=C8*XX3C1 - C12DK*XXC1 + C6DK*XXC2
+                  XYTHR(JN,LN,INT)=C8*XY3C1 - C12DK*XYC1 + C6DK*XYC2
+                  XZTHR(JN,LN,INT)=C8*XZ3C1 - C12DK*XZC1 + C6DK*XZC2
+                END IF
+C
+                INT=INT+1
+                XXFIR(JN,LN,INT)=XXD1*DD2 - DUML*XXD2
+                XYFIR(JN,LN,INT)=XYD1*DD2 - DUML*XYD2
+                XZFIR(JN,LN,INT)=XZD1*DD2 - DUML*XZD2
+C
+                XXSEC(JN,LN,INT)=D4*XX2D1 - D2DL*XXX1 + DUMLM1*XX2D2
+                XYSEC(JN,LN,INT)=D4*XY2D1 - D2DL*XYY1 + DUMLM1*XY2D2
+                XZSEC(JN,LN,INT)=D4*XZ2D1 - D2DL*XZZ1 + DUMLM1*XZ2D2
+C
+                XXTHR(JN,LN,INT)=D8*XX3D1 - D12DL*XXD1 + D6DL*XXD2
+                XYTHR(JN,LN,INT)=D8*XY3D1 - D12DL*XYD1 + D6DL*XYD2
+                XZTHR(JN,LN,INT)=D8*XZ3D1 - D12DL*XZD1 + D6DL*XZD2
+C
+                IMX=0
+                IFS=0
+                IF(DO5) THEN
+                  IMX=IMX+1
+                  XXMXFF(JN,LN,IMX)=CD4*XXCD1 - D2DK*XXCD2 + DKDL*XXCD3
+     *            - C2DL*XXCD4
+                  XYMXFF(JN,LN,IMX)=CD4*XYCD1 - D2DK*XYCD2 + DKDL*XYCD3
+     *            - C2DL*XYCD4
+                  XZMXFF(JN,LN,IMX)=CD4*XZCD1 - D2DK*XZCD2 + DKDL*XZCD3
+     *            - C2DL*XZCD4
+C
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= CCD8*XXSF1 - CD4*DUMK2*XXD1
+     *                             + DD2*DUMKM1*XXSF2 - C4*DUML*XXSF4
+     *                         + CC2*DUML*DUMK2*XXD2 - DUMKM1*DUML*XXSF3
+                  XYFSMX(JN,LN,IFS)= CCD8*XYSF1 - CD4*DUMK2*XYD1
+     *                             + DD2*DUMKM1*XYSF2 - C4*DUML*XYSF4
+     *                         + CC2*DUML*DUMK2*XYD2 - DUMKM1*DUML*XYSF3
+                  XZFSMX(JN,LN,IFS)= CCD8*XZSF1 - CD4*DUMK2*XZD1
+     *                             + DD2*DUMKM1*XZSF2 - C4*DUML*XZSF4
+     *                         + CC2*DUML*DUMK2*XZD2 - DUMKM1*DUML*XZSF3
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= DDC8*XXFS1 - CD4*DUML2*XXC1
+     *                             + CC2*DUMLM1*XXFS2 - D4*DUMK*XXFS4
+     *                         + DD2*DUMK*DUML2*XXC2 - DUMLM1*DUMK*XXFS3
+                  XYFSMX(JN,LN,IFS)= DDC8*XYFS1 - CD4*DUML2*XYC1
+     *                             + CC2*DUMLM1*XYFS2 - D4*DUMK*XYFS4
+     *                         + DD2*DUMK*DUML2*XYC2 - DUMLM1*DUMK*XYFS3
+                  XZFSMX(JN,LN,IFS)= DDC8*XZFS1 - CD4*DUML2*XZC1
+     *                             + CC2*DUMLM1*XZFS2 - D4*DUMK*XZFS4
+     *                         + DD2*DUMK*DUML2*XZC2 - DUMLM1*DUMK*XZFS3
+                END IF
+C
+C
+ 6000         CONTINUE
+ 7000       CONTINUE
+C
+ 8000     CONTINUE
+ 9000   CONTINUE
+C
+C
+C   ACTUALLY FORM THE INTEGRALS
+C
+        ICNT=0
+        IJCNT=0
+        IORBMX=IORB1 -1 + NUMI
+        JORBMX=JORB1 -1 + NUMJ
+        DO 5000 IORB=IORB1,IORBMX
+          IF(BOTH1) JORBMX=IORB
+          DO 4000 JORB=JORB1,JORBMX
+            IJORB=IOFF(MAX0(IORB,JORB)) + MIN0(IORB,JORB)
+            IJCNT=IJCNT + 1
+            JNX=IJX(IJCNT)
+            JNY=IJY(IJCNT)
+            JNZ=IJZ(IJCNT)
+            KLCNT=0
+            KORBMX=KORB1 -1 + NUMK
+            LORBMX=LORB1 -1 + NUML
+            IF(ISHELL .EQ. KSHELL) KORBMX=IORB
+            DO 3000 KORB=KORB1,KORBMX
+              IF(BOTH2) LORBMX=KORB
+              DO 2000 LORB=LORB1,LORBMX
+                KLORB=IOFF(MAX0(KORB,LORB)) + MIN0(KORB,LORB)
+                IJKL=IOFF(MAX0(IJORB,KLORB)) + MIN0(IJORB,KLORB)
+                IF(KLORB .GT. IJORB) GO TO 3000
+C
+                ICNT=ICNT + 1
+                IF(ICNT .GT. IMEM4) WRITE(IOUT,*) ' ICNT = ',ICNT
+                KLCNT=KLCNT + 1
+                LNX=KLX(KLCNT)
+                LNY=KLY(KLCNT)
+                LNZ=KLZ(KLCNT)
+                INT=0
+C
+C   CENTER 3 DERIVATIVES
+C
+                IF(DO3) THEN
+                  INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                  GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                  GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                  GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *            XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *            XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *            XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *            INT)
+                  GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+                END IF
+C
+C   CENTER 4 DERIVATIVES
+C
+                INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *          XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *          XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *          XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *          XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *          XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *          XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *          XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *          XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *          XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *          XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *          XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *          XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *          XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *          XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *          XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *          INT)
+                GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *          XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *          XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *          XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *          XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+C
+C   CENTER 3 AND CENTER 4 MIXED DERIVATIVES
+C
+                IMX=0
+                IFS=0
+                IF(DO5) THEN
+C
+C   SECOND DERIVATIVES
+C
+                  IMX=IMX + 1
+                  GMXFF(ICNT,1,IMX)= GMXFF(ICNT,1,IMX) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,2,IMX)= GMXFF(ICNT,2,IMX) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,3,IMX)= GMXFF(ICNT,3,IMX) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,4,IMX)= GMXFF(ICNT,4,IMX) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,5,IMX)= GMXFF(ICNT,5,IMX) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,6,IMX)= GMXFF(ICNT,6,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,7,IMX)= GMXFF(ICNT,7,IMX) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,8,IMX)= GMXFF(ICNT,8,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,9,IMX)= GMXFF(ICNT,9,IMX) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+C
+C   THIRD DERIVATIVES
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,1)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYSEC(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,1)
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,2)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYSEC(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,2)
+                END IF
+ 2000         CONTINUE
+ 3000       CONTINUE
+ 4000     CONTINUE
+ 5000   CONTINUE
+C
+10000 CONTINUE
+C
+      IGCNT=ICNT
+C
+      RETURN
+      END
+C***********************************************************************
+C
+C   DERIVATIVES ARE CALCULATED ON ALL CENTERS (EXCEPT CENTER 4)
+C
+C***********************************************************************
+      SUBROUTINE CEN123(GT,GU,GV,XX0,XY0,XZ0,XXFIR,XYFIR,XZFIR
+     *,                 XXSEC,XYSEC,XZSEC,XXMXFF,XYMXFF,XZMXFF,GMXFIR
+     *,                 GMXSEC,GMXFF,LO,XXTHR,XYTHR,XZTHR
+     *,                 XXFFF,XYFFF,XZFFF,XXFSMX,XYFSMX,XZFSMX,GMXTHR
+     *,                 GMXFFF,GMXFS)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER GSPOT
+      LOGICAL BOTH1,BOTH2
+      LOGICAL EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+      DIMENSION YX(8,14),YY(8,14),YZ(8,14)
+      DIMENSION GT(I4LARL,I2LARL),GU(I4LARL,I2LARL)
+      DIMENSION GV(I4LARL,I2LARL)
+      DIMENSION ITEST(10)
+      DIMENSION YYX(8,18),YYY(8,18),YYZ(8,18)
+      DIMENSION XX0(IANGSQ,IANGSQ),XY0(IANGSQ,IANGSQ),XZ0(IANGSQ,IANGSQ)
+      DIMENSION XXFIR(IANGSQ,IANGSQ,3),XYFIR(IANGSQ,IANGSQ,3)
+      DIMENSION XZFIR(IANGSQ,IANGSQ,3),XXSEC(IANGSQ,IANGSQ,3)
+      DIMENSION XYSEC(IANGSQ,IANGSQ,3),XZSEC(IANGSQ,IANGSQ,3)
+      DIMENSION XXMXFF(IANGSQ,IANGSQ,3),XYMXFF(IANGSQ,IANGSQ,3)
+      DIMENSION XZMXFF(IANGSQ,IANGSQ,3),GMXFIR(IMEM4,3,3)
+      DIMENSION GMXSEC(IMEM4,6,3),GMXFF(IMEM4,9,3)
+      DIMENSION LO(IMEM4*5)
+      DIMENSION XXTHR(IANGSQ,IANGSQ,3),XYTHR(IANGSQ,IANGSQ,3)
+     *,         XZTHR(IANGSQ,IANGSQ,3),XXFFF(IANGSQ,IANGSQ)
+     *,         XYFFF(IANGSQ,IANGSQ),XZFFF(IANGSQ,IANGSQ)
+      DIMENSION XXFSMX(IANGSQ,IANGSQ,6),XYFSMX(IANGSQ,IANGSQ,6)
+     *,         XZFSMX(IANGSQ,IANGSQ,6)
+      DIMENSION GMXTHR(IMEM4,10,3),GMXFFF(IMEM4,27),GMXFS(IMEM4,18,6)
+      COMMON/CALQN/ISTYPE,ICTYPE,NDERIV,NTYPES,NBSET
+      COMMON/EINFO/IPLACE(49),ISAME(49)
+      COMMON/EXYZS/EX(686),EY(686),EZ(686)
+      COMMON/FILES/IOUT,INPUT,IDBG
+      COMMON/IPAR1/NS,N3N,I2N3N,I3N3N
+      COMMON/IPAR2/NBFAO,NUMIJ,NUMNUM
+      COMMON/IPAR4/IMEM,IMEM2,IMEM4
+      COMMON/IPAR5/IANG,IANGSQ,LARGL,LARGL2,I2LARL,I4LARL
+      COMMON/LOGIC/EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+      COMMON/ORBIN/IORB1,JORB1,KORB1,LORB1,NUMI,NUMJ,NUMK,NUML
+      COMMON/PASS /II,JJ,KK,LL
+      COMMON/POSNS/IJX(50),IJY(50),IJZ(50),KLX(50),KLY(50),KLZ(50)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/TWINF/ISHELL,JSHELL,KSHELL,LSHELL
+C
+      ISIZ=   7
+      ISIZ2= 14
+      ISIZ3= 21
+      IESZ=343
+C
+      RETURN
+C
+      ENTRY DER123(BOTH1,BOTH2,IQN,JQN,KQN,LQN,IGCNT,NROOT0,AA,BB,CC,DD,
+     *ITEST)
+C
+CCC   WRITE(6,*) ' BOTH1,BOTH2 AFTER DER123 LINE'
+CCC   WRITE(6,*)   BOTH1,BOTH2
+CCC   WRITE(6,*) ' IQN,JQN,KQN,LQN,IGCNT,NROOT0'
+CCC   WRITE(6,*)   IQN,JQN,KQN,LQN,IGCNT,NROOT0
+CCC   WRITE(6,*) ' AA,BB,CC,DD'
+CCC   WRITE(6,*)   AA,BB,CC,DD
+CCC   WRITE(6,*) ' ITEST'
+CCC   WRITE(6,*)   ITEST
+CCC   WRITE(6,*) ' ISTYPE,ICTYPE,NDERIV,NTYPES,NBSET IN DER123'
+CCC   WRITE(6,*)   ISTYPE,ICTYPE,NDERIV,NTYPES,NBSET
+CCC   WRITE(6,*) ' IOUT,INPUT,IDBG IN DER123'
+CCC   WRITE(6,*)   IOUT,INPUT,IDBG
+CCC   WRITE(6,*) ' NS,N3N,I2N3N,I3N3N IN DER123'
+CCC   WRITE(6,*)   NS,N3N,I2N3N,I3N3N
+CCC   WRITE(6,*) ' NBFAO,NUMIJ,NUMNUM IN DER123'
+CCC   WRITE(6,*)   NBFAO,NUMIJ,NUMNUM
+CCC   WRITE(6,*) ' TSHELL,TPRIM,LARGL,LARGL2 IN DER123'
+CCC   WRITE(6,*)   TSHELL,TPRIM,LARGL,LARGL2
+CCC   WRITE(6,*) ' I2LARL,I4LARL,IANG,IESZ IN DER123'
+CCC   WRITE(6,*)   I2LARL,I4LARL,IANG,IESZ
+CCC   WRITE(6,*) ' IMTOT,IMEM,IANGSQ,IMEM4,IMEM2 IN DER123'
+CCC   WRITE(6,*)   IMTOT,IMEM,IANGSQ,IMEM4,IMEM2
+CCC   WRITE(6,*) ' EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5 IN DER123'
+CCC   WRITE(6,*)   EQUAL1,EQUAL2,EQUAL3,EQUAL4,EQUAL5
+CCC   WRITE(6,*) ' IORB1,JORB1,KORB1,LORB1,NUMI,NUMJ,NUMK,NUML '
+CCC   WRITE(6,*)   IORB1,JORB1,KORB1,LORB1,NUMI,NUMJ,NUMK,NUML
+CCC   WRITE(6,*) ' II,JJ,KK,LL IN DER123'
+CCC   WRITE(6,*)   II,JJ,KK,LL
+CCC   WRITE(6,*) ' ISHELL,JSHELL,KSHELL,LSHELL IN DER123'
+CCC   WRITE(6,*)   ISHELL,JSHELL,KSHELL,LSHELL
+CCC   WRITE(6,*) ' IPLACE'
+CCC   WRITE(6,*)   IPLACE
+CCC   WRITE(6,*) ' ISAME'
+CCC   WRITE(6,*)   ISAME
+C
+      AA2=AA + AA
+      BB2=BB + BB
+      CC2=CC + CC
+      DD2=DD + DD
+      A4=AA2 * AA2
+      B4=BB2 * BB2
+      C4=CC2 * CC2
+      D4=DD2 * DD2
+      A8=A4 * AA2
+      B8=B4 * BB2
+      C8=C4 * CC2
+      D8=D4 * DD2
+      AB4=AA2*BB2
+      CD4=CC2*DD2
+      AC4=AA2*CC2
+      AD4=AA2*DD2
+      BD4=BB2*DD2
+      BC4=BB2*CC2
+      AAB8=AB4 * AA2
+      BBA8=AB4 * BB2
+      CCD8=CD4 * CC2
+      DDC8=CD4 * DD2
+      AAD8=AD4 * AA2
+      DDA8=AD4 * DD2
+      AAC8=AC4 * AA2
+      CCA8=AC4 * CC2
+      BBD8=BD4 * BB2
+      DDB8=BD4 * DD2
+      BBC8=BC4 * BB2
+      CCB8=BC4 * CC2
+      NROOT=NROOT0 + NDERIV
+CCC   WRITE(6,*) ' NROOT0,NDERIV,NROOT'
+CCC   WRITE(6,*)   NROOT0,NDERIV,NROOT
+C
+      KLQN=KQN+LQN -1
+      KLQNP1=KLQN + 1
+      KLQNP2=KLQN + 2
+      KLQNP3=KLQN + 3
+      MAX=KLQN + IQN + JQN -1
+C
+C*********************
+C***LOOP OVER IROOT***
+C*********************
+      DO 10000 IROOT=1,NROOT
+        IN=-IANG
+        IM=-ISIZ
+C
+C:::::::::::::::::::::::::::
+C:::LOOP OVER INO AND JNO:::
+C:::::::::::::::::::::::::::
+        DO 9000 INO=1,IQN
+          IN=IN + IANG
+          IM=IM + ISIZ
+          DUMI=DBLE(INO-1)
+          DUMIM1=DBLE((INO-1)*(INO-2))
+          DUMI2=DBLE(2*INO -1)
+          A2DI=AA2*DUMI2
+          C2DI=CC2*DUMI
+          D2DI=DD2*DUMI
+          A12DI=3.0D0*A4*DBLE(INO)
+          A6DI=3.0D0*AA2*DUMI*DUMI
+          DO 8000 JNO=1,JQN
+C
+CCC         WRITE(6,*) ' IROOT,INO,JNO,IANG,ISIZ'
+CCC         WRITE(6,*)   IROOT,INO,JNO,IANG,ISIZ
+            JN=JNO + IN
+            JM=JNO + IM
+C
+            DUMJ=DBLE(JNO-1)
+            DUMJM1=DBLE((JNO-1)*(JNO-2))
+            DUMJ2=DBLE(2*JNO -1)
+            B2DJ=BB2*DUMJ2
+            B2DI=BB2*DUMI
+            A2DJ=AA2*DUMJ
+            D2DJ=DD2*DUMJ
+            C2DJ=CC2*DUMJ
+            B12DJ=3.0D0*B4*DBLE(JNO)
+            B6DJ=3.0D0*BB2*DUMJ*DUMJ
+            DIDJ=DUMI*DUMJ
+C
+CCC   WRITE(6,*) ' IPLACE'
+CCC   WRITE(6,*)   IPLACE
+CCC   WRITE(6,*) ' ISAME'
+CCC   WRITE(6,*)   ISAME
+C
+            IPL=IPLACE(JM)
+CCC         WRITE(6,*) ' IPL',IPL
+            ITWO=2
+            IF(ISAME(JM) .EQ. 1) ITWO=1
+C
+            JP0P1=JM + 1
+            IP0P1=IPLACE(JP0P1)
+            I2P0P1=2
+            IF(ISAME(JP0P1) .EQ. 1) I2P0P1=1
+            JP0P2=JM + 2
+            IP0P2=IPLACE(JP0P2)
+            I2P0P2=2
+            IF(ISAME(JP0P2) .EQ. 1) I2P0P2=1
+            JP0P3=JM + 3
+            IP0P3=IPLACE(JP0P3)
+            I2P0P3=2
+            IF(ISAME(JP0P3) .EQ. 1) I2P0P3=1
+            IF(JNO .GT. 1) THEN
+              JM0M1=JM-1
+              IM0M1=IPLACE(JM0M1)
+              I2M0M1=2
+              IF(ISAME(JM0M1) .EQ. 1) I2M0M1=1
+              IF(JNO .GT. 2) THEN
+                JM0M2=JM - 2
+                IM0M2=IPLACE(JM0M2)
+                I2M0M2=2
+                IF(ISAME(JM0M2) .EQ. 1) I2M0M2=1
+              END IF
+            END IF
+C
+            JP1P0=JM + ISIZ
+            IP1P0=IPLACE(JP1P0)
+            I2P1P0=2
+            IF(ISAME(JP1P0) .EQ. 1) I2P1P0=1
+            JP2P0=JM + ISIZ2
+            IP2P0=IPLACE(JP2P0)
+            I2P2P0=2
+            IF(ISAME(JP2P0) .EQ. 1) I2P2P0=1
+            JP3P0=JM + ISIZ3
+            IP3P0=IPLACE(JP3P0)
+            I2P3P0=2
+            IF(ISAME(JP3P0) .EQ. 1) I2P3P0=1
+            IF(INO .GT. 1) THEN
+              JM1M0=JM - ISIZ
+              IM1M0=IPLACE(JM1M0)
+              I2M1M0=2
+              IF(ISAME(JM1M0) .EQ. 1) I2M1M0=1
+              IF(INO .GT. 2) THEN
+                JM2M0=JM -ISIZ2
+                IM2M0=IPLACE(JM2M0)
+                I2M2M0=2
+                IF(ISAME(JM2M0) .EQ. 1) I2M2M0=1
+              END IF
+            END IF
+C
+            JP1P1=JM + ISIZ + 1
+            IP1P1=IPLACE(JP1P1)
+            I2P1P1=2
+            IF(ISAME(JP1P1) .EQ. 1) I2P1P1=1
+            JP2P1=JM + ISIZ2 + 1
+            IP2P1=IPLACE(JP2P1)
+            I2P2P1=2
+            IF(ISAME(JP2P1) .EQ. 1) I2P2P1=1
+            JP1P2=JM + ISIZ + 2
+            IP1P2=IPLACE(JP1P2)
+            I2P1P2=2
+            IF(ISAME(JP1P2) .EQ. 1) I2P1P2=1
+            IF(INO .GT. 1) THEN
+              JM1P1=JM - ISIZ + 1
+              IM1P1=IPLACE(JM1P1)
+              I2M1P1=2
+              IF(ISAME(JM1P1) .EQ. 1) I2M1P1=1
+              JM1P2=JM - ISIZ + 2
+              IM1P2=IPLACE(JM1P2)
+              I2M1P2=2
+              IF(ISAME(JM1P2) .EQ. 1) I2M1P2=1
+              IF(JNO .GT. 1) THEN
+                JM1M1=JM - ISIZ - 1
+                IM1M1=IPLACE(JM1M1)
+                I2M1M1=2
+                IF(ISAME(JM1M1) .EQ. 1) I2M1M1=1
+                IF(JNO .GT. 2) THEN
+                  JM1M2=JM - ISIZ - 2
+                  IM1M2=IPLACE(JM1M2)
+                  I2M1M2=2
+                  IF(ISAME(JM1M2) .EQ. 1) I2M1M2=1
+                END IF
+              END IF
+              IF(INO .GT. 2) THEN
+                JM2P1=JM - ISIZ2 + 1
+                IM2P1=IPLACE(JM2P1)
+                I2M2P1=2
+                IF(ISAME(JM2P1) .EQ. 1) I2M2P1=1
+              END IF
+            END IF
+            IF(JNO .GT. 1) THEN
+              JP1M1=JM + ISIZ - 1
+              IP1M1=IPLACE(JP1M1)
+              I2P1M1=2
+              IF(ISAME(JP1M1) .EQ. 1) I2P1M1=1
+              JP2M1=JM + ISIZ2 - 1
+              IP2M1=IPLACE(JP2M1)
+              I2P2M1=2
+              IF(ISAME(JP2M1) .EQ. 1) I2P2M1=1
+              IF(INO .GT. 2) THEN
+                JM2M1=JM - ISIZ2 - 1
+                IM2M1=IPLACE(JM2M1)
+                I2M2M1=2
+                IF(ISAME(JM2M1) .EQ. 1) I2M2M1=1
+              END IF
+              IF(JNO .GT. 2) THEN
+                JP1M2=JM + ISIZ - 2
+                IP1M2=IPLACE(JP1M2)
+                I2P1M2=2
+                IF(ISAME(JP1M2) .EQ. 1) I2P1M2=1
+              END IF
+            END IF
+C
+            IT=INO + JNO - 1
+            ITM1=IT-1
+            ITM2=IT-2
+            ITM3=IT-3
+            ITZERO=IT
+            ITFIR=IT + 1
+            ITSEC=IT + 2
+            ITTHR=IT + 3
+            ITMAX=ITTHR
+CCC   WRITE(6,*) ' IPLACE'
+CCC   WRITE(6,*)   IPLACE
+CCC   WRITE(6,*) ' ISAME'
+CCC   WRITE(6,*)   ISAME
+C
+C   ZEROTH ORDER SECTION
+C
+            DO 150 IKL=1,KLQN
+              YX0=0.0D0
+              YY0=0.0D0
+              YZ0=0.0D0
+              DO 100 IJ=1,IT
+                IJM1=IJ-1
+                ISPOT=IPL + IJM1*ITWO
+                GSPOT=IKL + IJ -1
+CCC         WRITE(6,*) ' 150,IKL,KLQN,100,IJ,IT,IJM1,ISPOT,GSPOT'
+CCC         WRITE(6,*) IKL,KLQN,IJ,IT,IJM1,ISPOT,GSPOT
+                YX0=YX0 + EX(ISPOT)*GT(GSPOT,IROOT)
+                YY0=YY0 + EY(ISPOT)*GU(GSPOT,IROOT)
+                YZ0=YZ0 + EZ(ISPOT)*GV(GSPOT,IROOT)
+  100         CONTINUE
+C
+              YX(IKL,1)=YX0
+              YY(IKL,1)=YY0
+              YZ(IKL,1)=YZ0
+C
+  150       CONTINUE
+C
+              DO 300 IKL=1,KLQN
+CCC           WRITE(6,*) ' 300,IKL,KLQN ',IKL,KLQN
+                YX0=YX(IKL,1)
+                YY0=YY(IKL,1)
+                YZ0=YZ(IKL,1)
+                  YXA1=0.0D0
+                  YYA1=0.0D0
+                  YZA1=0.0D0
+                  YXA2=0.0D0
+                  YYA2=0.0D0
+                  YZA2=0.0D0
+                  YX2A1=0.0D0
+                  YY2A1=0.0D0
+                  YZ2A1=0.0D0
+                  YX2A2=0.0D0
+                  YY2A2=0.0D0
+                  YZ2A2=0.0D0
+                  YX3A1=0.0D0
+                  YY3A1=0.0D0
+                  YZ3A1=0.0D0
+                  YXB1=0.0D0
+                  YYB1=0.0D0
+                  YZB1=0.0D0
+                  YXB2=0.0D0
+                  YYB2=0.0D0
+                  YZB2=0.0D0
+                  YX2B1=0.0D0
+                  YY2B1=0.0D0
+                  YZ2B1=0.0D0
+                  YX2B2=0.0D0
+                  YY2B2=0.0D0
+                  YZ2B2=0.0D0
+                  YX3B1=0.0D0
+                  YY3B1=0.0D0
+                  YZ3B1=0.0D0
+                  YXAB1=0.0D0
+                  YXAB2=0.0D0
+                  YXAB3=0.0D0
+                  YXAB4=0.0D0
+                  YYAB1=0.0D0
+                  YYAB2=0.0D0
+                  YYAB3=0.0D0
+                  YYAB4=0.0D0
+                  YZAB1=0.0D0
+                  YZAB2=0.0D0
+                  YZAB3=0.0D0
+                  YZAB4=0.0D0
+                  YXSF1=0.0D0
+                  YYSF1=0.0D0
+                  YZSF1=0.0D0
+                  YXSF2=0.0D0
+                  YYSF2=0.0D0
+                  YZSF2=0.0D0
+                  YXSF3=0.0D0
+                  YYSF3=0.0D0
+                  YZSF3=0.0D0
+                  YXSF4=0.0D0
+                  YYSF4=0.0D0
+                  YZSF4=0.0D0
+                  YXFS1=0.0D0
+                  YYFS1=0.0D0
+                  YZFS1=0.0D0
+                  YXFS2=0.0D0
+                  YYFS2=0.0D0
+                  YZFS2=0.0D0
+                  YXFS3=0.0D0
+                  YYFS3=0.0D0
+                  YZFS3=0.0D0
+                  YXFS4=0.0D0
+                  YYFS4=0.0D0
+                  YZFS4=0.0D0
+                DO 200 IJ=1,ITTHR
+                  IJM1=IJ-1
+                  GSPOT=IKL + IJ -1
+CCC             WRITE(6,*) ' 200,IJ,ITTHR,IJM1,GSPOT'
+CCC             WRITE(6,*) IJ,ITTHR,IJM1,GSPOT
+C
+C   FIRST DERIVATIVE SECTION
+C
+                  IF(IJ .GT. ITFIR) GO TO 160
+                    ISPOT=IP0P1 +  IJM1*I2P0P1
+                    YXB1=YXB1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYB1=YYB1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZB1=YZB1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(JNO .GT. 1) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM0M1 + IJM1*I2M0M1
+                        YXB2=YXB2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYB2=YYB2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZB2=YZB2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+                    ISPOT=IP1P0 + IJM1*I2P1P0
+                    YXA1=YXA1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYA1=YYA1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZA1=YZA1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(INO .GT. 1) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM1M0 + IJM1*I2M1M0
+                        YXA2=YXA2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYA2=YYA2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZA2=YZA2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+  160             CONTINUE
+C
+C   SECOND DERIVATIVE SECTION
+C
+                  IF(IJ .GT. ITSEC) GO TO 170
+                    ISPOT=IP2P0 + IJM1*I2P2P0
+                    YX2A1=YX2A1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YY2A1=YY2A1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZ2A1=YZ2A1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(INO .GT. 2) THEN
+                      IF(IJ .LE. ITM2) THEN
+                        ISPOT=IM2M0 + IJM1*I2M2M0
+                        YX2A2=YX2A2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YY2A2=YY2A2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZ2A2=YZ2A2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+C
+                    ISPOT=IP0P2 + IJM1*I2P0P2
+                    YX2B1=YX2B1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YY2B1=YY2B1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZ2B1=YZ2B1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(JNO .GT. 2) THEN
+                      IF(IJ .LE. ITM2) THEN
+                        ISPOT=IM0M2 + IJM1*I2M0M2
+                        YX2B2=YX2B2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YY2B2=YY2B2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZ2B2=YZ2B2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+C
+C   CENTER 1 AND CENTER 2 MIXED DERIVATIVES
+C
+                    ISPOT=IP1P1 + IJM1*I2P1P1
+                    YXAB1=YXAB1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYAB1=YYAB1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZAB1=YZAB1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(INO .GT. 1) THEN
+                      IF(IJ .LE. IT) THEN
+                        ISPOT=IM1P1 + IJM1*I2M1P1
+                        YXAB2=YXAB2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYAB2=YYAB2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZAB2=YZAB2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                        IF(JNO .GT. 1) THEN
+                          IF(IJ .LE. ITM2) THEN
+                            ISPOT=IM1M1 + IJM1*I2M1M1
+                            YXAB3=YXAB3 + EX(ISPOT)*GT(GSPOT,
+     *                      IROOT)
+                            YYAB3=YYAB3 + EY(ISPOT)*GU(GSPOT,
+     *                      IROOT)
+                            YZAB3=YZAB3 + EZ(ISPOT)*GV(GSPOT,
+     *                      IROOT)
+                          END IF
+                        END IF
+                      END IF
+                    END IF
+C
+                    IF(JNO .GT. 1) THEN
+                      IF(IJ .LE. IT) THEN
+                        ISPOT=IP1M1 + IJM1*I2P1M1
+                        YXAB4=YXAB4 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYAB4=YYAB4 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZAB4=YZAB4 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+  170             CONTINUE
+C
+C   THIRD DERIVATIVES
+C
+                    ISPOT=IP3P0 + IJM1*I2P3P0
+                    YX3A1=YX3A1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YY3A1=YY3A1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZ3A1=YZ3A1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    ISPOT=IP0P3 + IJM1*I2P0P3
+                    YX3B1=YX3B1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YY3B1=YY3B1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZ3B1=YZ3B1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    ISPOT=IP2P1 + IJM1*I2P2P1
+                    YXSF1=YXSF1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYSF1=YYSF1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZSF1=YZSF1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    ISPOT=IP1P2 + IJM1*I2P1P2
+                    YXFS1=YXFS1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYFS1=YYFS1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZFS1=YZFS1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(INO .GT. 2) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM2P1 + IJM1*I2M2P1
+                        YXSF2=YXSF2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYSF2=YYSF2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZSF2=YZSF2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                      IF(JNO .GT. 1) THEN
+                        IF(IJ .LE. ITM3) THEN
+                          ISPOT=IM2M1 + IJM1*I2M2M1
+                          YXSF3=YXSF3 + EX(ISPOT)*GT(GSPOT,IROOT)
+                          YYSF3=YYSF3 + EY(ISPOT)*GU(GSPOT,IROOT)
+                          YZSF3=YZSF3 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                        END IF
+                      END IF
+                    END IF
+C
+                    IF(JNO .GT. 1) THEN
+                      IF(IJ .LE. ITFIR) THEN
+                        ISPOT=IP2M1 + IJM1*I2P2M1
+                        YXSF4=YXSF4 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYSF4=YYSF4 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZSF4=YZSF4 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+                    IF(JNO .GT. 2) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IP1M2 + IJM1*I2P1M2
+                        YXFS2=YXFS2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYFS2=YYFS2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZFS2=YZFS2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                      IF(INO .GT. 1) THEN
+                        IF(IJ .LE. ITM3) THEN
+                          ISPOT=IM1M2 + IJM1*I2M1M2
+                          YXFS3=YXFS3 + EX(ISPOT)*GT(GSPOT,IROOT)
+                          YYFS3=YYFS3 + EY(ISPOT)*GU(GSPOT,IROOT)
+                          YZFS3=YZFS3 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                        END IF
+                      END IF
+                    END IF
+C
+                    IF(INO .GT. 1) THEN
+                      IF(IJ .LE. ITFIR) THEN
+                        ISPOT=IM1P2 + IJM1*I2M1P2
+                        YXFS4=YXFS4 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYFS4=YYFS4 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZFS4=YZFS4 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                       END IF
+                     END IF
+C
+  200           CONTINUE
+C
+                  YX(IKL,2)=YXA1*AA2 - DUMI*YXA2
+                  YY(IKL,2)=YYA1*AA2 - DUMI*YYA2
+                  YZ(IKL,2)=YZA1*AA2 - DUMI*YZA2
+C
+                  YX(IKL,3)=YX2A1*A4 - A2DI*YX0 + DUMIM1*YX2A2
+                  YY(IKL,3)=YY2A1*A4 - A2DI*YY0 + DUMIM1*YY2A2
+                  YZ(IKL,3)=YZ2A1*A4 - A2DI*YZ0 + DUMIM1*YZ2A2
+C
+                  YX(IKL,9)=YX3A1*A8 - A12DI*YXA1 + YXA2*A6DI
+                  YY(IKL,9)=YY3A1*A8 - A12DI*YYA1 + YYA2*A6DI
+                  YZ(IKL,9)=YZ3A1*A8 - A12DI*YZA1 + YZA2*A6DI
+C
+                    YYX(IKL,17)=YXA1
+                    YYY(IKL,17)=YYA1
+                    YYZ(IKL,17)=YZA1
+C
+                    YYX(IKL,18)=YXA2
+                    YYY(IKL,18)=YYA2
+                    YYZ(IKL,18)=YZA2
+C
+                  YX(IKL,4)=YXB1*BB2 - DUMJ*YXB2
+                  YY(IKL,4)=YYB1*BB2 - DUMJ*YYB2
+                  YZ(IKL,4)=YZB1*BB2 - DUMJ*YZB2
+C
+                  YX(IKL,5)=YX2B1*B4 - B2DJ*YX0 + DUMJM1*YX2B2
+                  YY(IKL,5)=YY2B1*B4 - B2DJ*YY0 + DUMJM1*YY2B2
+                  YZ(IKL,5)=YZ2B1*B4 - B2DJ*YZ0 + DUMJM1*YZ2B2
+C
+                  YX(IKL,10)=YX3B1*B8 - B12DJ*YXB1 + YXB2*B6DJ
+                  YY(IKL,10)=YY3B1*B8 - B12DJ*YYB1 + YYB2*B6DJ
+                  YZ(IKL,10)=YZ3B1*B8 - B12DJ*YZB1 + YZB2*B6DJ
+C
+                    YYX(IKL,15)=YXB1
+                    YYY(IKL,15)=YYB1
+                    YYZ(IKL,15)=YZB1
+C
+                    YYX(IKL,16)=YXB2
+                    YYY(IKL,16)=YYB2
+                    YYZ(IKL,16)=YZB2
+C
+                  YX(IKL,6)=AB4*YXAB1 - B2DI*YXAB2 + DIDJ*YXAB3 - A2DJ*
+     *            YXAB4
+                  YY(IKL,6)=AB4*YYAB1 - B2DI*YYAB2 + DIDJ*YYAB3 - A2DJ*
+     *            YYAB4
+                  YZ(IKL,6)=AB4*YZAB1 - B2DI*YZAB2 + DIDJ*YZAB3 - A2DJ*
+     *            YZAB4
+C
+                  YX(IKL,11)=AAB8*YXSF1 - AB4*DUMI2*YXB1 + BB2*DUMIM1*
+     *                     YXSF2 - A4*DUMJ*YXSF4 + AA2*DUMJ*DUMI2*YXB2
+     *                   - DUMIM1*DUMJ*YXSF3
+                  YY(IKL,11)=AAB8*YYSF1 - AB4*DUMI2*YYB1 + BB2*DUMIM1*
+     *                     YYSF2 - A4*DUMJ*YYSF4 + AA2*DUMJ*DUMI2*YYB2
+     *                   - DUMIM1*DUMJ*YYSF3
+                  YZ(IKL,11)=AAB8*YZSF1 - AB4*DUMI2*YZB1 + BB2*DUMIM1*
+     *                     YZSF2 - A4*DUMJ*YZSF4 + AA2*DUMJ*DUMI2*YZB2
+     *                   - DUMIM1*DUMJ*YZSF3
+C
+                  YX(IKL,12)=BBA8*YXFS1 - AB4*DUMJ2*YXA1 + AA2*DUMJM1*
+     *                     YXFS2 - B4*DUMI*YXFS4 + BB2*DUMI*DUMJ2*YXA2
+     *                   - DUMJM1*DUMI*YXFS3
+                  YY(IKL,12)=BBA8*YYFS1 - AB4*DUMJ2*YYA1 + AA2*DUMJM1*
+     *                     YYFS2 - B4*DUMI*YYFS4 + BB2*DUMI*DUMJ2*YYA2
+     *                   - DUMJM1*DUMI*YYFS3
+                  YZ(IKL,12)=BBA8*YZFS1 - AB4*DUMJ2*YZA1 + AA2*DUMJM1*
+     *                     YZFS2 - B4*DUMI*YZFS4 + BB2*DUMI*DUMJ2*YZA2
+     *                   - DUMJM1*DUMI*YZFS3
+  300         CONTINUE
+C
+            KLQNP1=KLQN + 1
+            KLQNP2=KLQN + 2
+            DO 375 IKL=1,KLQNP3
+              YX3=0.0D0
+              YY3=0.0D0
+              YZ3=0.0D0
+              DO 350 IJ=1,IT
+                IJM1=IJ-1
+                ISPOT=IPL + IJM1*ITWO
+                GSPOT=IKL + IJM1
+CCC         WRITE(6,*) ' 375,IKL,KLQNP3,350,IJ,IT,IJM1,ISPOT,GSPOT'
+CCC         WRITE(6,*) IKL,KLQNP3,IJ,IT,IJM1,ISPOT,GSPOT
+                YX3=YX3 + EX(ISPOT)*GT(GSPOT,IROOT)
+                YY3=YY3 + EY(ISPOT)*GU(GSPOT,IROOT)
+                YZ3=YZ3 + EZ(ISPOT)*GV(GSPOT,IROOT)
+  350         CONTINUE
+              IF(IKL .LE. KLQNP1) THEN
+                YX(IKL,7)=YX3
+                YY(IKL,7)=YY3
+                YZ(IKL,7)=YZ3
+              END IF
+              IF(IKL .LE. KLQNP2) THEN
+                YX(IKL,8)=YX3
+                YY(IKL,8)=YY3
+                YZ(IKL,8)=YZ3
+              END IF
+              YX(IKL,13)=YX3
+              YY(IKL,13)=YY3
+              YZ(IKL,13)=YZ3
+  375       CONTINUE
+C
+              DO 450 IKL=1,KLQNP1
+                YXAB1=0.0D0
+                YXAB2=0.0D0
+                YXAB3=0.0D0
+                YXAB4=0.0D0
+                YYAB1=0.0D0
+                YYAB2=0.0D0
+                YYAB3=0.0D0
+                YYAB4=0.0D0
+                YZAB1=0.0D0
+                YZAB2=0.0D0
+                YZAB3=0.0D0
+                YZAB4=0.0D0
+                DO 400 IJ=1,ITSEC
+                  IJM1=IJ-1
+                  GSPOT=IKL + IJM1
+                  ISPOT=IP1P1 + IJM1*I2P1P1
+CCC        WRITE(6,*) ' 450,IKL,KLQNP1,400,IJ,ITSEC,IJM1,GSPOT,ISPOT'
+CCC        WRITE(6,*) IKL,KLQNP1,IJ,ITSEC,IJM1,GSPOT,ISPOT
+                  YXAB1=YXAB1 + EX(ISPOT)*GT(GSPOT,IROOT)
+                  YYAB1=YYAB1 + EY(ISPOT)*GU(GSPOT,IROOT)
+                  YZAB1=YZAB1 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                  IF(INO .GT. 1) THEN
+                    IF(IJ .LE. IT) THEN
+                      ISPOT=IM1P1 + IJM1*I2M1P1
+                      YXAB2=YXAB2 + EX(ISPOT)*GT(GSPOT,IROOT)
+                      YYAB2=YYAB2 + EY(ISPOT)*GU(GSPOT,IROOT)
+                      YZAB2=YZAB2 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                      IF(JNO .GT. 1) THEN
+                        IF(IJ .LE. ITM2) THEN
+                          ISPOT=IM1M1 + IJM1*I2M1M1
+                          YXAB3=YXAB3 + EX(ISPOT)*GT(GSPOT,
+     *                    IROOT)
+                          YYAB3=YYAB3 + EY(ISPOT)*GU(GSPOT,
+     *                    IROOT)
+                          YZAB3=YZAB3 + EZ(ISPOT)*GV(GSPOT,
+     *                    IROOT)
+                        END IF
+                      END IF
+                    END IF
+                  END IF
+C
+                  IF(JNO .GT. 1) THEN
+                    IF(IJ .LE. IT) THEN
+                      ISPOT=IP1M1 + IJM1*I2P1M1
+                      YXAB4=YXAB4 + EX(ISPOT)*GT(GSPOT,IROOT)
+                      YYAB4=YYAB4 + EY(ISPOT)*GU(GSPOT,IROOT)
+                      YZAB4=YZAB4 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                    END IF
+                  END IF
+  400           CONTINUE
+                YX(IKL,14)=AB4*YXAB1 - B2DI*YXAB2 + DIDJ*YXAB3 - A2DJ*
+     *                    YXAB4
+                YY(IKL,14)=AB4*YYAB1 - B2DI*YYAB2 + DIDJ*YYAB3 - A2DJ*
+     *                    YYAB4
+                YZ(IKL,14)=AB4*YZAB1 - B2DI*YZAB2 + DIDJ*YZAB3 - A2DJ*
+     *                    YZAB4
+  450         CONTINUE
+C
+C   MIXED CENTER DERIVATIVES
+C
+              DO 500 IKL=1,KLQNP2
+                  YXA1=0.0D0
+                  YYA1=0.0D0
+                  YZA1=0.0D0
+                  YXA2=0.0D0
+                  YYA2=0.0D0
+                  YZA2=0.0D0
+                  YXA3=0.0D0
+                  YYA3=0.0D0
+                  YZA3=0.0D0
+                  YXA4=0.0D0
+                  YYA4=0.0D0
+                  YZA4=0.0D0
+                  YXA5=0.0D0
+                  YYA5=0.0D0
+                  YZA5=0.0D0
+                  YXA6=0.0D0
+                  YYA6=0.0D0
+                  YZA6=0.0D0
+                  YXB1=0.0D0
+                  YYB1=0.0D0
+                  YZB1=0.0D0
+                  YXB2=0.0D0
+                  YYB2=0.0D0
+                  YZB2=0.0D0
+                  YXB3=0.0D0
+                  YYB3=0.0D0
+                  YZB3=0.0D0
+                  YXB4=0.0D0
+                  YYB4=0.0D0
+                  YZB4=0.0D0
+                  YXB5=0.0D0
+                  YYB5=0.0D0
+                  YZB5=0.0D0
+                  YXB6=0.0D0
+                  YYB6=0.0D0
+                  YZB6=0.0D0
+                DO 490 IJ=1,ITSEC
+                  IJM1=IJ - 1
+                  GSPOT=IJM1 + IKL
+C
+CCC          WRITE(6,*) ' 500,IKL,KLQNP2,490,IJ,ITSEC,IJM1,GSPOT'
+CCC          WRITE(6,*) IKL,KLQNP2,IJ,ITSEC,IJM1,GSPOT
+CCC          WRITE(6,*) ' ITFIR ',ITFIR
+                    IF(IJ .GT. ITFIR) GO TO 470
+                    ISPOT=IP1P0 + IJM1*I2P1P0
+                    EXCNST=EX(ISPOT)*GT(GSPOT,IROOT)
+                    EYCNST=EY(ISPOT)*GU(GSPOT,IROOT)
+                    EZCNST=EZ(ISPOT)*GV(GSPOT,IROOT)
+                    IF(IKL .LE. KLQNP1) THEN
+                      YXA1=YXA1 + EXCNST
+                      YYA1=YYA1 + EYCNST
+                      YZA1=YZA1 + EZCNST
+                    END IF
+                    YXA3=YXA3 + EXCNST
+                    YYA3=YYA3 + EYCNST
+                    YZA3=YZA3 + EZCNST
+C
+                    IF(INO .GT. 1) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM1M0 + IJM1*I2M1M0
+                        EXCNST=EX(ISPOT)*GT(GSPOT,IROOT)
+                        EYCNST=EY(ISPOT)*GU(GSPOT,IROOT)
+                        EZCNST=EZ(ISPOT)*GV(GSPOT,IROOT)
+                        IF(IKL .LE. KLQNP1) THEN
+                          YXA2=YXA2 + EXCNST
+                          YYA2=YYA2 + EYCNST
+                          YZA2=YZA2 + EZCNST
+                        END IF
+                        YXA4=YXA4 + EXCNST
+                        YYA4=YYA4 + EYCNST
+                        YZA4=YZA4 + EZCNST
+                      END IF
+                    END IF
+C
+  470               CONTINUE
+CCC                 WRITE(6,*) ' AFTER 470'
+CCC                 WRITE(6,*) ' IKL,KLQNP1 ',IKL,KLQNP1
+                    IF(IKL .GT. KLQNP1) GO TO 475
+                    ISPOT=IP2P0 + IJM1*I2P2P0
+                    YXA5=YXA5 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYA5=YYA5 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZA5=YZA5 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(INO .GT. 2) THEN
+                      IF(IJ .LE. ITM2) THEN
+                        ISPOT=IM2M0 + IJM1*I2M2M0
+                        YXA6=YXA6 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYA6=YYA6 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZA6=YZA6 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+C
+  475               CONTINUE
+CCC                 WRITE(6,*) ' AFTER 475'
+CCC                 WRITE(6,*) ' IJ,ITFIR ',IJ,ITFIR
+C
+C
+                    IF(IJ .GT. ITFIR) GO TO 480
+                    ISPOT=IP0P1 + IJM1*I2P0P1
+                    EXCNST=EX(ISPOT)*GT(GSPOT,IROOT)
+                    EYCNST=EY(ISPOT)*GU(GSPOT,IROOT)
+                    EZCNST=EZ(ISPOT)*GV(GSPOT,IROOT)
+                    IF(IKL .LE. KLQNP1) THEN
+                      YXB1=YXB1 + EXCNST
+                      YYB1=YYB1 + EYCNST
+                      YZB1=YZB1 + EZCNST
+                    END IF
+                    YXB3=YXB3 + EXCNST
+                    YYB3=YYB3 + EYCNST
+                    YZB3=YZB3 + EZCNST
+C
+                    IF(JNO .GT. 1) THEN
+                      IF(IJ .LE. ITM1) THEN
+                        ISPOT=IM0M1 + IJM1*I2M0M1
+                        EXCNST=EX(ISPOT)*GT(GSPOT,IROOT)
+                        EYCNST=EY(ISPOT)*GU(GSPOT,IROOT)
+                        EZCNST=EZ(ISPOT)*GV(GSPOT,IROOT)
+                        IF(IKL .LE. KLQNP1) THEN
+                          YXB2=YXB2 + EXCNST
+                          YYB2=YYB2 + EYCNST
+                          YZB2=YZB2 + EZCNST
+                        END IF
+                        YXB4=YXB4 + EXCNST
+                        YYB4=YYB4 + EYCNST
+                        YZB4=YZB4 + EZCNST
+                      END IF
+                    END IF
+C
+  480               CONTINUE
+CCC                 WRITE(6,*) ' AFTER 480'
+CCC                 WRITE(6,*) ' IKL,KLQNP1 ',IKL,KLQNP1
+                    IF(IKL .GT. KLQNP1) GO TO 485
+                    ISPOT=IP0P2 + IJM1*I2P0P2
+                    YXB5=YXB5 + EX(ISPOT)*GT(GSPOT,IROOT)
+                    YYB5=YYB5 + EY(ISPOT)*GU(GSPOT,IROOT)
+                    YZB5=YZB5 + EZ(ISPOT)*GV(GSPOT,IROOT)
+C
+                    IF(JNO .GT. 2) THEN
+                      IF(IJ .LE. ITM2) THEN
+                        ISPOT=IM0M2 + IJM1*I2M0M2
+                        YXB6=YXB6 + EX(ISPOT)*GT(GSPOT,IROOT)
+                        YYB6=YYB6 + EY(ISPOT)*GU(GSPOT,IROOT)
+                        YZB6=YZB6 + EZ(ISPOT)*GV(GSPOT,IROOT)
+                      END IF
+                    END IF
+  485               CONTINUE
+CCC               WRITE(6,*) ' AFTER 485 AND BEFORE 490'
+  490           CONTINUE
+CCC               WRITE(6,*) ' AFTER 490'
+C
+                  YYX(IKL,1)=YXA1
+                  YYY(IKL,1)=YYA1
+                  YYZ(IKL,1)=YZA1
+C
+                  YYX(IKL,2)=YXA2
+                  YYY(IKL,2)=YYA2
+                  YYZ(IKL,2)=YZA2
+C
+                  YYX(IKL,5)=YXA3
+                  YYY(IKL,5)=YYA3
+                  YYZ(IKL,5)=YZA3
+C
+                  YYX(IKL,6)=YXA4
+                  YYY(IKL,6)=YYA4
+                  YYZ(IKL,6)=YZA4
+C
+                  YYX(IKL,9)=YXA5
+                  YYY(IKL,9)=YYA5
+                  YYZ(IKL,9)=YZA5
+C
+                  YYX(IKL,10)=YXA6
+                  YYY(IKL,10)=YYA6
+                  YYZ(IKL,10)=YZA6
+                  YYX(IKL,3)=YXB1
+                  YYY(IKL,3)=YYB1
+                  YYZ(IKL,3)=YZB1
+C
+                  YYX(IKL,4)=YXB2
+                  YYY(IKL,4)=YYB2
+                  YYZ(IKL,4)=YZB2
+C
+                  YYX(IKL,7)=YXB3
+                  YYY(IKL,7)=YYB3
+                  YYZ(IKL,7)=YZB3
+C
+                  YYX(IKL,8)=YXB4
+                  YYY(IKL,8)=YYB4
+                  YYZ(IKL,8)=YZB4
+C
+                  YYX(IKL,11)=YXB5
+                  YYY(IKL,11)=YYB5
+                  YYZ(IKL,11)=YZB5
+C
+                  YYX(IKL,12)=YXB6
+                  YYY(IKL,12)=YYB6
+                  YYZ(IKL,12)=YZB6
+C
+C
+CCC           WRITE(6,*) ' BEFORE 500, IKL = ',IKL
+  500         CONTINUE
+CCC           WRITE(6,*) ' END OF 500 LOOP'
+C
+            KN=-IANG
+            KM=-ISIZ
+C
+C:::::::::::::::::::::::::::
+C:::LOOP OVER KNO AND LNO:::
+C:::::::::::::::::::::::::::
+            DO 7000 KNO=1,KQN
+CCC         WRITE(6,*) ' DO 7000,KNO,KQN',KNO,KQN
+C
+              KN=KN + IANG
+              KM=KM + ISIZ
+C
+              DUMK=DBLE(KNO-1)
+              DIDK=DUMK*DUMI
+              A2DK=AA2*DUMK
+              B2DK=BB2*DUMK
+              D2DK=DD2*DUMK
+              DUMKM1=DBLE((KNO-1)*(KNO-2))
+              DUMK2=DBLE(2*KNO -1)
+              C2DK=CC2*DUMK2
+              C12DK=3.0D0*C4*DBLE(KNO)
+              C6DK=3.0D0*CC2*DUMK*DUMK
+              DJDK=DUMJ*DUMK
+              DO 6000 LNO=1,LQN
+CCC       WRITE(6,*) ' IROOT,INO,JNO,7000,KNO,6000,LNO'
+CCC       WRITE(6,*)   IROOT,INO,JNO,KNO,LNO
+C
+                LN=LNO + KN
+                LM=LNO + KM
+C
+                DUML=DBLE(LNO-1)
+                DUMLM1=DBLE((LNO-1)*(LNO-2))
+                DUML2=DBLE(2*LNO -1)
+                D2DL=DD2*DUML2
+                D12DL=3.0D0*D4*DBLE(LNO)
+                D6DL=3.0D0*DD2*DUML*DUML
+                C2DL=CC2*DUML
+                A2DL=AA2*DUML
+                B2DL=BB2*DUML
+                DIDL=DUMI*DUML
+                DJDL=DUMJ*DUML
+                DKDL=DUMK*DUML
+                ITT=KNO + LNO -1
+                ITTM1=ITT-1
+                ITTM2=ITT-2
+                ITTM3=ITT-3
+                ITTFIR=ITT + 1
+                ITTSEC=ITT + 2
+                ITTTHR=ITT + 3
+                ITTMAX=ITTTHR
+C
+CCC   WRITE(6,*) ' IPLACE'
+CCC   WRITE(6,*)   IPLACE
+CCC   WRITE(6,*) ' ISAME'
+CCC   WRITE(6,*)   ISAME
+                KPL=IPLACE(LM)
+                KTWO=2
+                IF(ISAME(LM) .EQ. 1) KTWO=1
+C
+C
+                  LP1P0=LM + ISIZ
+                  KP1P0=IPLACE(LP1P0)
+                  K2P1P0=2
+                  IF(ISAME(LP1P0) .EQ. 1) K2P1P0=1
+                  LP2P0=LM + ISIZ2
+                  KP2P0=IPLACE(LP2P0)
+                  K2P2P0=2
+                  IF(ISAME(LP2P0) .EQ. 1) K2P2P0=1
+                  LP3P0=LM + ISIZ3
+                  KP3P0=IPLACE(LP3P0)
+                  K2P3P0=2
+                  IF(ISAME(LP3P0) .EQ. 1) K2P3P0=1
+                  IF(KNO .GT. 1) THEN
+                    LM1M0=LM - ISIZ
+                    KM1M0=IPLACE(LM1M0)
+                    K2M1M0=2
+                    IF(ISAME(LM1M0) .EQ. 1) K2M1M0=1
+                    IF(KNO .GT. 2) THEN
+                      LM2M0=LM - ISIZ2
+                      KM2M0=IPLACE(LM2M0)
+                      K2M2M0=2
+                      IF(ISAME(LM2M0) .EQ. 1) K2M2M0=1
+                    END IF
+                  END IF
+C
+C
+                XXX1=0.0D0
+                XYY1=0.0D0
+                XZZ1=0.0D0
+                XXX2=0.0D0
+                XYY2=0.0D0
+                XZZ2=0.0D0
+                XXX3=0.0D0
+                XYY3=0.0D0
+                XZZ3=0.0D0
+                XXX9=0.0D0
+                XYY9=0.0D0
+                XZZ9=0.0D0
+                XXX4=0.0D0
+                XYY4=0.0D0
+                XZZ4=0.0D0
+                XXX5=0.0D0
+                XYY5=0.0D0
+                XZZ5=0.0D0
+                XXX10=0.0D0
+                XYY10=0.0D0
+                XZZ10=0.0D0
+                XXC1=0.0D0
+                XYC1=0.0D0
+                XZC1=0.0D0
+                XXC2=0.0D0
+                XYC2=0.0D0
+                XZC2=0.0D0
+                XX2C1=0.0D0
+                XY2C1=0.0D0
+                XZ2C1=0.0D0
+                XX2C2=0.0D0
+                XY2C2=0.0D0
+                XZ2C2=0.0D0
+                XX3C1=0.0D0
+                XY3C1=0.0D0
+                XZ3C1=0.0D0
+                XXSF1=0.0D0
+                XYSF1=0.0D0
+                XZSF1=0.0D0
+                XXSF2=0.0D0
+                XYSF2=0.0D0
+                XZSF2=0.0D0
+                XXSF3=0.0D0
+                XYSF3=0.0D0
+                XZSF3=0.0D0
+                XXSF4=0.0D0
+                XYSF4=0.0D0
+                XZSF4=0.0D0
+                XXSF5=0.0D0
+                XYSF5=0.0D0
+                XZSF5=0.0D0
+                XXSF6=0.0D0
+                XYSF6=0.0D0
+                XZSF6=0.0D0
+                XXFS1=0.0D0
+                XYFS1=0.0D0
+                XZFS1=0.0D0
+                XXFS2=0.0D0
+                XYFS2=0.0D0
+                XZFS2=0.0D0
+                XXFS3=0.0D0
+                XYFS3=0.0D0
+                XZFS3=0.0D0
+                XXFS4=0.0D0
+                XYFS4=0.0D0
+                XZFS4=0.0D0
+                XXFS5=0.0D0
+                XYFS5=0.0D0
+                XZFS5=0.0D0
+                XXFS6=0.0D0
+                XYFS6=0.0D0
+                XZFS6=0.0D0
+                XXX6=0.0D0
+                XYY6=0.0D0
+                XZZ6=0.0D0
+                XXX11=0.0D0
+                XYY11=0.0D0
+                XZZ11=0.0D0
+                XXX12=0.0D0
+                XYY12=0.0D0
+                XZZ12=0.0D0
+                XXAC1=0.0D0
+                XXAC2=0.0D0
+                XXAC3=0.0D0
+                XXAC4=0.0D0
+                XYAC1=0.0D0
+                XYAC2=0.0D0
+                XYAC3=0.0D0
+                XYAC4=0.0D0
+                XZAC1=0.0D0
+                XZAC2=0.0D0
+                XZAC3=0.0D0
+                XZAC4=0.0D0
+                XXBC1=0.0D0
+                XXBC2=0.0D0
+                XXBC3=0.0D0
+                XXBC4=0.0D0
+                XYBC1=0.0D0
+                XYBC2=0.0D0
+                XYBC3=0.0D0
+                XYBC4=0.0D0
+                XZBC1=0.0D0
+                XZBC2=0.0D0
+                XZBC3=0.0D0
+                XZBC4=0.0D0
+                XXSF11=0.0D0
+                XYSF11=0.0D0
+                XZSF11=0.0D0
+                XXSF21=0.0D0
+                XYSF21=0.0D0
+                XZSF21=0.0D0
+                XXSF31=0.0D0
+                XYSF31=0.0D0
+                XZSF31=0.0D0
+                XXSF41=0.0D0
+                XYSF41=0.0D0
+                XZSF41=0.0D0
+                XXSF51=0.0D0
+                XYSF51=0.0D0
+                XZSF51=0.0D0
+                XXSF61=0.0D0
+                XYSF61=0.0D0
+                XZSF61=0.0D0
+                XXFS11=0.0D0
+                XYFS11=0.0D0
+                XZFS11=0.0D0
+                XXFS21=0.0D0
+                XYFS21=0.0D0
+                XZFS21=0.0D0
+                XXFS31=0.0D0
+                XYFS31=0.0D0
+                XZFS31=0.0D0
+                XXFS41=0.0D0
+                XYFS41=0.0D0
+                XZFS41=0.0D0
+                XXFS51=0.0D0
+                XYFS51=0.0D0
+                XZFS51=0.0D0
+                XXFS61=0.0D0
+                XYFS61=0.0D0
+                XZFS61=0.0D0
+                XXABC1=0.0D0
+                XYABC1=0.0D0
+                XZABC1=0.0D0
+                XXABC2=0.0D0
+                XYABC2=0.0D0
+                XZABC2=0.0D0
+C
+                CONST=-1.0D0
+CCC             WRITE(6,*) ' ITTMAX,ITT,KPL,KTWO'
+CCC             WRITE(6,*)   ITTMAX,ITT,KPL,KTWO
+CCC             WRITE(6,*) ' ITTFIR,ITTM1,ITTSEC,ITTM2'
+CCC             WRITE(6,*)   ITTFIR,ITTM1,ITTSEC,ITTM2
+C
+                DO 600 KL=1,ITTMAX
+CCC             WRITE(6,*) ' DO 600 , KL = ',KL
+                  KLM1=KL - 1
+                  CONST=-CONST
+C
+                  IF(KL .LE. ITT) THEN
+C
+C   ZEROTH ORDER SECTION
+C
+CCC             WRITE(6,*) ' ZEROTH ORDER SECTION'
+                    KSPOT=KPL + KLM1*KTWO
+                    EXCNST=EX(IESZ+KSPOT)*CONST
+                    EYCNST=EY(IESZ+KSPOT)*CONST
+                    EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                    XXX1=XXX1 + YX(KL,1)*EXCNST
+                    XYY1=XYY1 + YY(KL,1)*EYCNST
+                    XZZ1=XZZ1 + YZ(KL,1)*EZCNST
+C
+C   CENTER 1 FIRST, SECOND AND THIRD DERIVATIVES
+C
+CCC             WRITE(6,*) ' CENT 1 FIRST SECTION'
+                      XXX2=XXX2 + YX(KL,2)*EXCNST
+                      XYY2=XYY2 + YY(KL,2)*EYCNST
+                      XZZ2=XZZ2 + YZ(KL,2)*EZCNST
+C
+                      XXX3=XXX3 + YX(KL,3)*EXCNST
+                      XYY3=XYY3 + YY(KL,3)*EYCNST
+                      XZZ3=XZZ3 + YZ(KL,3)*EZCNST
+C
+                      XXX9=XXX9 + YX(KL,9)*EXCNST
+                      XYY9=XYY9 + YY(KL,9)*EYCNST
+                      XZZ9=XZZ9 + YZ(KL,9)*EZCNST
+C
+C   CENTER 2 FIRST, SECOND, AND THIRD DERIVATIVES
+C
+CCC             WRITE(6,*) ' CENT 2 FIRST SECTION'
+                      XXX4=XXX4 + YX(KL,4)*EXCNST
+                      XYY4=XYY4 + YY(KL,4)*EYCNST
+                      XZZ4=XZZ4 + YZ(KL,4)*EZCNST
+C
+                      XXX5=XXX5 + YX(KL,5)*EXCNST
+                      XYY5=XYY5 + YY(KL,5)*EYCNST
+                      XZZ5=XZZ5 + YZ(KL,5)*EZCNST
+C
+                      XXX10=XXX10 + YX(KL,10)*EXCNST
+                      XYY10=XYY10 + YY(KL,10)*EYCNST
+                      XZZ10=XZZ10 + YZ(KL,10)*EZCNST
+C
+C   CENTERS 1 AND 2 MIXED DERIVATIVES
+C
+CCC             WRITE(6,*) ' CENTERS 1 AND 2 FIRST SECTION'
+                      XXX6=XXX6 + YX(KL,6)*EXCNST
+                      XYY6=XYY6 + YY(KL,6)*EYCNST
+                      XZZ6=XZZ6 + YZ(KL,6)*EZCNST
+C
+                      XXX11=XXX11 + YX(KL,11)*EXCNST
+                      XYY11=XYY11 + YY(KL,11)*EYCNST
+                      XZZ11=XZZ11 + YZ(KL,11)*EZCNST
+C
+                      XXX12=XXX12 + YX(KL,12)*EXCNST
+                      XYY12=XYY12 + YY(KL,12)*EYCNST
+                      XZZ12=XZZ12 + YZ(KL,12)*EZCNST
+C
+                  END IF
+C
+C   CENTER 3 FIRST, SECOND, AND THIRD DERIVATIVES
+C
+CCC             WRITE(6,*) ' CENTER 3 FIRST  SECTION'
+                    IF(KL .GT. ITTFIR) GO TO 510
+                    KSPOT=KP1P0 + KLM1*K2P1P0
+                    XXC1=XXC1 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                    XYC1=XYC1 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                    XZC1=XZC1 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(KNO .GT. 1) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM1M0 + KLM1*K2M1M0
+                        XXC2=XXC2 + YX(KL,7)*EX(IESZ+KSPOT)*CONST
+                        XYC2=XYC2 + YY(KL,7)*EY(IESZ+KSPOT)*CONST
+                        XZC2=XZC2 + YZ(KL,7)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  510               CONTINUE
+C
+                    IF(KL .GT. ITTSEC) GO TO 520
+                    KSPOT=KP2P0 + KLM1*K2P2P0
+                    XX2C1=XX2C1 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                    XY2C1=XY2C1 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                    XZ2C1=XZ2C1 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+C
+                    IF(KNO .GT. 2) THEN
+                      IF(KL .LE. ITTM2) THEN
+                        KSPOT=KM2M0 + KLM1*K2M2M0
+                        XX2C2=XX2C2 + YX(KL,8)*EX(IESZ+KSPOT)*CONST
+                        XY2C2=XY2C2 + YY(KL,8)*EY(IESZ+KSPOT)*CONST
+                        XZ2C2=XZ2C2 + YZ(KL,8)*EZ(IESZ+KSPOT)*CONST
+                      END IF
+                    END IF
+  520               CONTINUE
+C
+                  KSPOT=KP3P0 + KLM1*K2P3P0
+                  XX3C1=XX3C1 + YX(KL,13)*EX(IESZ+KSPOT)*CONST
+                  XY3C1=XY3C1 + YY(KL,13)*EY(IESZ+KSPOT)*CONST
+                  XZ3C1=XZ3C1 + YZ(KL,13)*EZ(IESZ+KSPOT)*CONST
+                  IF(KL .GT. ITTSEC) GO TO 600
+C
+C
+C   CENTERS 1 AND 3 MIXED DERIVATIVES
+C
+CCC             WRITE(6,*) ' CENTERS 1 AND  3 MIXED  SECTION'
+                    IF(KL .LE. ITTFIR) THEN
+                      KSPOT=KP1P0 + KLM1*K2P1P0
+                      EXCNST=EX(IESZ+KSPOT)*CONST
+                      EYCNST=EY(IESZ+KSPOT)*CONST
+                      EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                      XXAC1=XXAC1 + YYX(KL,1)*EXCNST
+                      XYAC1=XYAC1 + YYY(KL,1)*EYCNST
+                      XZAC1=XZAC1 + YYZ(KL,1)*EZCNST
+C
+                      XXAC4=XXAC4 + YYX(KL,2)*EXCNST
+                      XYAC4=XYAC4 + YYY(KL,2)*EYCNST
+                      XZAC4=XZAC4 + YYZ(KL,2)*EZCNST
+C
+                      XXSF1=XXSF1 + YYX(KL,9)*EXCNST
+                      XYSF1=XYSF1 + YYY(KL,9)*EYCNST
+                      XZSF1=XZSF1 + YYZ(KL,9)*EZCNST
+C
+                      XXSF2=XXSF2 + YYX(KL,10)*EXCNST
+                      XYSF2=XYSF2 + YYY(KL,10)*EYCNST
+                      XZSF2=XZSF2 + YYZ(KL,10)*EZCNST
+C
+                      XXSF3=XXSF3 + YX(KL,7)*EXCNST
+                      XYSF3=XYSF3 + YY(KL,7)*EYCNST
+                      XZSF3=XZSF3 + YZ(KL,7)*EZCNST
+C
+                    END IF
+                    IF(KNO .GT. 1) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM1M0 + KLM1*K2M1M0
+                        EXCNST=EX(IESZ+KSPOT)*CONST
+                        EYCNST=EY(IESZ+KSPOT)*CONST
+                        EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                        XXAC2=XXAC2 + YYX(KL,1)*EXCNST
+                        XYAC2=XYAC2 + YYY(KL,1)*EYCNST
+                        XZAC2=XZAC2 + YYZ(KL,1)*EZCNST
+C
+                        XXAC3=XXAC3 + YYX(KL,2)*EXCNST
+                        XYAC3=XYAC3 + YYY(KL,2)*EYCNST
+                        XZAC3=XZAC3 + YYZ(KL,2)*EZCNST
+C
+                        XXSF4=XXSF4 + YYX(KL,9)*EXCNST
+                        XYSF4=XYSF4 + YYY(KL,9)*EYCNST
+                        XZSF4=XZSF4 + YYZ(KL,9)*EZCNST
+C
+                        XXSF5=XXSF5 + YYX(KL,10)*EXCNST
+                        XYSF5=XYSF5 + YYY(KL,10)*EYCNST
+                        XZSF5=XZSF5 + YYZ(KL,10)*EZCNST
+C
+                        XXSF6=XXSF6 + YX(KL,7)*EXCNST
+                        XYSF6=XYSF6 + YY(KL,7)*EYCNST
+                        XZSF6=XZSF6 + YZ(KL,7)*EZCNST
+                      END IF
+                    END IF
+C
+                    KSPOT=KP2P0 + KLM1*K2P2P0
+                    EXCNST=EX(IESZ+KSPOT)*CONST
+                    EYCNST=EY(IESZ+KSPOT)*CONST
+                    EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                    XXFS1=XXFS1 + YYX(KL,5)*EXCNST
+                    XYFS1=XYFS1 + YYY(KL,5)*EYCNST
+                    XZFS1=XZFS1 + YYZ(KL,5)*EZCNST
+C
+                    XXFS2=XXFS2 + YYX(KL,6)*EXCNST
+                    XYFS2=XYFS2 + YYY(KL,6)*EYCNST
+                    XZFS2=XZFS2 + YYZ(KL,6)*EZCNST
+C
+                    IF(KL .LE. ITT) THEN
+                      KSPOT=KPL + KTWO*KLM1
+                      EXCNST=EX(IESZ+KSPOT)*CONST
+                      EYCNST=EY(IESZ+KSPOT)*CONST
+                      EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                      XXFS3=XXFS3 + YYX(KL,17)*EXCNST
+                      XYFS3=XYFS3 + YYY(KL,17)*EYCNST
+                      XZFS3=XZFS3 + YYZ(KL,17)*EZCNST
+C
+                      XXFS4=XXFS4 + YYX(KL,18)*EXCNST
+                      XYFS4=XYFS4 + YYY(KL,18)*EYCNST
+                      XZFS4=XZFS4 + YYZ(KL,18)*EZCNST
+                    END IF
+C
+                    IF(KNO .GT. 2) THEN
+                      IF(KL .LE. ITTM2) THEN
+                        KSPOT=KM2M0 + KLM1*K2M2M0
+                        EXCNST=EX(IESZ+KSPOT)*CONST
+                        EYCNST=EY(IESZ+KSPOT)*CONST
+                        EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                        XXFS5=XXFS5 + YYX(KL,5)*EXCNST
+                        XYFS5=XYFS5 + YYY(KL,5)*EYCNST
+                        XZFS5=XZFS5 + YYZ(KL,5)*EZCNST
+C
+                        XXFS6=XXFS6 + YYX(KL,6)*EXCNST
+                        XYFS6=XYFS6 + YYY(KL,6)*EYCNST
+                        XZFS6=XZFS6 + YYZ(KL,6)*EZCNST
+                      END IF
+                    END IF
+C
+C
+C   CENTERS 2 AND 3 MIXED DERIVATIVES
+C
+CCC             WRITE(6,*) ' CENTERS 2 AND  3 MIXED  SECTION'
+                    IF(KL .LE. ITTFIR) THEN
+                      KSPOT=KP1P0 + KLM1*K2P1P0
+                      EXCNST=EX(IESZ+KSPOT)*CONST
+                      EYCNST=EY(IESZ+KSPOT)*CONST
+                      EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                      XXBC1=XXBC1 + YYX(KL,3)*EXCNST
+                      XYBC1=XYBC1 + YYY(KL,3)*EYCNST
+                      XZBC1=XZBC1 + YYZ(KL,3)*EZCNST
+C
+                      XXBC4=XXBC4 + YYX(KL,4)*EXCNST
+                      XYBC4=XYBC4 + YYY(KL,4)*EYCNST
+                      XZBC4=XZBC4 + YYZ(KL,4)*EZCNST
+C
+                      XXSF11=XXSF11 + YYX(KL,11)*EXCNST
+                      XYSF11=XYSF11 + YYY(KL,11)*EYCNST
+                      XZSF11=XZSF11 + YYZ(KL,11)*EZCNST
+C
+                      XXSF21=XXSF21 + YYX(KL,12)*EXCNST
+                      XYSF21=XYSF21 + YYY(KL,12)*EYCNST
+                      XZSF21=XZSF21 + YYZ(KL,12)*EZCNST
+C
+                      XXSF31=XXSF31 + YX(KL,7)*EXCNST
+                      XYSF31=XYSF31 + YY(KL,7)*EYCNST
+                      XZSF31=XZSF31 + YZ(KL,7)*EZCNST
+C
+                    END IF
+                    IF(KNO .GT. 1) THEN
+                      IF(KL .LE. ITTM1) THEN
+                        KSPOT=KM1M0 + KLM1*K2M1M0
+                        EXCNST=EX(IESZ+KSPOT)*CONST
+                        EYCNST=EY(IESZ+KSPOT)*CONST
+                        EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                        XXBC2=XXBC2 + YYX(KL,3)*EXCNST
+                        XYBC2=XYBC2 + YYY(KL,3)*EYCNST
+                        XZBC2=XZBC2 + YYZ(KL,3)*EZCNST
+C
+                        XXBC3=XXBC3 + YYX(KL,4)*EXCNST
+                        XYBC3=XYBC3 + YYY(KL,4)*EYCNST
+                        XZBC3=XZBC3 + YYZ(KL,4)*EZCNST
+C
+                        XXSF41=XXSF41 + YYX(KL,11)*EXCNST
+                        XYSF41=XYSF41 + YYY(KL,11)*EYCNST
+                        XZSF41=XZSF41 + YYZ(KL,11)*EZCNST
+C
+                        XXSF51=XXSF51 + YYX(KL,12)*EXCNST
+                        XYSF51=XYSF51 + YYY(KL,12)*EYCNST
+                        XZSF51=XZSF51 + YYZ(KL,12)*EZCNST
+C
+                        XXSF61=XXSF61 + YX(KL,7)*EXCNST
+                        XYSF61=XYSF61 + YY(KL,7)*EYCNST
+                        XZSF61=XZSF61 + YZ(KL,7)*EZCNST
+                      END IF
+                    END IF
+C
+                    KSPOT=KP2P0 + KLM1*K2P2P0
+                    EXCNST=EX(IESZ+KSPOT)*CONST
+                    EYCNST=EY(IESZ+KSPOT)*CONST
+                    EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                    XXFS11=XXFS11 + YYX(KL,7)*EXCNST
+                    XYFS11=XYFS11 + YYY(KL,7)*EYCNST
+                    XZFS11=XZFS11 + YYZ(KL,7)*EZCNST
+C
+                    XXFS21=XXFS21 + YYX(KL,8)*EXCNST
+                    XYFS21=XYFS21 + YYY(KL,8)*EYCNST
+                    XZFS21=XZFS21 + YYZ(KL,8)*EZCNST
+C
+                    IF(KL .LE. ITT) THEN
+                      KSPOT=KPL + KTWO*KLM1
+                      EXCNST=EX(IESZ+KSPOT)*CONST
+                      EYCNST=EY(IESZ+KSPOT)*CONST
+                      EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                      XXFS31=XXFS31 + YYX(KL,15)*EXCNST
+                      XYFS31=XYFS31 + YYY(KL,15)*EYCNST
+                      XZFS31=XZFS31 + YYZ(KL,15)*EZCNST
+C
+                      XXFS41=XXFS41 + YYX(KL,16)*EXCNST
+                      XYFS41=XYFS41 + YYY(KL,16)*EYCNST
+                      XZFS41=XZFS41 + YYZ(KL,16)*EZCNST
+                    END IF
+C
+                    IF(KNO .GT. 2) THEN
+                      IF(KL .LE. ITTM2) THEN
+                        KSPOT=KM2M0 + KLM1*K2M2M0
+                        EXCNST=EX(IESZ+KSPOT)*CONST
+                        EYCNST=EY(IESZ+KSPOT)*CONST
+                        EZCNST=EZ(IESZ+KSPOT)*CONST
+C
+                        XXFS51=XXFS51 + YYX(KL,7)*EXCNST
+                        XYFS51=XYFS51 + YYY(KL,7)*EYCNST
+                        XZFS51=XZFS51 + YYZ(KL,7)*EZCNST
+C
+                        XXFS61=XXFS61 + YYX(KL,8)*EXCNST
+                        XYFS61=XYFS61 + YYY(KL,8)*EYCNST
+                        XZFS61=XZFS61 + YYZ(KL,8)*EZCNST
+                      END IF
+                    END IF
+C
+C
+                    IF(KL .LE. ITTFIR) THEN
+                      KSPOT=KP1P0 + KLM1*K2P1P0
+                      XXABC1=XXABC1 + YX(KL,14)*EX(IESZ+KSPOT)*CONST
+                      XYABC1=XYABC1 + YY(KL,14)*EY(IESZ+KSPOT)*CONST
+                      XZABC1=XZABC1 + YZ(KL,14)*EZ(IESZ+KSPOT)*CONST
+                      IF(KNO .GT. 1) THEN
+                        IF(KL .LE. ITTM1) THEN
+                          KSPOT=KM1M0 + KLM1*K2M1M0
+                          XXABC2=XXABC2 + YX(KL,14)*EX(IESZ+KSPOT)*CONST
+                          XYABC2=XYABC2 + YY(KL,14)*EY(IESZ+KSPOT)*CONST
+                          XZABC2=XZABC2 + YZ(KL,14)*EZ(IESZ+KSPOT)*CONST
+                        END IF
+                      END IF
+                    END IF
+C
+CCC             WRITE(6,*) ' END OF 600 LOOP'
+  600           CONTINUE
+C
+                XX0(JN,LN)=XXX1
+                XY0(JN,LN)=XYY1
+                XZ0(JN,LN)=XZZ1
+C
+                INT=0
+                  INT=INT+1
+                  XXFIR(JN,LN,INT)=XXX2
+                  XYFIR(JN,LN,INT)=XYY2
+                  XZFIR(JN,LN,INT)=XZZ2
+C
+                  XXSEC(JN,LN,INT)=XXX3
+                  XYSEC(JN,LN,INT)=XYY3
+                  XZSEC(JN,LN,INT)=XZZ3
+C
+                  XXTHR(JN,LN,INT)=XXX9
+                  XYTHR(JN,LN,INT)=XYY9
+                  XZTHR(JN,LN,INT)=XZZ9
+C
+                  INT=INT+1
+                  XXFIR(JN,LN,INT)=XXX4
+                  XYFIR(JN,LN,INT)=XYY4
+                  XZFIR(JN,LN,INT)=XZZ4
+C
+                  XXSEC(JN,LN,INT)=XXX5
+                  XYSEC(JN,LN,INT)=XYY5
+                  XZSEC(JN,LN,INT)=XZZ5
+C
+                  XXTHR(JN,LN,INT)=XXX10
+                  XYTHR(JN,LN,INT)=XYY10
+                  XZTHR(JN,LN,INT)=XZZ10
+C
+                  INT=INT+1
+                  XXFIR(JN,LN,INT)=XXC1*CC2 - DUMK*XXC2
+                  XYFIR(JN,LN,INT)=XYC1*CC2 - DUMK*XYC2
+                  XZFIR(JN,LN,INT)=XZC1*CC2 - DUMK*XZC2
+C
+                  XXSEC(JN,LN,INT)=C4*XX2C1 - C2DK*XXX1 + DUMKM1*XX2C2
+                  XYSEC(JN,LN,INT)=C4*XY2C1 - C2DK*XYY1 + DUMKM1*XY2C2
+                  XZSEC(JN,LN,INT)=C4*XZ2C1 - C2DK*XZZ1 + DUMKM1*XZ2C2
+C
+                  XXTHR(JN,LN,INT)=C8*XX3C1 - C12DK*XXC1 + C6DK*XXC2
+                  XYTHR(JN,LN,INT)=C8*XY3C1 - C12DK*XYC1 + C6DK*XYC2
+                  XZTHR(JN,LN,INT)=C8*XZ3C1 - C12DK*XZC1 + C6DK*XZC2
+C
+                IMX=0
+                IFS=0
+                  IMX=IMX + 1
+                  XXMXFF(JN,LN,IMX)=XXX6
+                  XYMXFF(JN,LN,IMX)=XYY6
+                  XZMXFF(JN,LN,IMX)=XZZ6
+                  IFS=IFS + 1
+                  XXFSMX(JN,LN,IFS)=XXX11
+                  XYFSMX(JN,LN,IFS)=XYY11
+                  XZFSMX(JN,LN,IFS)=XZZ11
+                  IFS=IFS + 1
+                  XXFSMX(JN,LN,IFS)=XXX12
+                  XYFSMX(JN,LN,IFS)=XYY12
+                  XZFSMX(JN,LN,IFS)=XZZ12
+C
+C
+                  IMX=IMX+1
+                  XXMXFF(JN,LN,IMX)=AC4*XXAC1 - A2DK*XXAC2 + DIDK*XXAC3
+     *            - C2DI*XXAC4
+                  XYMXFF(JN,LN,IMX)=AC4*XYAC1 - A2DK*XYAC2 + DIDK*XYAC3
+     *            - C2DI*XYAC4
+                  XZMXFF(JN,LN,IMX)=AC4*XZAC1 - A2DK*XZAC2 + DIDK*XZAC3
+     *            - C2DI*XZAC4
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= AAC8*XXSF1 - AC4*DUMI2*XXSF3
+     *                             + CC2*DUMIM1*XXSF2 - A4*DUMK*XXSF4
+     *                      + AA2*DUMK*DUMI2*XXSF6 - DUMIM1*DUMK*XXSF5
+                  XYFSMX(JN,LN,IFS)= AAC8*XYSF1 - AC4*DUMI2*XYSF3
+     *                             + CC2*DUMIM1*XYSF2 - A4*DUMK*XYSF4
+     *                      + AA2*DUMK*DUMI2*XYSF6 - DUMIM1*DUMK*XYSF5
+                  XZFSMX(JN,LN,IFS)= AAC8*XZSF1 - AC4*DUMI2*XZSF3
+     *                             + CC2*DUMIM1*XZSF2 - A4*DUMK*XZSF4
+     *                      + AA2*DUMK*DUMI2*XZSF6 - DUMIM1*DUMK*XZSF5
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= CCA8*XXFS1 - AC4*DUMK2*XXFS3
+     *                             + AA2*DUMKM1*XXFS5 - C4*DUMI*XXFS2
+     *                      + CC2*DUMI*DUMK2*XXFS4 - DUMKM1*DUMI*XXFS6
+                  XYFSMX(JN,LN,IFS)= CCA8*XYFS1 - AC4*DUMK2*XYFS3
+     *                             + AA2*DUMKM1*XYFS5 - C4*DUMI*XYFS2
+     *                      + CC2*DUMI*DUMK2*XYFS4 - DUMKM1*DUMI*XYFS6
+                  XZFSMX(JN,LN,IFS)= CCA8*XZFS1 - AC4*DUMK2*XZFS3
+     *                             + AA2*DUMKM1*XZFS5 - C4*DUMI*XZFS2
+     *                      + CC2*DUMI*DUMK2*XZFS4 - DUMKM1*DUMI*XZFS6
+                  IMX=IMX+1
+                  XXMXFF(JN,LN,IMX)=BC4*XXBC1 - B2DK*XXBC2 + DJDK*XXBC3
+     *            - C2DJ*XXBC4
+                  XYMXFF(JN,LN,IMX)=BC4*XYBC1 - B2DK*XYBC2 + DJDK*XYBC3
+     *            - C2DJ*XYBC4
+                  XZMXFF(JN,LN,IMX)=BC4*XZBC1 - B2DK*XZBC2 + DJDK*XZBC3
+     *            - C2DJ*XZBC4
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= BBC8*XXSF11 - BC4*DUMJ2*XXSF31
+     *                     + CC2*DUMJM1*XXSF21 - B4*DUMK*XXSF41
+     *                 + BB2*DUMK*DUMJ2*XXSF61 - DUMJM1*DUMK*XXSF51
+                  XYFSMX(JN,LN,IFS)= BBC8*XYSF11 - BC4*DUMJ2*XYSF31
+     *                     + CC2*DUMJM1*XYSF21 - B4*DUMK*XYSF41
+     *                 + BB2*DUMK*DUMJ2*XYSF61 - DUMJM1*DUMK*XYSF51
+                  XZFSMX(JN,LN,IFS)= BBC8*XZSF11 - BC4*DUMJ2*XZSF31
+     *                 + CC2*DUMJM1*XZSF21 - B4*DUMK*XZSF41
+     *                 + BB2*DUMK*DUMJ2*XZSF61 - DUMJM1*DUMK*XZSF51
+                  IFS=IFS+1
+                  XXFSMX(JN,LN,IFS)= CCB8*XXFS11 - BC4*DUMK2*XXFS31
+     *                 + BB2*DUMKM1*XXFS51 - C4*DUMJ*XXFS21
+     *                 + CC2*DUMJ*DUMK2*XXFS41 - DUMKM1*DUMJ*XXFS61
+                  XYFSMX(JN,LN,IFS)= CCB8*XYFS11 - BC4*DUMK2*XYFS31
+     *                 + BB2*DUMKM1*XYFS51 - C4*DUMJ*XYFS21
+     *                 + CC2*DUMJ*DUMK2*XYFS41 - DUMKM1*DUMJ*XYFS61
+                  XZFSMX(JN,LN,IFS)= CCB8*XZFS11 - BC4*DUMK2*XZFS31
+     *                 + BB2*DUMKM1*XZFS51 - C4*DUMJ*XZFS21
+     *                 + CC2*DUMJ*DUMK2*XZFS41 - DUMKM1*DUMJ*XZFS61
+C
+                  XXFFF(JN,LN)=CC2*XXABC1 - DUMK*XXABC2
+                  XYFFF(JN,LN)=CC2*XYABC1 - DUMK*XYABC2
+                  XZFFF(JN,LN)=CC2*XZABC1 - DUMK*XZABC2
+C
+ 6000         CONTINUE
+ 7000       CONTINUE
+C::::::::::::::::::::::::
+C:::END OF KNO AND LNO:::
+C::::::::::::::::::::::::
+C
+ 8000     CONTINUE
+ 9000   CONTINUE
+C::::::::::::::::::::::::
+C:::END OF INO AND JNO:::
+C::::::::::::::::::::::::
+C
+C   ACTUALLY FORM THE INTEGRALS
+C
+        ICNT=0
+        IJCNT=0
+        IORBMX=IORB1 -1 + NUMI
+        JORBMX=JORB1 -1 + NUMJ
+C
+C:::::::::::::::::::::::::::::
+C:::LOOP OVER IORB AND JORB:::
+C:::::::::::::::::::::::::::::
+        DO 5000 IORB=IORB1,IORBMX
+          IF(BOTH1) JORBMX=IORB
+          DO 4000 JORB=JORB1,JORBMX
+            IJORB=IOFF(MAX0(IORB,JORB)) + MIN0(IORB,JORB)
+            IJCNT=IJCNT + 1
+            JNX=IJX(IJCNT)
+            JNY=IJY(IJCNT)
+            JNZ=IJZ(IJCNT)
+            KLCNT=0
+            KORBMX=KORB1 -1 + NUMK
+            LORBMX=LORB1 -1 + NUML
+            IF(ISHELL .EQ. KSHELL) KORBMX=IORB
+C:::::::::::::::::::::::::::::
+C:::LOOP OVER KORB AND LORB:::
+C:::::::::::::::::::::::::::::
+            DO 3000 KORB=KORB1,KORBMX
+              IF(BOTH2) LORBMX=KORB
+              IF(ISHELL.EQ.KSHELL) THEN
+C               IF(JSHELL .EQ. LSHELL) LORBMX=JORB
+              END IF
+              DO 2000 LORB=LORB1,LORBMX
+                KLORB=IOFF(MAX0(KORB,LORB)) + MIN0(KORB,LORB)
+                IJKL=IOFF(MAX0(IJORB,KLORB)) + MIN0(IJORB,KLORB)
+C               KLCNT=KLCNT + 1
+C               LNX=KLX(KLCNT)
+C               LNY=KLY(KLCNT)
+C               LNZ=KLZ(KLCNT)
+                IF(KLORB .GT. IJORB) GO TO 3000
+C
+C   CALCULATE THE TYPE OF INTEGRAL WE ARE DEALING WITH
+C
+C               ITYPE=0
+C               CALL INTYPE(IORB,JORB,KORB,LORB,ITYPE)
+C
+CCC             WRITE(6,*) ' 5000,4000,3000,2000,IORB,JORB,KORB,LORB'
+CCC             WRITE(6,*)   IORB,JORB,KORB,LORB
+C
+                ICNT=ICNT + 1
+                IF(ICNT .GT. IMEM4) WRITE(IOUT,*) ' ICNT = ',ICNT
+                KLCNT=KLCNT + 1
+                LNX=KLX(KLCNT)
+                LNY=KLY(KLCNT)
+                LNZ=KLZ(KLCNT)
+C               G(ICNT)=G(ICNT) + XX0(JNX,LNX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+C
+C   CENTER 1 DERIVATIVES
+C
+                INT=0
+                  INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                  GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                  GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                  GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *            XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *            XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *            XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *            INT)
+                  GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+C
+C   CENTER 2 DERIVATIVES
+C
+                  INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                  GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                  GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                  GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *            XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *            XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *            XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *            INT)
+                  GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+C
+C   CENTER 3 DERIVATIVES
+C
+                  INT=INT+1
+C
+C   FIRST DERIVATIVES
+C
+                  GMXFIR(ICNT,1,INT)= GMXFIR(ICNT,1,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,2,INT)= GMXFIR(ICNT,2,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXFIR(ICNT,3,INT)= GMXFIR(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+C
+C   SECOND DERIVATIVES
+C
+                  GMXSEC(ICNT,1,INT)= GMXSEC(ICNT,1,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,2,INT)= GMXSEC(ICNT,2,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,3,INT)= GMXSEC(ICNT,3,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXSEC(ICNT,4,INT)= GMXSEC(ICNT,4,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,5,INT)= GMXSEC(ICNT,5,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXSEC(ICNT,6,INT)= GMXSEC(ICNT,6,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+C
+C   THIRD DERIVATIVES
+C
+                  GMXTHR(ICNT,1,INT)=GMXTHR(ICNT,1,INT) +
+     *            XXTHR(JNX,LNX,INT)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,2,INT)=GMXTHR(ICNT,2,INT) +
+     *            XXSEC(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,3,INT)=GMXTHR(ICNT,3,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYSEC(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,4,INT)=GMXTHR(ICNT,4,INT) +
+     *            XX0(JNX,LNX)*XYTHR(JNY,LNY,INT)*XZ0(JNZ,LNZ)
+                  GMXTHR(ICNT,5,INT)=GMXTHR(ICNT,5,INT) +
+     *            XXSEC(JNX,LNX,INT)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,6,INT)=GMXTHR(ICNT,6,INT) +
+     *            XXFIR(JNX,LNX,INT)*XYFIR(JNY,LNY,INT)*XZFIR(JNZ,LNZ,
+     *            INT)
+                  GMXTHR(ICNT,7,INT)=GMXTHR(ICNT,7,INT) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,INT)*XZFIR(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,8,INT)=GMXTHR(ICNT,8,INT) +
+     *            XXFIR(JNX,LNX,INT)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,9,INT)=GMXTHR(ICNT,9,INT) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,INT)*XZSEC(JNZ,LNZ,INT)
+                  GMXTHR(ICNT,10,INT)=GMXTHR(ICNT,10,INT) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZTHR(JNZ,LNZ,INT)
+                IMX=0
+                IFS=0
+C
+C   CENTER 1 AND CENTER 2 MIXED DERIVATIVES
+C
+C
+C   SECOND DERIVATIVES
+C
+                  IMX=IMX + 1
+                  GMXFF(ICNT,1,IMX)= GMXFF(ICNT,1,IMX) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,2,IMX)= GMXFF(ICNT,2,IMX) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,3,IMX)= GMXFF(ICNT,3,IMX) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,4,IMX)= GMXFF(ICNT,4,IMX) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,5,IMX)= GMXFF(ICNT,5,IMX) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,6,IMX)= GMXFF(ICNT,6,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,7,IMX)= GMXFF(ICNT,7,IMX) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,8,IMX)= GMXFF(ICNT,8,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,9,IMX)= GMXFF(ICNT,9,IMX) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+C
+C   THIRD DERIVATIVES
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,1)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYSEC(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,1)
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,2)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYSEC(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZMXFF(JNZ,LNZ,1)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,2)
+C
+C   CENTER 1 AND CENTER 3 MIXED DERIVATIVES
+C
+C
+C   SECOND DERIVATIVES
+C
+                  IMX=IMX + 1
+                  KKPOS=2
+                  KKPOS=3
+                  GMXFF(ICNT,1,IMX)= GMXFF(ICNT,1,IMX) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,2,IMX)= GMXFF(ICNT,2,IMX) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,KKPOS)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,3,IMX)= GMXFF(ICNT,3,IMX) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFF(ICNT,4,IMX)= GMXFF(ICNT,4,IMX) +
+     *            XXFIR(JNX,LNX,KKPOS)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,5,IMX)= GMXFF(ICNT,5,IMX) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,6,IMX)= GMXFF(ICNT,6,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFF(ICNT,7,IMX)= GMXFF(ICNT,7,IMX) +
+     *            XXFIR(JNX,LNX,KKPOS)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,8,IMX)= GMXFF(ICNT,8,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,KKPOS)*XZFIR(JNZ,LNZ,1)
+                  GMXFF(ICNT,9,IMX)= GMXFF(ICNT,9,IMX) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+C
+C   THIRD DERIVATIVES
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,IFS)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,1)*XYFIR(JNY,LNY,KKPOS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,KKPOS)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XYSEC(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,IFS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,1)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,KKPOS)*XZSEC(JNZ,LNZ,1)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,IFS)
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,IFS)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,KKPOS)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,KKPOS)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XYFIR(JNY,LNY,KKPOS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XYFIR(JNY,LNY,KKPOS)*XZFIR(JNZ,
+     *            LNZ,1)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,
+     *            KKPOS)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,KKPOS)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYSEC(JNY,LNY,KKPOS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,IFS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,KKPOS)*XZFIR(JNZ,LNZ,1)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,KKPOS)*XZFIR(JNZ,LNZ,
+     *            KKPOS)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZFIR(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,KKPOS)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZSEC(JNZ,LNZ,KKPOS)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,IFS)
+C
+C   CENTER 2 AND CENTER 3 MIXED DERIVATIVES
+C
+C
+C   SECOND DERIVATIVES
+C
+                  IMX=IMX + 1
+                  GMXFF(ICNT,1,IMX)= GMXFF(ICNT,1,IMX) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,2,IMX)= GMXFF(ICNT,2,IMX) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,3,IMX)= GMXFF(ICNT,3,IMX) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,3)
+                  GMXFF(ICNT,4,IMX)= GMXFF(ICNT,4,IMX) +
+     *            XXFIR(JNX,LNX,3)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,5,IMX)= GMXFF(ICNT,5,IMX) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFF(ICNT,6,IMX)= GMXFF(ICNT,6,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,3)
+                  GMXFF(ICNT,7,IMX)= GMXFF(ICNT,7,IMX) +
+     *            XXFIR(JNX,LNX,3)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,8,IMX)= GMXFF(ICNT,8,IMX) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,3)*XZFIR(JNZ,LNZ,2)
+                  GMXFF(ICNT,9,IMX)= GMXFF(ICNT,9,IMX) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+C
+C   THIRD DERIVATIVES
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,IFS)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,2)*XYFIR(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYMXFF(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,3)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,3)*XYSEC(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,IFS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,2)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,3)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,3)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,3)*XZSEC(JNZ,LNZ,2)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,IFS)
+C
+                  IFS=IFS+1
+                  GMXFS(ICNT,1,IFS)= GMXFS(ICNT,1,IFS) +
+     *            XXFSMX(JNX,LNX,IFS)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,2,IFS)= GMXFS(ICNT,2,IFS) +
+     *            XXSEC(JNX,LNX,3)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,3,IFS)= GMXFS(ICNT,3,IFS) +
+     *            XXSEC(JNX,LNX,3)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,4,IFS)= GMXFS(ICNT,4,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XYFIR(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,5,IFS)= GMXFS(ICNT,5,IFS) +
+     *            XXFIR(JNX,LNX,3)*XYMXFF(JNY,LNY,IMX)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,6,IFS)= GMXFS(ICNT,6,IFS) +
+     *            XXFIR(JNX,LNX,3)*XYFIR(JNY,LNY,3)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,7,IFS)= GMXFS(ICNT,7,IFS) +
+     *            XXMXFF(JNX,LNX,IMX)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,8,IFS)= GMXFS(ICNT,8,IFS) +
+     *            XXFIR(JNX,LNX,3)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,9,IFS)= GMXFS(ICNT,9,IFS) +
+     *            XXFIR(JNX,LNX,3)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,10,IFS)= GMXFS(ICNT,10,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYSEC(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,11,IFS)= GMXFS(ICNT,11,IFS) +
+     *            XX0(JNX,LNX)*XYFSMX(JNY,LNY,IFS)*XZ0(JNZ,LNZ)
+                  GMXFS(ICNT,12,IFS)= GMXFS(ICNT,12,IFS) +
+     *            XX0(JNX,LNX)*XYSEC(JNY,LNY,3)*XZFIR(JNZ,LNZ,2)
+                  GMXFS(ICNT,13,IFS)= GMXFS(ICNT,13,IFS) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,3)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,14,IFS)= GMXFS(ICNT,14,IFS) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,IMX)*XZFIR(JNZ,LNZ,3)
+                  GMXFS(ICNT,15,IFS)= GMXFS(ICNT,15,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,3)*XZMXFF(JNZ,LNZ,IMX)
+                  GMXFS(ICNT,16,IFS)= GMXFS(ICNT,16,IFS) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZSEC(JNZ,LNZ,3)
+                  GMXFS(ICNT,17,IFS)= GMXFS(ICNT,17,IFS) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZSEC(JNZ,LNZ,3)
+                  GMXFS(ICNT,18,IFS)= GMXFS(ICNT,18,IFS) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFSMX(JNZ,LNZ,IFS)
+C
+C
+C   THIRD DERIVATIVES
+C
+                  GMXFFF(ICNT,1)= GMXFFF(ICNT,1) +
+     *            XXFFF(JNX,LNX)*XY0(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,2)= GMXFFF(ICNT,2) +
+     *            XXMXFF(JNX,LNX,1)*XYFIR(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,3)= GMXFFF(ICNT,3) +
+     *            XXMXFF(JNX,LNX,1)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,3)
+                  GMXFFF(ICNT,4)= GMXFFF(ICNT,4) +
+     *            XXMXFF(JNX,LNX,2)*XYFIR(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,5)= GMXFFF(ICNT,5) +
+     *            XXFIR(JNX,LNX,1)*XYMXFF(JNY,LNY,3)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,6)= GMXFFF(ICNT,6) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,3)
+                  GMXFFF(ICNT,7)= GMXFFF(ICNT,7) +
+     *            XXMXFF(JNX,LNX,2)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,2)
+                  GMXFFF(ICNT,8)= GMXFFF(ICNT,8) +
+     *            XXFIR(JNX,LNX,1)*XYFIR(JNY,LNY,3)*XZFIR(JNZ,LNZ,2)
+                  GMXFFF(ICNT,9)= GMXFFF(ICNT,9) +
+     *            XXFIR(JNX,LNX,1)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,3)
+                  GMXFFF(ICNT,10)= GMXFFF(ICNT,10) +
+     *            XXMXFF(JNX,LNX,3)*XYFIR(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,11)= GMXFFF(ICNT,11) +
+     *            XXFIR(JNX,LNX,2)*XYMXFF(JNY,LNY,2)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,12)= GMXFFF(ICNT,12) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,3)
+                  GMXFFF(ICNT,13)= GMXFFF(ICNT,13) +
+     *            XXFIR(JNX,LNX,3)*XYMXFF(JNY,LNY,1)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,14)= GMXFFF(ICNT,14) +
+     *            XX0(JNX,LNX)*XYFFF(JNY,LNY)*XZ0(JNZ,LNZ)
+                  GMXFFF(ICNT,15)= GMXFFF(ICNT,15) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,1)*XZFIR(JNZ,LNZ,3)
+                  GMXFFF(ICNT,16)= GMXFFF(ICNT,16) +
+     *            XXFIR(JNX,LNX,3)*XYFIR(JNY,LNY,1)*XZFIR(JNZ,LNZ,2)
+                  GMXFFF(ICNT,17)= GMXFFF(ICNT,17) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,2)*XZFIR(JNZ,LNZ,2)
+                  GMXFFF(ICNT,18)= GMXFFF(ICNT,18) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,1)*XZMXFF(JNZ,LNZ,3)
+                  GMXFFF(ICNT,19)= GMXFFF(ICNT,19) +
+     *            XXMXFF(JNX,LNX,3)*XY0(JNY,LNY)*XZFIR(JNZ,LNZ,1)
+                  GMXFFF(ICNT,20)= GMXFFF(ICNT,20) +
+     *            XXFIR(JNX,LNX,2)*XYFIR(JNY,LNY,3)*XZFIR(JNZ,LNZ,1)
+                  GMXFFF(ICNT,21)= GMXFFF(ICNT,21) +
+     *            XXFIR(JNX,LNX,2)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,2)
+                  GMXFFF(ICNT,22)= GMXFFF(ICNT,22) +
+     *            XXFIR(JNX,LNX,3)*XYFIR(JNY,LNY,2)*XZFIR(JNZ,LNZ,1)
+                  GMXFFF(ICNT,23)= GMXFFF(ICNT,23) +
+     *            XX0(JNX,LNX)*XYMXFF(JNY,LNY,3)*XZFIR(JNZ,LNZ,1)
+                  GMXFFF(ICNT,24)= GMXFFF(ICNT,24) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,2)*XZMXFF(JNZ,LNZ,2)
+                  GMXFFF(ICNT,25)= GMXFFF(ICNT,25) +
+     *            XXFIR(JNX,LNX,3)*XY0(JNY,LNY)*XZMXFF(JNZ,LNZ,1)
+                  GMXFFF(ICNT,26)= GMXFFF(ICNT,26) +
+     *            XX0(JNX,LNX)*XYFIR(JNY,LNY,3)*XZMXFF(JNZ,LNZ,1)
+                  GMXFFF(ICNT,27)= GMXFFF(ICNT,27) +
+     *            XX0(JNX,LNX)*XY0(JNY,LNY)*XZFFF(JNZ,LNZ)
+ 2000         CONTINUE
+ 3000       CONTINUE
+C::::::::::::::::::::::::::
+C:::END OF KORB AND LORB:::
+C::::::::::::::::::::::::::
+ 4000     CONTINUE
+ 5000   CONTINUE
+C::::::::::::::::::::::::::
+C:::END OF IORB AND JORB:::
+C::::::::::::::::::::::::::
+C
+10000 CONTINUE
+C
+      IGCNT=ICNT
+CCC   WRITE(6,*) ' NOW YOU ARE END OF DER123, IGCNT = ',IGCNT
+C
+      RETURN
+      END

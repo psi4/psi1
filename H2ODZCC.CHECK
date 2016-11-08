@@ -1,0 +1,78 @@
+************************************************************************************************************************            
+ tstart called:                                                                                                                     
+ Timing turned off.                                                                                                                 
+                                                                                                                                    
+  IN GETDRT                                                                                                                         
+                                                                                                                                    
+  IN ALLOC                                                                                                                          
+                                                                                                                                    
+  FOCC:2.0000.0000.0000.0000.000                                                                                                    
+  NSORB:    5    9    0    0    0                                                                                                   
+  THE IPOINT ARRAY:                                                                                                                 
+      6   15                                                                                                                        
+  THE JPOINT ARRAY:                                                                                                                 
+      1    6                                                                                                                        
+                                                                                                                                    
+  THE NUCLEAR REPULSION ENERGY FROM TAPE47 =        9.2342186558                                                                    
+                                                                                                                                    
+  IN DERMAT                                                                                                                         
+                                                                                                                                    
+  IN SAMAT                                                                                                                          
+                                                                                                                                    
+  IN FAMAT                                                                                                                          
+                                                                                                                                    
+  IN B0MAT                                                                                                                          
+                                                                                                                                    
+  IN GETINT                                                                                                                         
+    THE SPECIAL PARAMETERS                                                                                                          
+    0    0    0    0    0   14   10    9   45   54                                                                                  
+                                                                                                                                    
+  OPENED IT52                                                                                                                       
+  IOR=   14 JOR=   14 IGRP=    0 NEW GROUP=    1                                                                                    
+  NOW IGRP=    1                                                                                                                    
+  IN GETINT AND INTSRT =           1                                                                                                
+ IA47(120)     3750                                                                                                                 
+ C WRITTEN TO IT96                                                                                                                  
+                                                                                                                                    
+ BOX =           0.00000000 FOR DEGREE OF FREEDOM        1                                                                          
+                                                                                                                                    
+ BOX =           0.00000000 FOR DEGREE OF FREEDOM        2                                                                          
+                                                                                                                                    
+ BOX =           0.36526667 FOR DEGREE OF FREEDOM        3                                                                          
+                                                                                                                                    
+ BOX =           0.00000000 FOR DEGREE OF FREEDOM        4                                                                          
+                                                                                                                                    
+ BOX =          -0.23762473 FOR DEGREE OF FREEDOM        5                                                                          
+                                                                                                                                    
+ BOX =          -0.18263333 FOR DEGREE OF FREEDOM        6                                                                          
+                                                                                                                                    
+ BOX =           0.00000000 FOR DEGREE OF FREEDOM        7                                                                          
+                                                                                                                                    
+ BOX =           0.23762473 FOR DEGREE OF FREEDOM        8                                                                          
+                                                                                                                                    
+ BOX =          -0.18263333 FOR DEGREE OF FREEDOM        9                                                                          
+                                                                                                                                    
+ GRADIENT FOR      1 DEGREE OF FREEDOM =         0.0000000000                                                                       
+                                                                                                                                    
+ GRADIENT FOR      2 DEGREE OF FREEDOM =         0.0000000000                                                                       
+                                                                                                                                    
+ GRADIENT FOR      3 DEGREE OF FREEDOM =         0.0317290807                                                                       
+                                                                                                                                    
+ GRADIENT FOR      4 DEGREE OF FREEDOM =         0.0000000000                                                                       
+                                                                                                                                    
+ GRADIENT FOR      5 DEGREE OF FREEDOM =        -0.0215905531                                                                       
+                                                                                                                                    
+ GRADIENT FOR      6 DEGREE OF FREEDOM =        -0.0158645404                                                                       
+                                                                                                                                    
+ GRADIENT FOR      7 DEGREE OF FREEDOM =         0.0000000000                                                                       
+                                                                                                                                    
+ GRADIENT FOR      8 DEGREE OF FREEDOM =         0.0215905531                                                                       
+                                                                                                                                    
+ GRADIENT FOR      9 DEGREE OF FREEDOM =        -0.0158645404                                                                       
+  ICALT =          3  IDERT =           1  ICIT =           2                                                                       
+ tstop called:                                                                                                                      
+ Timing turned off.                                                                                                                 
+ Elapsed total time =           0 seconds                                                                                           
+ Elapsed user time =   0.000000000E+00 seconds                                                                                      
+ Elapsed system time = 0.000000000E+00 seconds                                                                                      
+************************************************************************************************************************            

@@ -1,0 +1,24 @@
+C
+      SUBROUTINE IOERR(ierr)
+      implicit integer (a-z)
+      logical sysprb
+      sysprb = .false.
+      write(6,*) 'ioerr: error ', ierr, ' encountered.'
+      if (ierr .eq. 232) then
+        write(6,*) '  Error 232 results when an attempt was made to  '
+        write(6,*) ' access a record number that is out of range. '
+        write(6,*) ' The most probable cause of this error is a file  '
+        write(6,*) ' allocation which is too small.  Try increasing '
+        write(6,*) ' the space allocated to the unit number indicated'
+        write(6,*) ' above.'
+      else if (ierr .eq. 233) then
+        write(6,*) '  Error 233 is do to a invalid choice of record'
+        write(6,*) ' length in an open statement.'
+        sysprb = .true.
+        endif
+      if (sysprb) then
+        write(6,*) '  This error should not occur.  Please contact '
+        write(6,*) ' your site''s support personnel for PSI.'
+        endif
+      return
+      END

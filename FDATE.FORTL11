@@ -1,0 +1,7 @@
+C
+C
+C
+      CHARACTER*24 FUNCTION FDATE()
+      fdate = 'Timing turned off.      '
+      return
+      END

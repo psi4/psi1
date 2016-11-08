@@ -1,0 +1,2496 @@
+C******************************************************************
+C   THIRD DERIVATIVE PROGRAM PART 2 : "THIRD1"
+C##################################################################
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         SEARCH: C02-06-89  *
+C*  DATE:  FEBRUARY  6, 1989                                          *
+C*  REASON: POSSIBLE LOOP PROBLEMS, NON-STANDARD F77.                 *
+C**********************************************************************
+C
+C   ONE ELECTRON THRID DERIVATIVE ROUTINTES
+C
+C   THIS VERSION HAS THE OPTION OF NOT STORING THE THIRD DERIVATIVE
+C   INTEGRALS AND INSTEAD MULTIPLYING THEM BY THE APPROPRIATE DENSITY
+C   MATRIX
+C
+C
+C   LAST MODIFIED : JANUARY   04, 1985 BY JG
+C   LAST UPDATED  : DECEMBER  23, 1986 BY YUKIO YAMAGUCHI
+C
+C   SUBROUTINE INT1 IS THE DRIVER WITH :  STINT   OVERLAP AND KINETIC
+C                                                 ENERGY INTEGRALS
+C                                         VINT    NUCLEAR ATTRACTION
+C                                                 INTEGRALS
+C
+C******************************************************************
+      SUBROUTINE INT1(NMEM,LMNP1,NCON,NF,NSHELL
+     1,               NFIRST,KST,IJORB
+     2,               ZET,ETA,DEN1T,EONE1,EONE2,EONE3
+     3,               GT,GU,GV,SX,SY,SZ
+     4,               TX,TY,TZ,VX,VY,VZ,LAG
+     5,               SXD,SYD,SZD,S1DER,S1LAG
+     6,               TXD,TYD,TZD,VXD,VYD,VZD
+     7,               V1DER,T1DER,STWO,S2DER,S2LAG,TTWO
+     8,               VXTWO,VYTWO,VZTWO,V2DER,T2DER
+     9,               V1B1K,FIRB,FIRK,SECMXB,SECMXK,MX1B1K
+     X,               STHRE,S3LAG,S3DER,TTHRE
+     1,               VXTHRE,VYTHRE,VZTHRE
+     2,               V2B1K,V1B2K,V3DER,T3DER
+     3,               THRMXB,THRMXK,MX2B1K,MX1B2K)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER TSHELL,TPRIM
+      REAL*8 MX1B1K,MX2B1K,MX1B2K,KAB,LAG
+      LOGICAL BOTH,EQUAL,FUNS,IABCII,IABCJJ
+      DIMENSION NMEM(TSHELL),LMNP1(TSHELL),NCON(TSHELL),NF(NS)
+     *,         NSHELL(NS,TSHELL)
+      DIMENSION NFIRST(NS,TSHELL),KST(NS,NS,NS),IJORB(IMEM2)
+      DIMENSION ZET(TSHELL,TPRIM),ETA(TSHELL,TPRIM),DEN1T(NUMIJ)
+     *,         EONE1(N3N),EONE2(I2N3N),EONE3(I3N3N)
+      DIMENSION GT(LARGL2,NS,LARGL),GU(LARGL2,NS,LARGL)
+     *,         GV(LARGL2,NS,LARGL)
+     *,         SX(IANGSQ),SY(IANGSQ),SZ(IANGSQ)
+      DIMENSION TX(IANGSQ),TY(IANGSQ),TZ(IANGSQ)
+     *,         VX(IANGSQ),VY(IANGSQ),VZ(IANGSQ),LAG(NUMIJ)
+      DIMENSION SXD(IANGSQ),SYD(IANGSQ),SZD(IANGSQ)
+     *,         S1DER(NUMIJ,N3N),S1LAG(N3N)
+      DIMENSION TXD(IANGSQ),TYD(IANGSQ),TZD(IANGSQ)
+     *,         VXD(IANGSQ,2),VYD(IANGSQ,2),VZD(IANGSQ,2)
+      DIMENSION V1DER(NUMIJ,N3N),T1DER(NUMIJ,N3N),STWO(IANGSQ,3)
+     *,         S2DER(NUMIJ,I2N3N),S2LAG(I2N3N),TTWO(IANGSQ,3)
+      DIMENSION VXTWO(IANGSQ,2),VYTWO(IANGSQ,2),VZTWO(IANGSQ,2)
+     *,         V2DER(NUMIJ,I2N3N),T2DER(NUMIJ,I2N3N)
+      DIMENSION V1B1K(IANGSQ,3),FIRB(IMEM2,3),FIRK(IMEM2,3)
+     *,         SECMXB(IANGSQ,6),SECMXK(IMEM2,6),MX1B1K(IMEM2,9)
+      DIMENSION STHRE(IANGSQ,3),S3LAG(I3N3N),S3DER(NUMIJ,I3N3N)
+     *,         TTHRE(IANGSQ,3)
+      DIMENSION VXTHRE(IANGSQ,2),VYTHRE(IANGSQ,2),VZTHRE(IANGSQ,2)
+      DIMENSION V2B1K(IANGSQ,3),V1B2K(IANGSQ,3),V3DER(NUMIJ,I3N3N)
+     *,         T3DER(NUMIJ,I3N3N)
+      DIMENSION THRMXB(IMEM2,10),THRMXK(IMEM2,10),MX2B1K(IMEM2,18)
+     *,         MX1B2K(IMEM2,18)
+      DIMENSION SECBK(6),FIRBK(3),THRBK(10)
+      COMMON/COORD/X(50),Y(50),Z(50),CHG(50)
+      COMMON/EINFO/IPLACE(49),ISAME(49)
+      COMMON/EXYZS/EX(686),EY(686),EZ(686)
+      COMMON/FILES/IOUT,INPUT,IDBG
+      COMMON/FIRDR/IDER(3),JDER(3),KDER(3)
+      COMMON/IADRS/IPASS(35)
+      COMMON/INDEX/IX(84),IY(84),IZ(84),JX(84),JY(84),JZ(84)
+      COMMON/IPAR1/NS,N3N,I2N3N,I3N3N
+      COMMON/IPAR2/NBFAO,NUMIJ,NUMNUM
+      COMMON/IPAR3/TSHELL,TPRIM
+      COMMON/IPAR4/IMEM,IMEM2,IMEM4
+      COMMON/IPAR5/IANG,IANGSQ,LARGL,LARGL2,I2LARL,I4LARL
+      COMMON/KEEPS/IDRVT,IDRVF
+      COMMON/NARRY/N2II(6,2),N2IK(9),N2KI(9),N2IK2(9,3),N3III(10,3)
+      COMMON/NARR2/N3IIK(18,4),N3IKK(18,3),N3IJK(27,6),N3JKK(18,2)
+      COMMON/POSNS/IJX(50),IJY(50),IJZ(50),KLX(50),KLY(50),KLZ(50)
+      COMMON/SECDR/IKDER(9),IJDER(9),JKDER(9),IIDER(6),JJDER(6)
+     *,            KKDER(6)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/STSTP/NTU(200),NTL(200)
+      COMMON/SVIFO/AA,BB,AA2,BB2,PFACT,IORB1,IORBMX,JORB1,JORBMX
+     *,            IQN,JQN,II,JJ
+      COMMON/THRDR/IIIDER(10),JJJDER(10),KKKDER(10),IIJDER(18)
+     *,            IJJDER(18),IIKDER(18),IKKDER(18),JJKDER(18)
+     *,            JKKDER(18),IJKDER(27)
+      COMMON/TAPES/ITAP30,ITAP38,ITAP42,ITAP45,ITAP46
+      COMMON/TOLER/TOL(10)
+      COMMON/WORKS/JTAPE1,JTAPE2
+      DATA A00,HALF / 0.0D+00 , 0.5D+00 /
+      DATA  ASRTPI / 1.1283791670955126D0/
+    2 FORMAT(/,2X,' OVERLAP FIRST DERIVATIVES')
+    3 FORMAT(/,2X,' KINETIC ENERGY FIRST DERIVATIVES')
+    4 FORMAT(/,2X,' DEGREE OF FREEDOM',I5)
+    7 FORMAT(/,2X,' OVERLAP SECOND DERIVATIVES IABC=',I5)
+    8 FORMAT(/,2X,' KINETIC ENERGY SECOND DERIVATIVES IABC=',I5)
+    9 FORMAT(/,2X,' OVERLAP THIRD DERIVATIVES IABC=',I5)
+   10 FORMAT(/,2X,' KINETIC ENERGY THIRD DERIVATIVES IABC=',I5)
+   11 FORMAT(/,2X,' THE SECOND DERIVATIVE OF NUC ATTRACTION WITHOUT THE
+     *KINETIC ENERGY SECOND DERIVATIVES ADDED IN')
+   12 FORMAT(/,' D2/DADB IABC=',I5)
+   13 FORMAT(/,2X,' THE THIRD DERIVATIVE OF NUC ATTRACTION WITOUT THE KI
+     *NETIC ENERGY THIRD DERIVATIVES ADDED IN')
+   14 FORMAT(/,2X,' D3/DADBDC   IABC=',I5)
+   15 FORMAT(/,2X,' T + V FIRST DERIVATIVE IABC=',I5)
+   16 FORMAT(/,2X,' T + V SECOND DERIVATIVE IABC=',I5)
+   17 FORMAT(/,2X,' T + V THIRD DERIVATIVE  IABC=',I5)
+   18 FORMAT(/,2X,' ONE ELECTRON FIRST DERVATIVE MATRIX',/)
+   19 FORMAT(/,2X,' ONE ELECTRON SECOND DERVATIVE MATRIX',/)
+   20 FORMAT(/,2X,' ONE ELECTRON THIRD DERIVATIVE MATRIX',/)
+   21 FORMAT(/,2X,' FIRST DERIVATIVE OVERLAP * AO LAGRANGIAN ',/)
+   22 FORMAT(/,2X,' SECOND DERIVATIVE OVERLAP * AO LAGRANGIAN ',/)
+   23 FORMAT(/,2X,' THIRD DERIVATIVE OVERLAP * AO LAGRANGIAN ',/)
+C
+      ISIZ= 7
+      ISIZ2= 14
+      ISIZ3= 21
+C
+C   PICK UP THE AO LAGRAGIAN FROM THE MASTER TAPE
+      CALL MREAD(LAG,26)
+C
+C   PREMULTIPLY THE DENSITY MATRIX BY 2 FOR IORB .NE. JORB
+C   AS WELL AS THE AO LAGRAGIAN
+C
+      DO 34 IORB=1,NBFAO
+        DO 33 JORB=1,IORB
+          IJ=IOFF(IORB) + JORB
+          FAC=2.0D0
+          IF(IORB .EQ. JORB) FAC=1.0D0
+          DEN1T(IJ)=DEN1T(IJ)*FAC
+C*        LAG(IJ)=LAG(IJ)*FAC
+          LAG(IJ)=LAG(IJ)*FAC*HALF
+   33 CONTINUE
+   34 CONTINUE
+C
+C***  CALL NUCATT(GT,GU,GV)
+      CALL ARRAY(KST)
+C***  CALL ENEW
+C
+C   ZERO OUT THE SX,SY,SZ,SDX,SDY,SDZ,TDX,TDY, AND TDZ ARRAYS
+C
+      ISZ=NUMIJ*N3N
+      CALL ZERO(S1DER,ISZ)
+C*    CALL ZERO(T1DER,ISZ)
+      IS=NUMIJ*I2N3N
+      CALL ZERO(S2DER,IS)
+C*    CALL ZERO(T2DER,IS)
+      IS=N3N*NUMIJ
+      CALL ZERO(V1DER,IS)
+      IS=I2N3N*NUMIJ
+      CALL ZERO(V2DER,IS)
+      IF(IDRVF.EQ.3) THEN
+        IS=I3N3N*NUMIJ
+        CALL ZERO(V3DER,IS)
+      END IF
+      CALL ZERO(EONE1,N3N)
+      CALL ZERO(EONE2,I2N3N)
+      CALL ZERO(EONE3,I3N3N)
+C
+C   GO OVER THE SYMM DISTICNT ATOMS II,JJ
+C
+      DO 9000 II=1,NS
+        INFNS=NF(II)
+        X1=X(II)
+        Y1=Y(II)
+        Z1=Z(II)
+        CALL IARRY(KST,II,IDER,IIDER,IIIDER)
+        DO 8500 JJ=1,II
+          EQUAL=II.EQ.JJ
+          JNFNS=NF(JJ)
+          X2=X(JJ)
+          Y2=Y(JJ)
+          Z2=Z(JJ)
+          X12=X1-X2
+          Y12=Y1-Y2
+          Z12=Z1-Z2
+          AB2=X12*X12 + Y12*Y12 + Z12*Z12
+          CALL IARRY(KST,JJ,JDER,JJDER,JJJDER)
+          CALL IJARRY(KST,II,JJ,IDER,JDER,IJDER,IIJDER,IJJDER)
+C
+C   GO OVER THE NUMBER OF FUNCTIONS ON THE CENTERS II,JJ
+C   INFNS= NO. ON II      JNFNS= NO. ON JJ
+C
+          DO 8000 I=1,INFNS
+            ISHELL=NSHELL(II,I)
+            IORB1=NFIRST(II,I)
+            NUMI=NMEM(ISHELL)
+            IQN=LMNP1(ISHELL)
+            IGU=NCON(ISHELL)
+            MAXI=NTU(ISHELL)
+            MINI=NTL(ISHELL)
+            JNFNMX=JNFNS
+            IF(EQUAL) JNFNMX=I
+            DO 7500J=1,JNFNMX
+              JSHELL=NSHELL(JJ,J)
+              IF(JSHELL .GT.ISHELL) GO TO 7500
+              FUNS=ISHELL.EQ.JSHELL
+              BOTH=EQUAL.AND.FUNS
+              JORB1=NFIRST(JJ,J)
+              NUMJ=NMEM(JSHELL)
+              JQN=LMNP1(JSHELL)
+              JGU=NCON(JSHELL)
+              MAXJ=NTU(JSHELL)
+              MINJ=NTL(JSHELL)
+              FACT2=2.0D0*DBLE(JQN+1)
+C
+C   PREPARE THE INDICES DO THE PAIRS OF ORBITALS
+C
+              IJNUM=0
+              DO 105 IR=MINI,MAXI
+                NX=IX(IR)
+                NY=IY(IR)
+                NZ=IZ(IR)
+                IF(BOTH) MAXJ=IR
+                DO 100 JR=MINJ,MAXJ
+                  IJNUM=IJNUM + 1
+                  IJX(IJNUM)=NX+JX(JR)
+                  IJY(IJNUM)=NY+JY(JR)
+                  IJZ(IJNUM)=NZ+JZ(JR)
+  100           CONTINUE
+  105         CONTINUE
+C
+              DO 7000 IG=1,IGU
+                AA=ZET(ISHELL,IG)
+                CCA=ETA(ISHELL,IG)
+                PAAX=AA*X1
+                PAAY=AA*Y1
+                PAAZ=AA*Z1
+                JGUMX=JGU
+                IF(BOTH) JGUMX=IG
+                DO 6500 JG=1,JGUMX
+                  FACT=1.0D0
+                  IF(BOTH .AND. IG .NE. JG) FACT=2.0D0
+                  BB=ZET(JSHELL,JG)
+                  CCB=ETA(JSHELL,JG)
+                  PBBX=BB*X2
+                  PBBY=BB*Y2
+                  PBBZ=BB*Z2
+                  P=AA + BB
+                  RECIPP=1.0D0/P
+                  PX=(PAAX + PBBX)*RECIPP
+                  PY=(PAAY + PBBY)*RECIPP
+                  PZ=(PAAZ + PBBZ)*RECIPP
+                  IF(EQUAL) THEN
+                    PAX=A00
+                    PAY=A00
+                    PAZ=A00
+                    PBX=A00
+                    PBY=A00
+                    PBZ=A00
+                    GO TO 40
+                  END IF
+                  PAX=PX - X1
+                  PBX=PX - X2
+                  PAY=PY - Y1
+                  PBY=PY - Y2
+                  PAZ=PZ - Z1
+                  PBZ=PZ - Z2
+   40             CONTINUE
+                  DUM=AA*BB*RECIPP*AB2
+C
+C   SKIP THE ENTIRE SET OF E COEFFS IF THE INTEGRAL WILL BE IGNORED
+C
+                  IF(DUM .GT. TOL(2)) GO TO 6500
+C
+                  KAB=DEXP(-DUM)
+                  DUMMY=KAB*CCA*CCB*FACT*RECIPP
+C
+C   CALCULATE THE E ARRAYS
+C
+                  IQNMX=MAX0(IQN + 3,JQN + 3)
+C
+                  CALL ECAL(PAX,PAY,PAZ,PBX,PBY,PBZ,P,DUMMY,IQNMX,0)
+C
+C   CALCUATE THE R(T,U,V) OVER ALL ATOMS FOR THE NUCLEAR ATTRACTION INTS
+C
+                  CALL VCALCU(GT,GU,GV,PX,PY,PZ,P,IQN,JQN,3)
+C
+                  AA2=AA*2.0D0
+                  AAAA4=AA*AA*4.0D0
+                  AAA8=AA*AA*AA*8.0D0
+                  BB2=BB*2.0D0
+                  BBBB4=BB*BB*4.0D0
+                  BBS2=-BB*BB*2.0D0
+                  AABB4=AA*BB*4.0D0
+                  A4B2=AAAA4*BBS2
+                  A2B2=AA2*BBS2
+                  A8B2=AAA8*BBS2
+                  PFACT=DSQRT(RECIPP)
+                  IORBMX=IORB1 -1 + NUMI
+                  JORBMX=JORB1 -1 + NUMJ
+C
+C   CALCULATE THE OVERLAP AND KINETIC ENERGY DERIVATIVES
+C
+C   BY TRANSLATIONAL INVARIANCE, S AND T DERIVATIVES ON THE SAME CENTER
+C   ARE ZERO, SO WE DO NOT TRY TO CALCULATE THEM
+C
+                  IF(EQUAL) GOTO 400
+                  CALL STINT(SX,SY,SZ,TX,TY,TZ,FIRB,FIRK,SXD,SYD,SZD
+     *,                      TXD,TYD,TZD,S1DER,T1DER,SECMXB,SECMXK,STWO
+     *,                      TTWO,S2DER,T2DER,THRMXB,THRMXK,STHRE,TTHRE
+     *,                      S3DER,T3DER,S3LAG,IJORB,LAG,DEN1T
+     *,                      EONE3,BOTH)
+C
+  400             CONTINUE
+C
+C   CALCULATE THE NUCLEAR ATTRACTION DERIVATIVES
+C
+                  CALL VINT(GT,GU,GV,VX,VY,VZ,FIRB,FIRK,VXD,VYD,VZD
+     *,                     V1DER,SECMXB,SECMXK,MX1B1K,VXTWO,VYTWO,VZTWO
+     *,                     V2DER,V1B1K,THRMXB,THRMXK,MX2B1K,MX1B2K
+     *,                     V1B2K,V2B1K,VXTHRE,VYTHRE,VZTHRE,V3DER
+     *,                     EONE3,KST,IJORB,DEN1T,BOTH,EQUAL)
+C
+ 6500           CONTINUE
+ 7000         CONTINUE
+C
+ 7500       CONTINUE
+ 8000     CONTINUE
+ 8500   CONTINUE
+ 9000 CONTINUE
+C
+      IF(IPRNT .GT. 5) THEN
+        WRITE(IOUT,2)
+        DO 1010 IXC=1,N3N
+          WRITE(IOUT,4)IXC
+          CALL PRINT(S1DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1010   CONTINUE
+        WRITE(IOUT,3)
+        DO 1020 IXC=1,N3N
+          WRITE(IOUT,4)IXC
+          CALL PRINT(T1DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1020   CONTINUE
+        DO 1030 IXC=1,I2N3N
+          WRITE(IOUT,7)IXC
+          CALL PRINT(S2DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1030   CONTINUE
+        DO 1040 IXC=1,I2N3N
+          WRITE(IOUT,8)IXC
+          CALL PRINT(T2DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1040   CONTINUE
+C
+        IF(IDRVF.EQ.3) THEN
+          DO 1050 IXC=1,I3N3N
+            WRITE(IOUT,9)IXC
+            CALL PRINT(S3DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1050     CONTINUE
+          DO 1060 IXC=1,I3N3N
+            WRITE(IOUT,10)IXC
+            CALL PRINT(T3DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1060     CONTINUE
+        END IF
+      END IF
+C
+      IF(IPRNT .GT. 6) THEN
+        WRITE(IOUT,11)
+        DO 1070 IXC=1,I2N3N
+          WRITE(IOUT,12)IXC
+          CALL PRINT(V2DER(1,IXC),NUMIJ,NBFAO,IOUT)
+ 1070   CONTINUE
+      END IF
+C
+      IF(IPRNT .GT. 3) THEN
+        DO 1080 I=1,N3N
+          WRITE(IOUT,15) I
+          CALL PRINT(V1DER(1,I),NUMIJ,NBFAO,IOUT)
+ 1080   CONTINUE
+        DO 1090 I=1,I2N3N
+          WRITE(IOUT,16) I
+          CALL PRINT(V2DER(1,I),NUMIJ,NBFAO,IOUT)
+ 1090   CONTINUE
+C
+        IF(IDRVF.EQ.3) THEN
+          DO 1095 I=1,I3N3N
+            WRITE(IOUT,17)I
+            CALL PRINT(V3DER(1,I),NUMIJ,NBFAO,IOUT)
+ 1095     CONTINUE
+        END IF
+      END IF
+C
+C   TRANSFORM THE FIRST, SECOND AND THIRD DERIVATIVES
+C   IF(IDRVF.EQ.3) THEN 3RD DERIVATIVE IS ALREADY DONE
+C
+      III=0
+      DO 2400 I=1,NBFAO
+        DO 2300 J=1,I
+          III=III + 1
+          DO 2000 IJ=1,N3N
+            EONE1(IJ)=EONE1(IJ) + V1DER(III,IJ)*DEN1T(III)
+ 2000     CONTINUE
+          DO 2100 IJ=1,I2N3N
+            EONE2(IJ)=EONE2(IJ) + V2DER(III,IJ)*DEN1T(III)
+ 2100     CONTINUE
+          IF(IDRVF.EQ.3) THEN
+            DO 2200 IJ=1,I3N3N
+              EONE3(IJ)=EONE3(IJ) + V3DER(III,IJ)*DEN1T(III)
+ 2200       CONTINUE
+          END IF
+ 2300   CONTINUE
+ 2400 CONTINUE
+C
+      IF(IPRNT.GT.2) THEN
+      WRITE(IOUT,18)
+      DO 2500 I=1,NS
+        II=(I-1)*3 + 1
+        WRITE(IOUT,'(3F20.10)') EONE1(II),EONE1(II+1),EONE1(II+2)
+ 2500 CONTINUE
+      WRITE(IOUT,19)
+      CALL PRINT(EONE2,I2N3N,N3N,IOUT)
+      WRITE(IOUT,20)
+      CALL THROUT(EONE3,KST,I3N3N)
+      END IF
+C
+C   MULTIPLY THE AO LAGRANIAN BY THE OVERLAP DERIVATIVES
+C   IF(IDRVF.EQ.3) THEN THE 3RD DERIVATIVE IS ALREADY DONE
+C
+      DO 2900 I=1,NBFAO
+        DO 2800 J=1,I
+          IJ=IOFF(I) + J
+          DO 2600 IABC=1,N3N
+            S1LAG(IABC)=S1LAG(IABC) + S1DER(IJ,IABC)*LAG(IJ)
+ 2600     CONTINUE
+          DO 2700 IABC=1,I2N3N
+            S2LAG(IABC)=S2LAG(IABC) + S2DER(IJ,IABC)*LAG(IJ)
+ 2700     CONTINUE
+          IF(IDRVF.EQ.3) THEN
+            DO 2750 IABC=1,I3N3N
+              S3LAG(IABC)=S3LAG(IABC) + S3DER(IJ,IABC)*LAG(IJ)
+ 2750       CONTINUE
+          END IF
+C
+ 2800   CONTINUE
+ 2900 CONTINUE
+C
+      IF(IPRNT.GT.2) THEN
+      WRITE(IOUT,21)
+      DO 2950 I=1,NS
+        II=(I-1)*3 + 1
+        WRITE(IOUT,'(3F20.10)') S1LAG(II),S1LAG(II+1),S1LAG(II+2)
+ 2950 CONTINUE
+      WRITE(IOUT,22)
+      CALL PRINT(S2LAG,I2N3N,N3N,IOUT)
+      WRITE(IOUT,23)
+      CALL THROUT(S3LAG,KST,I3N3N)
+      END IF
+C
+C########################
+C###JTAPE1 INFORMATION###
+C########################
+C
+      CALL SREW(JTAPE1)
+      IEA=INTOWP(N3N)
+      IEAB=INTOWP(I2N3N)
+      IEABC=INTOWP(I3N3N)
+      ISA=INTOWP(N3N*NUMIJ)
+      ISAB=INTOWP(I2N3N*NUMIJ)
+      ISABC=INTOWP(I3N3N*NUMIJ)
+      CALL RWRIT(JTAPE1,EONE1,IEA,IPASS(15))
+      CALL RWRIT(JTAPE1,EONE2,IEAB,IPASS(16))
+      CALL RWRIT(JTAPE1,EONE3,IEABC,IPASS(17))
+      CALL RWRIT(JTAPE1,S1DER,ISA,IPASS(18))
+      CALL RWRIT(JTAPE1,S2DER,ISAB,IPASS(19))
+      IF(IDRVF.EQ.3) THEN
+        CALL RWRIT(JTAPE1,S3DER,ISABC,IPASS(20))
+      END IF
+      CALL RWRIT(JTAPE1,V1DER,ISA,IPASS(21))
+      CALL RWRIT(JTAPE1,V2DER,ISAB,IPASS(22))
+      IF(IDRVF.EQ.3) THEN
+        CALL RWRIT(JTAPE1,V3DER,ISABC,IPASS(23))
+      END IF
+      CALL RWRIT(JTAPE1,S1LAG,IEA,IPASS(24))
+      CALL RWRIT(JTAPE1,S2LAG,IEAB,IPASS(25))
+      CALL RWRIT(JTAPE1,S3LAG,IEABC,IPASS(26))
+      CALL SREW(JTAPE1)
+C
+C###################
+C###END OF JTAPE1###
+C###################
+C
+      RETURN
+      END
+      SUBROUTINE STINT(SX,SY,SZ,TX,TY,TZ,S1DERB,T1DERB,SXD,SYD,SZD,TXD
+     *,                TYD,TZD,S1DER,T1DER,S2DERB,T2DERB,STWO,TTWO,S2DER
+     *,                T2DER,S3DERB,T3DERB,STHRE,TTHRE,S3DER,T3DER,S3LAG
+     *,                IJORB,LAG,DEN1T,EONE3,BOTH)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*8 LAG
+      LOGICAL BOTH
+      DIMENSION SX(IANGSQ),SY(IANGSQ),SZ(IANGSQ),TX(IANGSQ),TY(IANGSQ)
+     *,         TZ(IANGSQ),SXD(IANGSQ),SYD(IANGSQ),SZD(IANGSQ)
+     *,         TXD(IANGSQ),TYD(IANGSQ),TZD(IANGSQ)
+      DIMENSION STWO(IANGSQ,3),TTWO(IANGSQ,3),S2DER(NUMIJ,6)
+     *,         T2DER(NUMIJ,6),S2DERB(IMEM2,6),T2DERB(IMEM2,6)
+      DIMENSION STHRE(IANGSQ,3),S3DER(NUMIJ,10),TTHRE(IANGSQ,3)
+     *,         T3DER(NUMIJ,10),S3DERB(IMEM2,10),T3DERB(IMEM2,10)
+      DIMENSION EONE3(I3N3N)
+      DIMENSION LAG(NUMIJ),S3LAG(I3N3N)
+      DIMENSION IJORB(IMEM2),S1DERB(IMEM2,3),T1DERB(IMEM2,3)
+     *,         S1DER(NUMIJ,N3N),T1DER(NUMIJ,N3N),DEN1T(NUMIJ)
+      COMMON/EINFO/IPLACE(49),ISAME(49)
+      COMMON/EXYZS/EX(686),EY(686),EZ(686)
+      COMMON/FILES/IOUT,INPUT,IDBG
+      COMMON/FIRDR/IDER(3),JDER(3),KDER(3)
+      COMMON/INDEX/IX(84),IY(84),IZ(84),JX(84),JY(84),JZ(84)
+      COMMON/IPAR1/NS,N3N,I2N3N,I3N3N
+      COMMON/IPAR2/NBFAO,NUMIJ,NUMNUM
+      COMMON/IPAR4/IMEM,IMEM2,IMEM4
+      COMMON/IPAR5/IANG,IANGSQ,LARGL,LARGL2,I2LARL,I4LARL
+      COMMON/KEEPS/IDRVT,IDRVF
+      COMMON/NARRY/N2II(6,2),N2IK(9),N2KI(9),N2IK2(9,3),N3III(10,3)
+      COMMON/NARR2/N3IIK(18,4),N3IKK(18,3),N3IJK(27,6),N3JKK(18,2)
+      COMMON/POSNS/IJX(50),IJY(50),IJZ(50),KLX(50),KLY(50),KLZ(50)
+      COMMON/SECDR/IKDER(9),IJDER(9),JKDER(9),IIDER(6),JJDER(6)
+     *,            KKDER(6)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/STSTP/NTU(200),NTL(200)
+      COMMON/SVIFO/AA,BB,AA2,BB2,PFACT,IORB1,IORBMX,JORB1,JORBMX
+     *,            IQN,JQN,II,JJ
+      COMMON/THRDR/IIIDER(10),JJJDER(10),KKKDER(10),IIJDER(18)
+     *,            IJJDER(18),IIKDER(18),IKKDER(18),JJKDER(18)
+     *,            JKKDER(18),IJKDER(27)
+      DATA A00 / 0.0D+00 /
+C
+C
+C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+C%%%OVERLAP AND KINETIC ENERGY ROUTINES%%%
+C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+C
+      ISIZ= 7
+      ISIZ2= 14
+      ISIZ3= 21
+C
+      RHALF=-0.5D0
+      AAAA4=AA*AA*4.0D0
+      AAA8=AA*AA*AA*8.0D0
+      BBBB4=BB*BB*4.0D0
+      BBS2=-BB*BB*2.0D0
+      AABB4=AA*BB*4.0D0
+      A4B2=AAAA4*BBS2
+      A2B2=AA2*BBS2
+      A8B2=AAA8*BBS2
+C
+      IN=-IANG
+      IM=-ISIZ
+C
+      ISZ=IMEM2*3
+      CALL ZERO(S1DERB,ISZ)
+      CALL ZERO(T1DERB,ISZ)
+      ISZ=IMEM2*6
+      CALL ZERO(S2DERB,ISZ)
+      CALL ZERO(T2DERB,ISZ)
+      ISZ=IMEM2*10
+      CALL ZERO(S3DERB,ISZ)
+      CALL ZERO(T3DERB,ISZ)
+C
+      DO 250 INO=1,IQN
+        IN=IN + IANG
+        IM=IM + ISIZ
+C
+        DUMI=DBLE(INO-1)
+        DUMISQ=DUMI*DUMI
+        DM1=DBLE(INO-2)
+        DSQ=DUMISQ*DM1
+        D2NP1=DBLE(2*INO-1)
+        A2DIDP=AA2*DUMI*(DM1 + D2NP1)
+        DP1=DBLE(INO+1)
+        AA4DPD=AAAA4*(D2NP1 + DP1)
+        DIM1=DBLE((INO-1)*(INO-2))
+        A2DI=AA2*DBLE(2*INO-1)
+        B2DI=BBS2*DUMI
+C
+        DO 200 JNO=1,JQN
+          JN=IN + JNO
+          JM=IM + JNO
+          DUMJM1=DBLE((JNO-1)*(JNO-2))
+          DJM1H=DUMJM1*RHALF
+          ADJM1H=AA2*DJM1H
+          DIJM1H=DUMI*DJM1H
+          BDJ2=BB*DBLE(2*JNO-1)
+          A2BDJ2=AA2*BDJ2
+          DIBDJ2=DUMI*BDJ2
+C
+          IPL=IPLACE(JM)
+          IF(INO .GT. 1) THEN
+            JM1M0=JM-ISIZ
+            IM1M0=IPLACE(JM1M0)
+            JM1P2=JM+2-ISIZ
+            IM1P2=IPLACE(JM1P2)
+            IF(JNO .GT. 2) THEN
+              JM1M2=JM-2-ISIZ
+              IM1M2=IPLACE(JM1M2)
+            END IF
+            IF(INO .GT. 2) THEN
+              JM2M0=JM-ISIZ2
+              IM2M0=IPLACE(JM2M0)
+              JM2P2=JM+2-ISIZ2
+              IM2P2=IPLACE(JM2P2)
+              IF(JNO .GT. 2) THEN
+                JM2M2=JM-2-ISIZ2
+                IM2M2=IPLACE(JM2M2)
+              END IF
+            END IF
+          END IF
+          IF(JNO .GT. 2) THEN
+            JM0M2=JM-2
+            IM0M2=IPLACE(JM0M2)
+            JP1M2=JM-2+ISIZ
+            IP1M2=IPLACE(JP1M2)
+            JP2M2=JM-2+ISIZ2
+            IP2M2=IPLACE(JP2M2)
+            JP3M2=JM-2+ISIZ3
+            IP3M2=IPLACE(JP3M2)
+          END IF
+C
+          JP0P2=JM+2
+          IP0P2=IPLACE(JP0P2)
+          JP1P0=JM+ISIZ
+          IP1P0=IPLACE(JP1P0)
+          JP2P0=JM+ISIZ2
+          IP2P0=IPLACE(JP2P0)
+          JP3P0=JM+ISIZ3
+          IP3P0=IPLACE(JP3P0)
+          JP3P2=JM+ISIZ3+2
+          IP3P2=IPLACE(JP3P2)
+C
+          JP1P2=JM+2+ISIZ
+          IP1P2=IPLACE(JP1P2)
+          JP2P2=JM+2+ISIZ2
+          IP2P2=IPLACE(JP2P2)
+C
+C   NORMAL OVERLAP INTERGALS
+C
+          SX(JN)=EX(IPL)
+          SY(JN)=EY(IPL)
+          SZ(JN)=EZ(IPL)
+C
+C   FIRST DERIVATIVES OF THE OVERLAP INTEGRALS
+C
+          SXD(JN)=AA2*EX(IP1P0)
+          SYD(JN)=AA2*EY(IP1P0)
+          SZD(JN)=AA2*EZ(IP1P0)
+C
+          IF(INO .GT. 1) THEN
+            SXD(JN)=SXD(JN) - DUMI*EX(IM1M0)
+            SYD(JN)=SYD(JN) - DUMI*EY(IM1M0)
+            SZD(JN)=SZD(JN) - DUMI*EZ(IM1M0)
+          END IF
+C
+C   SECOND DERIVATIVES OF THE OVERLAP INTEGERALS
+C
+          SXX=A00
+          SYY=A00
+          SZZ=A00
+C
+C   DIAGONAL ELEMENTS   (DERIVATIVE ON CENTER A)
+C
+          SXX=SXX + AAAA4*EX(IP2P0)
+          SYY=SYY + AAAA4*EY(IP2P0)
+          SZZ=SZZ + AAAA4*EZ(IP2P0)
+C
+          IF(INO .GT. 2) THEN
+            SXX=SXX + DIM1*EX(IM2M0)
+            SYY=SYY + DIM1*EY(IM2M0)
+            SZZ=SZZ + DIM1*EZ(IM2M0)
+          END IF
+C
+          SXX=SXX - A2DI*EX(IPL)
+          SYY=SYY - A2DI*EY(IPL)
+          SZZ=SZZ - A2DI*EZ(IPL)
+C
+          STWO(JN,1)=SXX
+          STWO(JN,2)=SYY
+          STWO(JN,3)=SZZ
+C
+C   THIRD DERIVATIVES OF THE OVERLAP INTEGRALS (SAME COORD ONLY)
+C
+          SXXX=A00
+          SYYY=A00
+          SZZZ=A00
+C
+          SXXX=SXXX + AAA8*EX(IP3P0)
+          SYYY=SYYY + AAA8*EY(IP3P0)
+          SZZZ=SZZZ + AAA8*EZ(IP3P0)
+C
+          SXXX=SXXX - AA4DPD*EX(IP1P0)
+          SYYY=SYYY - AA4DPD*EY(IP1P0)
+          SZZZ=SZZZ - AA4DPD*EZ(IP1P0)
+C
+          IF(INO .GT. 1) THEN
+            SXXX=SXXX + A2DIDP*EX(IM1M0)
+            SYYY=SYYY + A2DIDP*EY(IM1M0)
+            SZZZ=SZZZ + A2DIDP*EZ(IM1M0)
+          END IF
+C
+          STHRE(JN,1)=SXXX
+          STHRE(JN,2)=SYYY
+          STHRE(JN,3)=SZZZ
+   42     CONTINUE
+C
+C   NORMAL KINETIC ENERGY INTEGRALS
+C
+          TX(JN)=EX(IP0P2)*BBS2
+          TY(JN)=EY(IP0P2)*BBS2
+          TZ(JN)=EZ(IP0P2)*BBS2
+C
+          TX(JN)=TX(JN) + SX(JN)*BDJ2
+          TY(JN)=TY(JN) + SY(JN)*BDJ2
+          TZ(JN)=TZ(JN) + SZ(JN)*BDJ2
+C
+          IF(JNO .GT. 2) THEN
+            TX(JN)=TX(JN) + EX(IM0M2)*DJM1H
+            TY(JN)=TY(JN) + EY(IM0M2)*DJM1H
+            TZ(JN)=TZ(JN) + EZ(IM0M2)*DJM1H
+          END IF
+C
+C   DERIVATIVES OF THE KINETIC ENERGY TERMS
+C
+          TXD(JN)=A2BDJ2*EX(IP1P0)
+          TYD(JN)=A2BDJ2*EY(IP1P0)
+          TZD(JN)=A2BDJ2*EZ(IP1P0)
+          IF(INO .GT. 1) THEN
+            TXD(JN)=TXD(JN) - DIBDJ2*EX(IM1M0)
+            TYD(JN)=TYD(JN) - DIBDJ2*EY(IM1M0)
+            TZD(JN)=TZD(JN) - DIBDJ2*EZ(IM1M0)
+          END IF
+C
+          TXD(JN)=TXD(JN) + A2B2*EX(IP1P2)
+          TYD(JN)=TYD(JN) + A2B2*EY(IP1P2)
+          TZD(JN)=TZD(JN) + A2B2*EZ(IP1P2)
+C
+          IF(INO .GT. 1) THEN
+            TXD(JN)=TXD(JN) - B2DI*EX(IM1P2)
+            TYD(JN)=TYD(JN) - B2DI*EY(IM1P2)
+            TZD(JN)=TZD(JN) - B2DI*EZ(IM1P2)
+          END IF
+C
+          IF(JNO .GT. 2) THEN
+            TXD(JN)=TXD(JN) + ADJM1H*EX(IP1M2)
+            TYD(JN)=TYD(JN) + ADJM1H*EY(IP1M2)
+            TZD(JN)=TZD(JN) + ADJM1H*EZ(IP1M2)
+C
+            IF(INO .GT. 1) THEN
+              TXD(JN)=TXD(JN) - DIJM1H*EX(IM1M2)
+              TYD(JN)=TYD(JN) - DIJM1H*EY(IM1M2)
+              TZD(JN)=TZD(JN) - DIJM1H*EZ(IM1M2)
+            END IF
+          END IF
+C
+C   SECOND DERIVATIVES OF THE KINETIC ENERGY   DIAGONAL TERMS ONLY
+C
+          TXX=A00
+          TYY=A00
+          TZZ=A00
+C
+          IF(JNO .GT. 2) THEN
+            DUMMY=AAAA4*DJM1H
+            TXX=TXX + DUMMY*EX(IP2M2)
+            TYY=TYY + DUMMY*EY(IP2M2)
+            TZZ=TZZ + DUMMY*EZ(IP2M2)
+C
+            IF(INO .GT. 2) THEN
+              DUMMY=DIM1*DJM1H
+              TXX=TXX + DUMMY*EX(IM2M2)
+              TYY=TYY + DUMMY*EY(IM2M2)
+              TZZ=TZZ + DUMMY*EZ(IM2M2)
+            END IF
+C
+            DUMMY=A2DI*DJM1H
+            TXX=TXX - DUMMY*EX(IM0M2)
+            TYY=TYY - DUMMY*EY(IM0M2)
+            TZZ=TZZ - DUMMY*EZ(IM0M2)
+          END IF
+C
+          DUMMY=AAAA4*BDJ2
+          TXX=TXX + DUMMY*EX(IP2P0)
+          TYY=TYY + DUMMY*EY(IP2P0)
+          TZZ=TZZ + DUMMY*EZ(IP2P0)
+C
+          IF(INO .GT. 2) THEN
+            DUMMY=DIM1*BDJ2
+            TXX=TXX + DUMMY*EX(IM2M0)
+            TYY=TYY + DUMMY*EY(IM2M0)
+            TZZ=TZZ + DUMMY*EZ(IM2M0)
+          END IF
+C
+          DUMMY=A2DI*BDJ2
+          TXX=TXX - DUMMY*EX(IPL)
+          TYY=TYY - DUMMY*EY(IPL)
+          TZZ=TZZ - DUMMY*EZ(IPL)
+C
+          DUMMY=A4B2
+          TXX=TXX + DUMMY*EX(IP2P2)
+          TYY=TYY + DUMMY*EY(IP2P2)
+          TZZ=TZZ + DUMMY*EZ(IP2P2)
+C
+          IF(INO .GT. 2) THEN
+            DUMMY=DIM1*BBS2
+            TXX=TXX + DUMMY*EX(IM2P2)
+            TYY=TYY + DUMMY*EY(IM2P2)
+            TZZ=TZZ + DUMMY*EZ(IM2P2)
+          END IF
+C
+          DUMMY=A2DI*BBS2
+          TXX=TXX - DUMMY*EX(IP0P2)
+          TYY=TYY - DUMMY*EY(IP0P2)
+          TZZ=TZZ - DUMMY*EZ(IP0P2)
+C
+          TTWO(JN,1)= TXX
+          TTWO(JN,2)= TYY
+          TTWO(JN,3)= TZZ
+C
+C   THIRD DERIVATIVES OF THE KINETIC ENERGY  DIAGONAL TERMS ONLY
+C
+          TXXX=A00
+          TYYY=A00
+          TZZZ=A00
+C
+          IF(JNO .GT. 2) THEN
+            DUMMY=AAA8*DJM1H
+            TXXX=TXXX + DUMMY*EX(IP3M2)
+            TYYY=TYYY + DUMMY*EY(IP3M2)
+            TZZZ=TZZZ + DUMMY*EZ(IP3M2)
+C
+            IF(INO .GT. 1) THEN
+              DUMMY=A2DIDP*DJM1H
+              TXXX=TXXX + DUMMY*EX(IM1M2)
+              TYYY=TYYY + DUMMY*EY(IM1M2)
+              TZZZ=TZZZ + DUMMY*EZ(IM1M2)
+            END IF
+C
+            DUMMY=AA4DPD*DJM1H
+            TXXX=TXXX - DUMMY*EX(IP1M2)
+            TYYY=TYYY - DUMMY*EY(IP1M2)
+            TZZZ=TZZZ - DUMMY*EZ(IP1M2)
+          END IF
+C
+          DUMMY=AAA8*BDJ2
+          TXXX=TXXX + DUMMY*EX(IP3P0)
+          TYYY=TYYY + DUMMY*EY(IP3P0)
+          TZZZ=TZZZ + DUMMY*EZ(IP3P0)
+C
+          IF(INO .GT. 1) THEN
+            DUMMY=A2DIDP*BDJ2
+            TXXX=TXXX + DUMMY*EX(IM1M0)
+            TYYY=TYYY + DUMMY*EY(IM1M0)
+            TZZZ=TZZZ + DUMMY*EZ(IM1M0)
+          END IF
+C
+          DUMMY=AA4DPD*BDJ2
+          TXXX=TXXX - DUMMY*EX(IP1P0)
+          TYYY=TYYY - DUMMY*EY(IP1P0)
+          TZZZ=TZZZ - DUMMY*EZ(IP1P0)
+C
+          DUMMY=A8B2
+          TXXX=TXXX + DUMMY*EX(IP3P2)
+          TYYY=TYYY + DUMMY*EY(IP3P2)
+          TZZZ=TZZZ + DUMMY*EZ(IP3P2)
+C
+          IF(INO .GT. 1) THEN
+            DUMMY=A2DIDP*BBS2
+            TXXX=TXXX + DUMMY*EX(IM1P2)
+            TYYY=TYYY + DUMMY*EY(IM1P2)
+            TZZZ=TZZZ + DUMMY*EZ(IM1P2)
+          END IF
+C
+          DUMMY=AA4DPD*BBS2
+          TXXX=TXXX - DUMMY*EX(IP1P2)
+          TYYY=TYYY - DUMMY*EY(IP1P2)
+          TZZZ=TZZZ - DUMMY*EZ(IP1P2)
+C
+          TTHRE(JN,1)= TXXX
+          TTHRE(JN,2)= TYYY
+          TTHRE(JN,3)= TZZZ
+  200   CONTINUE
+  250 CONTINUE
+C
+C   SUM UP THE CONTRIBUTIONS DO OVERLAP AND KINETIC INTEGRALS
+C
+      ICOUNT=0
+      DO  350 IORB=IORB1,IORBMX
+        IF(BOTH) JORBMX=IORB
+        DO 300 JORB=JORB1,JORBMX
+          ICOUNT=ICOUNT + 1
+          IJPOSN=IOFF(MAX0(IORB,JORB)) + MIN0(IORB,JORB)
+          IJORB(ICOUNT)=IJPOSN
+C
+C   OVERLAP TERM
+C
+          IPOSX=IJX(ICOUNT)
+          IPOSY=IJY(ICOUNT)
+          IPOSZ=IJZ(ICOUNT)
+C
+C   FIRST DERIVATIVES
+C
+          S1DERB(ICOUNT,1) = SXD(IPOSX)*SY(IPOSY)*SZ(IPOSZ)*PFACT
+          S1DERB(ICOUNT,2) = SX(IPOSX)*SYD(IPOSY)*SZ(IPOSZ)*PFACT
+          S1DERB(ICOUNT,3) = SX(IPOSX)*SY(IPOSY)*SZD(IPOSZ)*PFACT
+C
+C   SECOND DERIVATIVES
+C
+          S2DERB(ICOUNT,1) = STWO(IPOSX,1)*SY(IPOSY)*SZ(IPOSZ)*PFACT
+          S2DERB(ICOUNT,2) = SXD(IPOSX)*SYD(IPOSY)*SZ(IPOSZ)*PFACT
+          S2DERB(ICOUNT,3) = SX(IPOSX)*STWO(IPOSY,2)*SZ(IPOSZ)*PFACT
+          S2DERB(ICOUNT,4) = SXD(IPOSX)*SY(IPOSY)*SZD(IPOSZ)*PFACT
+          S2DERB(ICOUNT,5) = SX(IPOSX)*SYD(IPOSY)*SZD(IPOSZ)*PFACT
+          S2DERB(ICOUNT,6) = SX(IPOSX)*SY(IPOSY)*STWO(IPOSZ,3)*PFACT
+C
+C   THIRD DERIVATIVES
+C
+          S3DERB(ICOUNT,1) = STHRE(IPOSX,1)*SY(IPOSY)*SZ(IPOSZ)*PFACT
+          S3DERB(ICOUNT,2) = STWO(IPOSX,1)*SYD(IPOSY)*SZ(IPOSZ)*PFACT
+          S3DERB(ICOUNT,3) = SXD(IPOSX)*STWO(IPOSY,2)*SZ(IPOSZ)*PFACT
+          S3DERB(ICOUNT,4) = SX(IPOSX)*STHRE(IPOSY,2)*SZ(IPOSZ)*PFACT
+          S3DERB(ICOUNT,5) = STWO(IPOSX,1)*SY(IPOSY)*SZD(IPOSZ)*PFACT
+          S3DERB(ICOUNT,6) = SXD(IPOSX)*SYD(IPOSY)*SZD(IPOSZ)*PFACT
+          S3DERB(ICOUNT,7) = SX(IPOSX)*STWO(IPOSY,2)*SZD(IPOSZ)*PFACT
+          S3DERB(ICOUNT,8) = SXD(IPOSX)*SY(IPOSY)*STWO(IPOSZ,3)*PFACT
+          S3DERB(ICOUNT,9) = SX(IPOSX)*SYD(IPOSY)*STWO(IPOSZ,3)*PFACT
+          S3DERB(ICOUNT,10) = SX(IPOSX)*SY(IPOSY)*STHRE(IPOSZ,3)*PFACT
+C
+C   KINETIC ENERGY TERM
+C
+C   FIRST DERIVATIVES
+C
+          T1DERB(ICOUNT,1) = (TXD(IPOSX)*SY(IPOSY)*SZ(IPOSZ)
+     *                     +  SXD(IPOSX)*TY(IPOSY)*SZ(IPOSZ)
+     *                     +  SXD(IPOSX)*SY(IPOSY)*TZ(IPOSZ))*PFACT
+          T1DERB(ICOUNT,2) = (TX(IPOSX)*SYD(IPOSY)*SZ(IPOSZ)
+     *                     +  SX(IPOSX)*TYD(IPOSY)*SZ(IPOSZ)
+     *                     +  SX(IPOSX)*SYD(IPOSY)*TZ(IPOSZ))*PFACT
+          T1DERB(ICOUNT,3) = (TX(IPOSX)*SY(IPOSY)*SZD(IPOSZ)
+     *                     +  SX(IPOSX)*TY(IPOSY)*SZD(IPOSZ)
+     *                     +  SX(IPOSX)*SY(IPOSY)*TZD(IPOSZ))*PFACT
+C
+C   SECOND DERIVATIVES
+C
+                      T2DERB(ICOUNT,1)=
+     *                  (TTWO(IPOSX,1)*SY(IPOSY)*SZ(IPOSZ) +
+     *                   STWO(IPOSX,1)*TY(IPOSY)*SZ(IPOSZ) +
+     *                   STWO(IPOSX,1)*SY(IPOSY)*TZ(IPOSZ))*PFACT
+                      T2DERB(ICOUNT,2)=
+     *                  (TXD(IPOSX)*SYD(IPOSY)*SZ(IPOSZ) +
+     *                   SXD(IPOSX)*TYD(IPOSY)*SZ(IPOSZ) +
+     *                   SXD(IPOSX)*SYD(IPOSY)*TZ(IPOSZ))*PFACT
+                      T2DERB(ICOUNT,3)=
+     *                  (TX(IPOSX)*STWO(IPOSY,2)*SZ(IPOSZ) +
+     *                   SX(IPOSX)*TTWO(IPOSY,2)*SZ(IPOSZ) +
+     *                   SX(IPOSX)*STWO(IPOSY,2)*TZ(IPOSZ))*PFACT
+                      T2DERB(ICOUNT,4)=
+     *                  (TXD(IPOSX)*SY(IPOSY)*SZD(IPOSZ) +
+     *                   SXD(IPOSX)*TY(IPOSY)*SZD(IPOSZ) +
+     *                   SXD(IPOSX)*SY(IPOSY)*TZD(IPOSZ))*PFACT
+                      T2DERB(ICOUNT,5)=
+     *                  (TX(IPOSX)*SYD(IPOSY)*SZD(IPOSZ) +
+     *                   SX(IPOSX)*TYD(IPOSY)*SZD(IPOSZ) +
+     *                   SX(IPOSX)*SYD(IPOSY)*TZD(IPOSZ))*PFACT
+                      T2DERB(ICOUNT,6)=
+     *                  (TX(IPOSX)*SY(IPOSY)*STWO(IPOSZ,3) +
+     *                   SX(IPOSX)*TY(IPOSY)*STWO(IPOSZ,3) +
+     *                   SX(IPOSX)*SY(IPOSY)*TTWO(IPOSZ,3))*PFACT
+C
+C   THIRD DERIVATIVES
+C
+                      T3DERB(ICOUNT,1)=
+     *                  (TTHRE(IPOSX,1)*SY(IPOSY)*SZ(IPOSZ) +
+     *                   STHRE(IPOSX,1)*TY(IPOSY)*SZ(IPOSZ) +
+     *                   STHRE(IPOSX,1)*SY(IPOSY)*TZ(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,2)=
+     *                  (TTWO(IPOSX,1)*SYD(IPOSY)*SZ(IPOSZ) +
+     *                   STWO(IPOSX,1)*TYD(IPOSY)*SZ(IPOSZ) +
+     *                   STWO(IPOSX,1)*SYD(IPOSY)*TZ(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,3)=
+     *                  (TXD(IPOSX)*STWO(IPOSY,2)*SZ(IPOSZ) +
+     *                   SXD(IPOSX)*TTWO(IPOSY,2)*SZ(IPOSZ) +
+     *                   SXD(IPOSX)*STWO(IPOSY,2)*TZ(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,4)=
+     *                  (TX(IPOSX)*STHRE(IPOSY,2)*SZ(IPOSZ) +
+     *                   SX(IPOSX)*TTHRE(IPOSY,2)*SZ(IPOSZ) +
+     *                   SX(IPOSX)*STHRE(IPOSY,2)*TZ(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,5)=
+     *                  (TTWO(IPOSX,1)*SY(IPOSY)*SZD(IPOSZ) +
+     *                   STWO(IPOSX,1)*TY(IPOSY)*SZD(IPOSZ) +
+     *                   STWO(IPOSX,1)*SY(IPOSY)*TZD(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,6)=
+     *                  (TXD(IPOSX)*SYD(IPOSY)*SZD(IPOSZ) +
+     *                   SXD(IPOSX)*TYD(IPOSY)*SZD(IPOSZ) +
+     *                   SXD(IPOSX)*SYD(IPOSY)*TZD(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,7)=
+     *                  (TX(IPOSX)*STWO(IPOSY,2)*SZD(IPOSZ) +
+     *                   SX(IPOSX)*TTWO(IPOSY,2)*SZD(IPOSZ) +
+     *                   SX(IPOSX)*STWO(IPOSY,2)*TZD(IPOSZ))*PFACT
+                      T3DERB(ICOUNT,8)=
+     *                  (TXD(IPOSX)*SY(IPOSY)*STWO(IPOSZ,3) +
+     *                   SXD(IPOSX)*TY(IPOSY)*STWO(IPOSZ,3) +
+     *                   SXD(IPOSX)*SY(IPOSY)*TTWO(IPOSZ,3))*PFACT
+                      T3DERB(ICOUNT,9)=
+     *                  (TX(IPOSX)*SYD(IPOSY)*STWO(IPOSZ,3) +
+     *                   SX(IPOSX)*TYD(IPOSY)*STWO(IPOSZ,3) +
+     *                   SX(IPOSX)*SYD(IPOSY)*TTWO(IPOSZ,3))*PFACT
+                      T3DERB(ICOUNT,10)=
+     *                  (TX(IPOSX)*SY(IPOSY)*STHRE(IPOSZ,3) +
+     *                   SX(IPOSX)*TY(IPOSY)*STHRE(IPOSZ,3) +
+     *                   SX(IPOSX)*SY(IPOSY)*TTHRE(IPOSZ,3))*PFACT
+  300               CONTINUE
+  350             CONTINUE
+                  DO 400 ICNT=1,ICOUNT
+                    IJ=IJORB(ICNT)
+C
+C   FIRST DERIVATIVES
+C
+                    DO 360 ICRD=1,3
+                      SFIR1=S1DERB(ICNT,ICRD)
+                      TFIR1=T1DERB(ICNT,ICRD)
+                      S1DER(IJ,IDER(ICRD))=S1DER(IJ,IDER(ICRD))
+     *                                      + SFIR1
+                      S1DER(IJ,JDER(ICRD))=S1DER(IJ,JDER(ICRD))
+     *                                      - SFIR1
+                      T1DER(IJ,IDER(ICRD))=T1DER(IJ,IDER(ICRD))
+     *                                      + TFIR1
+                      T1DER(IJ,JDER(ICRD))=T1DER(IJ,JDER(ICRD))
+     *                                      - TFIR1
+  360               CONTINUE
+C
+C   SECOND DERIVATIVES
+C
+                    DO 370 ICRD=1,6
+                      SSEC1=S2DERB(ICNT,ICRD)
+                      TSEC1=T2DERB(ICNT,ICRD)
+                      S2DER(IJ,IIDER(ICRD))=S2DER(IJ,IIDER(ICRD))
+     *                                       + SSEC1
+                      S2DER(IJ,JJDER(ICRD))=S2DER(IJ,JJDER(ICRD))
+     *                                       + SSEC1
+                      T2DER(IJ,IIDER(ICRD))=T2DER(IJ,IIDER(ICRD))
+     *                                       + TSEC1
+                      T2DER(IJ,JJDER(ICRD))=T2DER(IJ,JJDER(ICRD))
+     *                                       + TSEC1
+                      N1POS=N2II(ICRD,1)
+                      N2POS=N2II(ICRD,2)
+                      S2DER(IJ,IJDER(N1POS))=S2DER(IJ,IJDER(N1POS))
+     *                                        - SSEC1
+                      T2DER(IJ,IJDER(N1POS))=T2DER(IJ,IJDER(N1POS))
+     *                                        - TSEC1
+                      IF(N2POS .NE. N1POS) THEN
+                        S2DER(IJ,IJDER(N2POS))=S2DER(IJ,IJDER(N2POS))
+     *                                          - SSEC1
+                        T2DER(IJ,IJDER(N2POS))=T2DER(IJ,IJDER(N2POS))
+     *                                          - TSEC1
+                      END IF
+  370               CONTINUE
+C
+C   THIRD DERIVATIVES
+C
+                    IF(IDRVF.LE.2) GOTO 385
+                    DO 380 ICRD=1,10
+                      STHR1=S3DERB(ICNT,ICRD)
+                      TTHR1=T3DERB(ICNT,ICRD)
+                      S3DER(IJ,IIIDER(ICRD))=S3DER(IJ,IIIDER(ICRD))
+     *                                        + STHR1
+                      S3DER(IJ,JJJDER(ICRD))=S3DER(IJ,JJJDER(ICRD))
+     *                                        - STHR1
+                      T3DER(IJ,IIIDER(ICRD))=T3DER(IJ,IIIDER(ICRD))
+     *                                        + TTHR1
+                      T3DER(IJ,JJJDER(ICRD))=T3DER(IJ,JJJDER(ICRD))
+     *                                        - TTHR1
+                      N1POS=N3III(ICRD,1)
+                      N2POS=N3III(ICRD,2)
+                      N3POS=N3III(ICRD,3)
+                      S3DER(IJ,IIJDER(N1POS))=S3DER(IJ,IIJDER(N1POS))
+     *                                         - STHR1
+                      S3DER(IJ,IJJDER(N1POS))=S3DER(IJ,IJJDER(N1POS))
+     *                                         + STHR1
+                      T3DER(IJ,IIJDER(N1POS))=T3DER(IJ,IIJDER(N1POS))
+     *                                         - TTHR1
+                      T3DER(IJ,IJJDER(N1POS))=T3DER(IJ,IJJDER(N1POS))
+     *                                         + TTHR1
+                      IF(N3POS .NE. N1POS) THEN
+                        S3DER(IJ,IIJDER(N3POS))=S3DER(IJ,IIJDER(N3POS)
+     *                                       )    - STHR1
+                        S3DER(IJ,IJJDER(N3POS))=S3DER(IJ,IJJDER(N3POS)
+     *                                       )    + STHR1
+                        T3DER(IJ,IIJDER(N3POS))=T3DER(IJ,IIJDER(N3POS)
+     *                                      )   - TTHR1
+                        T3DER(IJ,IJJDER(N3POS))=T3DER(IJ,IJJDER(N3POS)
+     *                                      )   + TTHR1
+                        IF(N2POS .NE. N1POS) THEN
+                          S3DER(IJ,IIJDER(N2POS))=S3DER(IJ,IIJDER
+     *                                       (N2POS)) - STHR1
+                          S3DER(IJ,IJJDER(N2POS))=S3DER(IJ,IJJDER
+     *                                       (N2POS)) + STHR1
+                          T3DER(IJ,IIJDER(N2POS))=T3DER(IJ,IIJDER
+     *                                       (N2POS)) - TTHR1
+                          T3DER(IJ,IJJDER(N2POS))=T3DER(IJ,IJJDER
+     *                                       (N2POS)) + TTHR1
+                        END IF
+                      END IF
+  380               CONTINUE
+C02-06-89           GOTO 390
+                    GOTO 395
+C
+C   THE FOLLOWING SECTION IS FOR NOT STORING THE ACTUAL THIRD
+C   DERIVATIVES
+C
+  385               CONTINUE
+C
+                    DO 390 ICRD=1,10
+                      STHR1=S3DERB(ICNT,ICRD)*LAG(IJ)
+                      TTHR1=T3DERB(ICNT,ICRD)*DEN1T(IJ)
+                      S3LAG(IIIDER(ICRD))=S3LAG(IIIDER(ICRD))
+     *                                        + STHR1
+                      S3LAG(JJJDER(ICRD))=S3LAG(JJJDER(ICRD))
+     *                                        - STHR1
+                      EONE3(IIIDER(ICRD))=EONE3(IIIDER(ICRD))
+     *                                        + TTHR1
+                      EONE3(JJJDER(ICRD))=EONE3(JJJDER(ICRD))
+     *                                        - TTHR1
+                      N1POS=N3III(ICRD,1)
+                      N2POS=N3III(ICRD,2)
+                      N3POS=N3III(ICRD,3)
+                      S3LAG(IIJDER(N1POS))=S3LAG(IIJDER(N1POS))
+     *                                         - STHR1
+                      S3LAG(IJJDER(N1POS))=S3LAG(IJJDER(N1POS))
+     *                                         + STHR1
+                      EONE3(IIJDER(N1POS))=EONE3(IIJDER(N1POS))
+     *                                         - TTHR1
+                      EONE3(IJJDER(N1POS))=EONE3(IJJDER(N1POS))
+     *                                         + TTHR1
+                      IF(N3POS .NE. N1POS) THEN
+                        S3LAG(IIJDER(N3POS))=S3LAG(IIJDER(N3POS)
+     *                                       )    - STHR1
+                        S3LAG(IJJDER(N3POS))=S3LAG(IJJDER(N3POS)
+     *                                       )    + STHR1
+                        EONE3(IIJDER(N3POS))=EONE3(IIJDER(N3POS)
+     *                                      )   - TTHR1
+                        EONE3(IJJDER(N3POS))=EONE3(IJJDER(N3POS)
+     *                                      )   + TTHR1
+                        IF(N2POS .NE. N1POS) THEN
+                          S3LAG(IIJDER(N2POS))=S3LAG(IIJDER
+     *                                       (N2POS)) - STHR1
+                          S3LAG(IJJDER(N2POS))=S3LAG(IJJDER
+     *                                       (N2POS)) + STHR1
+                          EONE3(IIJDER(N2POS))=EONE3(IIJDER
+     *                                       (N2POS)) - TTHR1
+                          EONE3(IJJDER(N2POS))=EONE3(IJJDER
+     *                                       (N2POS)) + TTHR1
+                        END IF
+                      END IF
+  390    CONTINUE
+C02-06-89  390    CONTINUE
+  395    CONTINUE
+  400  CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE VINT(GT,GU,GV,VX,VY,VZ,FIRB,FIRK,VXD,VYD,VZD
+     *,               V1DER,SECMXB,SECMXK,MX1B1K,VXTWO,VYTWO,VZTWO
+     *,               V2DER,V1B1K,THRMXB,THRMXK,MX2B1K,MX1B2K
+     *,               V1B2K,V2B1K,VXTHRE,VYTHRE,VZTHRE,V3DER,EONE3
+     *,               KST,IJORB,DEN1T,BOTH,EQUAL)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*8 MX1B1K,MX2B1K,MX1B2K
+      LOGICAL BOTH,EQUAL,IABCII,IABCJJ
+      DIMENSION GT(LARGL2,NS,LARGL),GU(LARGL2,NS,LARGL)
+     *,         GV(LARGL2,NS,LARGL)
+      DIMENSION VX(IANGSQ),VY(IANGSQ),VZ(IANGSQ),VXD(IANGSQ,2)
+     *,         VYD(IANGSQ,2),VZD(IANGSQ,2),V1DER(NUMIJ,N3N)
+     *,         FIRB(IMEM2,3),FIRK(IMEM2,3),KST(NS,NS,NS),IJORB(IMEM2)
+      DIMENSION VXTWO(IANGSQ,2),VYTWO(IANGSQ,2),VZTWO(IANGSQ,2)
+     *,         V2DER(NUMIJ,I2N3N),V1B1K(IANGSQ,3),SECMXB(IMEM2,6)
+     *,         SECMXK(IMEM2,6),MX1B1K(IMEM2,9)
+      DIMENSION VXTHRE(IANGSQ,2),VYTHRE(IANGSQ,2),VZTHRE(IANGSQ,2)
+     *,         V3DER(NUMIJ,I3N3N),V2B1K(IANGSQ,3),V1B2K(IANGSQ,3)
+     *,         THRMXB(IMEM2,10),THRMXK(IMEM2,10),MX2B1K(IMEM2,18)
+     *,         MX1B2K(IMEM2,18)
+      DIMENSION SECBK(6),FIRBK(3),THRBK(10),EONE3(I3N3N),DEN1T(NUMIJ)
+      COMMON/EINFO/IPLACE(49),ISAME(49)
+      COMMON/EXYZS/EX(686),EY(686),EZ(686)
+      COMMON/FILES/IOUT,INPUT,IDBG
+      COMMON/FIRDR/IDER(3),JDER(3),KDER(3)
+      COMMON/INDEX/IX(84),IY(84),IZ(84),JX(84),JY(84),JZ(84)
+      COMMON/IPAR1/NS,N3N,I2N3N,I3N3N
+      COMMON/IPAR2/NBFAO,NUMIJ,NUMNUM
+      COMMON/IPAR4/IMEM,IMEM2,IMEM4
+      COMMON/IPAR5/IANG,IANGSQ,LARGL,LARGL2,I2LARL,I4LARL
+      COMMON/KEEP3/IDRVT,IDRVF
+      COMMON/NARRY/N2II(6,2),N2IK(9),N2KI(9),N2IK2(9,3),N3III(10,3)
+      COMMON/NARR2/N3IIK(18,4),N3IKK(18,3),N3IJK(27,6),N3JKK(18,2)
+      COMMON/POSNS/IJX(50),IJY(50),IJZ(50),KLX(50),KLY(50),KLZ(50)
+      COMMON/SECDR/IKDER(9),IJDER(9),JKDER(9),IIDER(6),JJDER(6)
+     *,            KKDER(6)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/STSTP/NTU(200),NTL(200)
+      COMMON/SVIFO/AA,BB,AA2,BB2,PFACT,IORB1,IORBMX,JORB1,JORBMX
+     *,            IQN,JQN,II,JJ
+      COMMON/THRDR/IIIDER(10),JJJDER(10),KKKDER(10),IIJDER(18)
+     *,            IJJDER(18),IIKDER(18),IKKDER(18),JJKDER(18)
+     *,            JKKDER(18),IJKDER(27)
+      DATA  ASRTPI / 1.1283791670955126D0/
+      DATA A00 / 0.0D+00 /
+C
+C
+C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+C%%%NUCLEAR ATTRACTION TERM%%%
+C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+C
+      ISIZ= 7
+      ISIZ2= 14
+      ISIZ3= 21
+C
+      AAAA4=AA*AA*4.0D0
+      AAA8=AA*AA*AA*8.0D0
+      BB2=BB*2.0D0
+      BBBB4=BB*BB*4.0D0
+      BBS2=-BB*BB*2.0D0
+      AABB4=AA*BB*4.0D0
+      A4B2=AAAA4*BBS2
+      A2B2=AA2*BBS2
+      A8B2=AAA8*BBS2
+      A8=AA*AA*AA*8.0D0
+      B8=BB*BB*BB*8.0D0
+      A4=AA2*AA2
+      B4=BB2*BB2
+      AB4=AA2*BB2
+      BBA8=BB*BB*AA*8.0D0
+      AAB8=AA*AA*BB*8.0D0
+      NROOTS=(IQN+JQN-2)/2 + 4
+C
+      DO 6000 IABC=1,NS
+        IABCII=IABC.EQ.II
+        IABCJJ=IABC.EQ.JJ
+        IF(EQUAL .AND. IABC .EQ. II) GO TO 6000
+        CALL IARRY(KST,IABC,KDER,KKDER,KKKDER)
+        IF(IABCII .OR. IABCJJ) GO TO 55
+        IF(IABC .GT. II) THEN
+          CALL IJARRY(KST,IABC,II,KDER,IDER,IKDER,IKKDER,IIKDER)
+          CALL IJARRY(KST,IABC,JJ,KDER,JDER,JKDER,JKKDER,JJKDER)
+          CALL IJKARY(KST,IABC,II,JJ,IJKDER)
+        ELSE
+          CALL IJARRY(KST,II,IABC,IDER,KDER,IKDER,IIKDER,IKKDER)
+          IF(IABC .GT. JJ) THEN
+            CALL IJARRY(KST,IABC,JJ,KDER,JDER,JKDER,JKKDER,JJKDER)
+            CALL IJKARY(KST,II,IABC,JJ,IJKDER)
+          ELSE
+            CALL IJARRY(KST,JJ,IABC,JDER,KDER,JKDER,JJKDER,JKKDER)
+            CALL IJKARY(KST,II,JJ,IABC,IJKDER)
+          END IF
+        END IF
+   55   CONTINUE
+        ISZ=IMEM2*3
+        CALL ZERO(FIRB,ISZ)
+        ISZ=IMEM2*6
+        CALL ZERO(SECMXB,ISZ)
+        ISZ=IMEM2*10
+        CALL ZERO(THRMXB,ISZ)
+        ISZ=IMEM2*9
+        CALL ZERO(MX1B1K,ISZ)
+        ISZ=IMEM2*18
+        CALL ZERO(MX2B1K,ISZ)
+        CALL ZERO(MX1B2K,ISZ)
+        ISZ=IMEM2*3
+        CALL ZERO(FIRK,ISZ)
+        ISZ=IMEM2*6
+        CALL ZERO(SECMXK,ISZ)
+        ISZ=IMEM2*10
+        CALL ZERO(THRMXK,ISZ)
+        DO 5000 IROOT=1,NROOTS
+          IN=-IANG
+          IM=-ISIZ
+          DO 4000 INO=1,IQN
+            DUMI=DBLE(INO-1)
+            DUMI2=DBLE(2*INO-1)
+            DUMM2=DBLE(INO-2)
+            DUMP2=DBLE(INO+1)
+            DUMIM1=DBLE((INO-1)*(INO-2))
+            A2DI=AA2*DUMI2
+            IN=IN + IANG
+            IM=IM + ISIZ
+            DO 3000 JNO=1,JQN
+              JN=IN + JNO
+              JM=IM + JNO
+C
+              DUMJ=DBLE(JNO-1)
+              DUMJ2=DBLE(2*JNO-1)
+              DUNN2=DBLE(JNO-2)
+              DUNP2=DBLE(JNO+1)
+              DUMJM1=DBLE((JNO-1)*(JNO-2))
+              B2DJ=BB2*DUMJ2
+              B2DI=BB2*DUMI
+              DIDJ=DUMI*DUMJ
+              MM1=AA2*DUMI*(DUMM2 + DUMI2)
+              NM1=BB2*DUMJ*(DUNN2 + DUMJ2)
+              MP1=AA2*AA2*(DUMI2 + DUMP2)
+              NP1=BB2*BB2*(DUMJ2 + DUNP2)
+              MNP0P1=AA2*BB2*DUMI2
+              MNP1P0=AA2*BB2*DUMJ2
+              MNM2M1=DUMI*DUMJ*DUMM2
+              MNP2M1=AA2*AA2*DUMJ
+              MNP0M1=AA2*DUMJ*DUMI2
+              MNP1M2=AA2*DUMJ*DUNN2
+              MNM2P1=BB2*DUMI*DUMM2
+              MNM1M2=DUMI*DUMJ*DUNN2
+              MNM1P2=BB2*BB2*DUMI
+              MNM1P0=BB2*DUMI*DUMJ2
+              A2DJ=AA2*DUMJ
+C
+              IPL=IPLACE(JM)
+              IF(JNO .GT. 2) THEN
+                JM0M2=JM-2
+                IM0M2=IPLACE(JM0M2)
+                JP1M2=JM+ISIZ-2
+                IP1M2=IPLACE(JP1M2)
+              END IF
+              IF(JNO .GT. 1) THEN
+                JM0M1=JM-1
+                IM0M1=IPLACE(JM0M1)
+                JP1M1=JM-1+ISIZ
+                IP1M1=IPLACE(JP1M1)
+                JP2M1=JM+ISIZ2-1
+                IP2M1=IPLACE(JP2M1)
+                IF(INO .GT. 1) THEN
+                  JM1M1=JM-1-ISIZ
+                  IM1M1=IPLACE(JM1M1)
+                  IF(JNO .GT. 2) THEN
+                    JM1M2=JM-ISIZ-2
+                    IM1M2=IPLACE(JM1M2)
+                  END IF
+                  IF(INO .GT. 2) THEN
+                    JM2M1=JM-ISIZ2-1
+                    IM2M1=IPLACE(JM2M1)
+                  END IF
+                END IF
+              END IF
+              IF(INO .GT. 2) THEN
+                JM2M0=JM-ISIZ2
+                IM2M0=IPLACE(JM2M0)
+                JM2P1=JM-ISIZ2+1
+                IM2P1=IPLACE(JM2P1)
+              END IF
+              IF(INO .GT. 1) THEN
+                JM1M0=JM-ISIZ
+                IM1M0=IPLACE(JM1M0)
+                JM1P1=JM-ISIZ+1
+                IM1P1=IPLACE(JM1P1)
+                JM1P2=JM-ISIZ+2
+                IM1P2=IPLACE(JM1P2)
+              END IF
+              JP0P1=JM+1
+              IP0P1=IPLACE(JP0P1)
+              JP1P0=JM+ISIZ
+              IP1P0=IPLACE(JP1P0)
+              JP0P2=JM+2
+              IP0P2=IPLACE(JP0P2)
+              JP2P0=JM+ISIZ2
+              IP2P0=IPLACE(JP2P0)
+              JP2P1=JM+ISIZ2+1
+              IP2P1=IPLACE(JP2P1)
+              JP3P0=JM+ISIZ3
+              IP3P0=IPLACE(JP3P0)
+              JP0P3=JM+3
+              IP0P3=IPLACE(JP0P3)
+              JP1P1=JM+1+ISIZ
+              IP1P1=IPLACE(JP1P1)
+              JP1P2=JM+ISIZ+2
+              IP1P2=IPLACE(JP1P2)
+C
+C   THE NORMAL NUCLEAR ATTRACTION TERMS
+C
+              IJNO=INO + JNO - 1
+              VXX=A00
+              VYY=A00
+              VZZ=A00
+              MAX=IJNO
+              ITWO=2
+              IF(ISAME(JM) .EQ. 1) ITWO=1
+              DO 410 IMAX=1,MAX
+                ISPOT=IPL + (IMAX-1)*ITWO
+                VXX= VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY= VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ= VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  410         CONTINUE
+              VX(JN)=VXX
+              VY(JN)=VYY
+              VZ(JN)=VZZ
+C
+C   FIRST DERIVATIVES ON BRA
+C
+              IF(IABCII) GO TO 465
+              MAX=IJNO + 1
+              ITWO=2
+              IF(ISAME(JP1P0) .EQ. 1) ITWO=1
+              VXP1B=A00
+              VYP1B=A00
+              VZP1B=A00
+              DO 420 IMAX=1,MAX
+                ISPOT=IP1P0 + (IMAX-1)*ITWO
+                VXP1B=VXP1B + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYP1B=VYP1B + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZP1B=VZP1B + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  420         CONTINUE
+              VXDERB=VXP1B*AA2
+              VYDERB=VYP1B*AA2
+              VZDERB=VZP1B*AA2
+C
+              IF(INO .GT. 1) THEN
+                VXM1B=A00
+                VYM1B=A00
+                VZM1B=A00
+                MAX=IJNO -1
+                ITWO=2
+                IF(ISAME(JM1M0) .EQ. 1) ITWO=1
+                DO 430 IMAX=1,MAX
+                  ISPOT=IM1M0 + (IMAX-1)*ITWO
+                  VXM1B=VXM1B + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYM1B=VYM1B + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZM1B=VZM1B + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  430           CONTINUE
+C
+                VXDERB=VXDERB - VXM1B*DUMI
+                VYDERB=VYDERB - VYM1B*DUMI
+                VZDERB=VZDERB - VZM1B*DUMI
+              END IF
+C
+              VXD(JN,1)= VXDERB
+              VYD(JN,1)= VYDERB
+              VZD(JN,1)= VZDERB
+C
+C   SECOND DERIVATIVES ON BRA
+C
+              MAX=IJNO + 2
+              ITWO=2
+              IF(ISAME(JP2P0) .EQ. 1) ITWO=1
+              VXX=A00
+              VYY=A00
+              VZZ=A00
+              DO 440 IMAX=1,MAX
+                ISPOT=IP2P0 + (IMAX-1)*ITWO
+                VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  440         CONTINUE
+              VXDERB= VXX*AAAA4
+              VYDERB= VYY*AAAA4
+              VZDERB= VZZ*AAAA4
+C
+              IF(INO .GT. 2) THEN
+                MAX=IJNO - 2
+                ITWO=2
+                IF(ISAME(JM2M0) .EQ. 1) ITWO=1
+                VXX=A00
+                VYY=A00
+                VZZ=A00
+                DO 450 IMAX=1,MAX
+                  ISPOT=IM2M0 + (IMAX-1)*ITWO
+                  VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  450           CONTINUE
+                VXDERB=VXDERB + VXX*2.0D0
+                VYDERB=VYDERB + VYY*2.0D0
+                VZDERB=VZDERB + VZZ*2.0D0
+              END IF
+C
+              VXDERB=VXDERB - A2DI*VX(JN)
+              VYDERB=VYDERB - A2DI*VY(JN)
+              VZDERB=VZDERB - A2DI*VZ(JN)
+C
+              VXTWO(JN,1)= VXDERB
+              VYTWO(JN,1)= VYDERB
+              VZTWO(JN,1)= VZDERB
+C
+C   BRA THIRD DERIVATIVES
+C
+              MAX=IJNO + 3
+              ITWO=2
+              IF(ISAME(JP3P0) .EQ. 1) ITWO=1
+              VXXX=A00
+              VYYY=A00
+              VZZZ=A00
+              DO 460 IMAX=1,MAX
+                ISPOT=IP3P0 + (IMAX-1)*ITWO
+                VXXX=VXXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYYY=VYYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZZ=VZZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  460         CONTINUE
+              VX3B= A8*VXXX
+              VY3B= A8*VYYY
+              VZ3B= A8*VZZZ
+C
+              IF(INO .GT. 1) THEN
+                DUMMY=6.0D0*AA*DUMI*DUMI
+                VX3B=VX3B + DUMMY*VXM1B
+                VY3B=VY3B + DUMMY*VYM1B
+                VZ3B=VZ3B + DUMMY*VZM1B
+              END IF
+C
+              DUMMY=A4*3.0D0*INO
+              VX3B= VX3B - DUMMY*VXP1B
+              VY3B= VY3B - DUMMY*VYP1B
+              VZ3B= VZ3B - DUMMY*VZP1B
+C
+              VXTHRE(JN,1)=  VX3B
+              VYTHRE(JN,1)=  VY3B
+              VZTHRE(JN,1)=  VZ3B
+  465         CONTINUE
+C
+C   FIRST DERIVATIVES ON KET
+C
+              IF(IABCJJ) GO TO 515
+              MAX=IJNO + 1
+              ITWO=2
+              IF(ISAME(JP0P1) .EQ. 1) ITWO=1
+              VXP1K=A00
+              VYP1K=A00
+              VZP1K=A00
+              DO 470 IMAX=1,MAX
+                ISPOT=IP0P1 + (IMAX-1)*ITWO
+                VXP1K=VXP1K + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYP1K=VYP1K + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZP1K=VZP1K + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  470         CONTINUE
+              VXDERK= VXP1K*BB2
+              VYDERK= VYP1K*BB2
+              VZDERK= VZP1K*BB2
+ 
+              IF(JNO .GT. 1) THEN
+                MAX=IJNO - 1
+                ITWO=2
+                IF(ISAME(JM0M1) .EQ. 1) ITWO=1
+                VXM1K=A00
+                VYM1K=A00
+                VZM1K=A00
+                DO 480 IMAX=1,MAX
+                  ISPOT=IM0M1 + (IMAX-1)*ITWO
+                  VXM1K=VXM1K + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYM1K=VYM1K + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZM1K=VZM1K + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  480           CONTINUE
+                VXDERK=VXDERK - VXM1K*DUMJ
+                VYDERK=VYDERK - VYM1K*DUMJ
+                VZDERK=VZDERK - VZM1K*DUMJ
+              END IF
+C
+              VXD(JN,2)= VXDERK
+              VYD(JN,2)= VYDERK
+              VZD(JN,2)= VZDERK
+C
+C   SECOND DERIVATIVES ON THE KET
+C
+              MAX=IJNO + 2
+              ITWO=2
+              IF(ISAME(JP0P2) .EQ. 1) ITWO=1
+              VXX=A00
+              VYY=A00
+              VZZ=A00
+              DO 490 IMAX=1,MAX
+                ISPOT=IP0P2 + (IMAX-1)*ITWO
+                VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  490         CONTINUE
+              VXDERK= VXX*BBBB4
+              VYDERK= VYY*BBBB4
+              VZDERK= VZZ*BBBB4
+C
+              IF(JNO .GT. 2) THEN
+                MAX=IJNO -2
+                ITWO=2
+                IF(ISAME(JM0M2) .EQ. 1) ITWO=1
+                VXX=A00
+                VYY=A00
+                VZZ=A00
+                DO 500 IMAX=1,MAX
+                  ISPOT=IM0M2 + (IMAX-1)*ITWO
+                  VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  500           CONTINUE
+                VXDERK=VXDERK + VXX*DUMJM1
+                VYDERK=VYDERK + VYY*DUMJM1
+                VZDERK=VZDERK + VZZ*DUMJM1
+              END IF
+C
+              VXDERK=VXDERK - B2DJ*VX(JN)
+              VYDERK=VYDERK - B2DJ*VY(JN)
+              VZDERK=VZDERK - B2DJ*VZ(JN)
+C
+              VXTWO(JN,2)=  VXDERK
+              VYTWO(JN,2)=  VYDERK
+              VZTWO(JN,2)=  VZDERK
+C
+C   KET THIRD DERIVATIVES
+C
+              MAX=IJNO + 3
+              ITWO=2
+              IF(ISAME(JP0P3) .EQ. 1) ITWO=1
+              VXXX=A00
+              VYYY=A00
+              VZZZ=A00
+              DO 510 IMAX=1,MAX
+                ISPOT=IP0P3 + (IMAX-1)*ITWO
+                VXXX=VXXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYYY=VYYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZZ=VZZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  510         CONTINUE
+              VX3K= B8*VXXX
+              VY3K= B8*VYYY
+              VZ3K= B8*VZZZ
+C
+              IF(JNO .GT. 1) THEN
+                DUMMY=6.0D0*BB*DUMJ*DUMJ
+                VX3K=VX3K + DUMMY*VXM1K
+                VY3K=VY3K + DUMMY*VYM1K
+                VZ3K=VZ3K + DUMMY*VZM1K
+              END IF
+C
+              DUMMY=B4*3.0D0*JNO
+              VX3K= VX3K - DUMMY*VXP1K
+              VY3K= VY3K - DUMMY*VYP1K
+              VZ3K= VZ3K - DUMMY*VZP1K
+C
+              VXTHRE(JN,2)=  VX3K
+              VYTHRE(JN,2)=  VY3K
+              VZTHRE(JN,2)=  VZ3K
+  515         CONTINUE
+C
+C   SIMULTANOUS FIRST DERIVATIVES ON BRA AND KET : VXXTEM
+C
+              IF(IABCII .OR. IABCJJ) GO TO 560
+              VXX=0.0D0
+              VYY=0.0D0
+              VZZ=0.0D0
+              MAX=IJNO + 2
+              ITWO=2
+              IF(ISAME(JP1P1) .EQ. 1) ITWO=1
+              DO 520 IMAX=1,MAX
+                ISPOT=IP1P1 + (IMAX-1)*ITWO
+                VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  520         CONTINUE
+              VXXTEM= AABB4*VXX
+              VYYTEM= AABB4*VYY
+              VZZTEM= AABB4*VZZ
+C
+              IF(INO .LE. 1) GO TO 545
+              VXX=0.0D0
+              VYY=0.0D0
+              VZZ=0.0D0
+              MAX=IJNO
+              ITWO=2
+              IF(ISAME(JM1P1) .EQ. 1) ITWO=1
+              DO 530 IMAX=1,MAX
+                ISPOT=IM1P1 + (IMAX-1)*ITWO
+                IPLUS=IMAX + 1
+                VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  530         CONTINUE
+              VXXTEM=VXXTEM - VXX*B2DI
+              VYYTEM=VYYTEM - VYY*B2DI
+              VZZTEM=VZZTEM - VZZ*B2DI
+C
+              IF(JNO .LE. 1) GO TO 545
+              VXX=0.0D0
+              VYY=0.0D0
+              VZZ=0.0D0
+              MAX=IJNO - 2
+              ITWO=2
+              IF(ISAME(JM1M1) .EQ. 1) ITWO=1
+              DO 540 IMAX=1,MAX
+                ISPOT=IM1M1 + (IMAX-1)*ITWO
+                VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  540         CONTINUE
+              VXXTEM=VXXTEM + DIDJ*VXX
+              VYYTEM=VYYTEM + DIDJ*VYY
+              VZZTEM=VZZTEM + DIDJ*VZZ
+  545         CONTINUE
+C
+              IF(JNO .LE. 1) GO TO 555
+              VXX=0.0D0
+              VYY=0.0D0
+              VZZ=0.0D0
+              MAX=IJNO
+              ITWO=2
+              IF(ISAME(JP1M1) .EQ. 1) ITWO=1
+              DO 550 IMAX=1,MAX
+                ISPOT=IP1M1 + (IMAX-1)*ITWO
+                VXX=VXX + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYY=VYY + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZZ=VZZ + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  550         CONTINUE
+              VXXTEM=VXXTEM - A2DJ*VXX
+              VYYTEM=VYYTEM - A2DJ*VYY
+              VZZTEM=VZZTEM - A2DJ*VZZ
+C
+  555         CONTINUE
+C
+              V1B1K(JN,1)= VXXTEM
+              V1B1K(JN,2)= VYYTEM
+              V1B1K(JN,3)= VZZTEM
+  560         CONTINUE
+C
+C   SIMULTANEOUS SECOND DERIVATIVES ON BRA AND FIRST ON KET : V2B1K
+C
+C                        AND
+C
+C   SIMULTANEOUS FIRST DERIVATIVES ON BRA AND SECOND ON KET : V1B2K
+C
+              IF(IABCII .OR. IABCJJ) GO TO 3000
+              MAX=IJNO + 3
+              ITWO=2
+              JTWO=2
+              IF(ISAME(JP2P1) .EQ. 1) ITWO=1
+              IF(ISAME(JP1P2) .EQ. 1) JTWO=1
+              VXP2P1=0.0D0
+              VYP2P1=0.0D0
+              VZP2P1=0.0D0
+              VXP1P2=0.0D0
+              VYP1P2=0.0D0
+              VZP1P2=0.0D0
+              DO 570 IMAX=1,MAX
+                IMAXM1=IMAX-1
+                ISPOT=IP2P1 + IMAXM1*ITWO
+                JSPOT=IP1P2 + IMAXM1*JTWO
+                VXP2P1=VXP2P1 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                VYP2P1=VYP2P1 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                VZP2P1=VZP2P1 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+                VXP1P2=VXP1P2 + EX(JSPOT)*GT(IMAX,IABC,IROOT)
+                VYP1P2=VYP1P2 + EY(JSPOT)*GU(IMAX,IABC,IROOT)
+                VZP1P2=VZP1P2 + EZ(JSPOT)*GV(IMAX,IABC,IROOT)
+  570         CONTINUE
+              VX2B1K= AAB8*VXP2P1
+              VY2B1K= AAB8*VYP2P1
+              VZ2B1K= AAB8*VZP2P1
+              VX1B2K= BBA8*VXP1P2
+              VY1B2K= BBA8*VYP1P2
+              VZ1B2K= BBA8*VZP1P2
+C
+              DUMMY=AB4*DUMI2
+              VX2B1K= VX2B1K - DUMMY*VXP1K
+              VY2B1K= VY2B1K - DUMMY*VYP1K
+              VZ2B1K= VZ2B1K - DUMMY*VZP1K
+              DUMMY=AB4*DUMJ2
+              VX1B2K= VX1B2K - DUMMY*VXP1B
+              VY1B2K= VY1B2K - DUMMY*VYP1B
+              VZ1B2K= VZ1B2K - DUMMY*VZP1B
+C
+              IF(INO .GT. 2) THEN
+                MAX=IJNO - 1
+                ITWO=2
+                IF(ISAME(JM2P1) .EQ. 1) ITWO=1
+                VXM2P1=0.0D0
+                VYM2P1=0.0D0
+                VZM2P1=0.0D0
+                DO 580 IMAX=1,MAX
+                  IMAXM1=IMAX-1
+                  ISPOT=IM2P1 + IMAXM1*ITWO
+                  VXM2P1=VXM2P1 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYM2P1=VYM2P1 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZM2P1=VZM2P1 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  580           CONTINUE
+                DUMMY=BB2*DUMIM1
+                VX2B1K= VX2B1K + DUMMY*VXM2P1
+                VY2B1K= VY2B1K + DUMMY*VYM2P1
+                VZ2B1K= VZ2B1K + DUMMY*VZM2P1
+C
+                IF(JNO .GT. 1) THEN
+                  MAX=IJNO - 3
+                  ITWO=2
+                  IF(ISAME(JM2M1) .EQ. 1) ITWO=1
+                  VXM2M1=0.0D0
+                  VYM2M1=0.0D0
+                  VZM2M1=0.0D0
+                  DO 590 IMAX=1,MAX
+                    IMAXM1=IMAX-1
+                    ISPOT=IM2M1 + IMAXM1*ITWO
+                    VXM2M1=VXM2M1 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                    VYM2M1=VYM2M1 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                    VZM2M1=VZM2M1 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  590             CONTINUE
+                  DUMMY=DUMIM1*DUMJ
+                  VX2B1K= VX2B1K - DUMMY*VXM2M1
+                  VY2B1K= VY2B1K - DUMMY*VYM2M1
+                  VZ2B1K= VZ2B1K - DUMMY*VZM2M1
+                END IF
+              END IF
+C
+              IF(JNO .GT. 1) THEN
+                MAX=IJNO + 1
+                ITWO=2
+                IF(ISAME(JP2M1) .EQ. 1) ITWO=1
+                VXP2M1=0.0D0
+                VYP2M1=0.0D0
+                VZP2M1=0.0D0
+                DO 600 IMAX=1,MAX
+                  IMAXM1=IMAX-1
+                  ISPOT=IP2M1 + IMAXM1*ITWO
+                  VXP2M1=VXP2M1 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYP2M1=VYP2M1 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZP2M1=VZP2M1 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  600           CONTINUE
+                DUMMY=A4*DUMJ
+                VX2B1K= VX2B1K - DUMMY*VXP2M1
+                VY2B1K= VY2B1K - DUMMY*VYP2M1
+                VZ2B1K= VZ2B1K - DUMMY*VZP2M1
+ 
+                DUMMY=AA2*DUMJ*DUMI2
+                VX2B1K= VX2B1K + DUMMY*VXM1K
+                VY2B1K= VY2B1K + DUMMY*VYM1K
+                VZ2B1K= VZ2B1K + DUMMY*VZM1K
+              END IF
+ 
+              IF(JNO .GT. 2) THEN
+                MAX=IJNO - 1
+                ITWO=2
+                IF(ISAME(JP1M2) .EQ. 1) ITWO=1
+                VXP1M2=0.0D0
+                VYP1M2=0.0D0
+                VZP1M2=0.0D0
+                DO 610 IMAX=1,MAX
+                  IMAXM1=IMAX-1
+                  ISPOT=IP1M2 + IMAXM1*ITWO
+                  VXP1M2=VXP1M2 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYP1M2=VYP1M2 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZP1M2=VZP1M2 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  610           CONTINUE
+                DUMMY=AA2*DUMJM1
+                VX1B2K= VX1B2K + DUMMY*VXP1M2
+                VY1B2K= VY1B2K + DUMMY*VYP1M2
+                VZ1B2K= VZ1B2K + DUMMY*VZP1M2
+C
+                IF(INO .GT. 1) THEN
+                  MAX=IJNO - 3
+                  ITWO=2
+                  IF(ISAME(JM1M2) .EQ. 1) ITWO=1
+                  VXM1M2=0.0D0
+                  VYM1M2=0.0D0
+                  VZM1M2=0.0D0
+                  DO 620 IMAX=1,MAX
+                    IMAXM1=IMAX-1
+                    ISPOT=IM1M2 + IMAXM1*ITWO
+                    VXM1M2=VXM1M2 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                    VYM1M2=VYM1M2 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                    VZM1M2=VZM1M2 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  620             CONTINUE
+                  DUMMY=DUMJM1*DUMI
+                  VX1B2K= VX1B2K - DUMMY*VXM1M2
+                  VY1B2K= VY1B2K - DUMMY*VYM1M2
+                  VZ1B2K= VZ1B2K - DUMMY*VZM1M2
+                END IF
+              END IF
+C
+              IF(INO .GT. 1) THEN
+                MAX=IJNO + 1
+                ITWO=2
+                IF(ISAME(JM1P2) .EQ. 1) ITWO=1
+                VXM1P2=0.0D0
+                VYM1P2=0.0D0
+                VZM1P2=0.0D0
+                DO 630 IMAX=1,MAX
+                  IMAXM1=IMAX-1
+                  ISPOT=IM1P2 + IMAXM1*ITWO
+                  VXM1P2=VXM1P2 + EX(ISPOT)*GT(IMAX,IABC,IROOT)
+                  VYM1P2=VYM1P2 + EY(ISPOT)*GU(IMAX,IABC,IROOT)
+                  VZM1P2=VZM1P2 + EZ(ISPOT)*GV(IMAX,IABC,IROOT)
+  630           CONTINUE
+                DUMMY=B4*DUMI
+                VX1B2K= VX1B2K - DUMMY*VXM1P2
+                VY1B2K= VY1B2K - DUMMY*VYM1P2
+                VZ1B2K= VZ1B2K - DUMMY*VZM1P2
+C
+                DUMMY=BB2*DUMI*DUMJ2
+                VX1B2K= VX1B2K + DUMMY*VXM1B
+                VY1B2K= VY1B2K + DUMMY*VYM1B
+                VZ1B2K= VZ1B2K + DUMMY*VZM1B
+              END IF
+C
+              V2B1K(JN,1)= VX2B1K
+              V2B1K(JN,2)= VY2B1K
+              V2B1K(JN,3)= VZ2B1K
+ 
+              V1B2K(JN,1)= VX1B2K
+              V1B2K(JN,2)= VY1B2K
+              V1B2K(JN,3)= VZ1B2K
+C
+ 3000       CONTINUE
+ 4000     CONTINUE
+C
+C   SUM UP THE CONTRIBUTIONS
+C
+          ICNT=0
+          DO 900 IORB=IORB1,IORBMX
+            IF(BOTH) JORBMX=IORB
+            DO 800 JORB=JORB1,JORBMX
+              ICNT=ICNT + 1
+              IPOSX=IJX(ICNT)
+              IPOSY=IJY(ICNT)
+              IPOSZ=IJZ(ICNT)
+              IJPOSN=IOFF(MAX0(IORB,JORB)) + MIN0(IORB,JORB)
+              IJORB(ICNT)=IJPOSN
+C
+              Z0TEMP=VZ(IPOSZ)*ASRTPI
+              Z1TEMB=VZD(IPOSZ,1)*ASRTPI
+              Z1TEMK=VZD(IPOSZ,2)*ASRTPI
+              Z2TEMB=VZTWO(IPOSZ,1)*ASRTPI
+              Z2TEMK=VZTWO(IPOSZ,2)*ASRTPI
+              Z1B1K=V1B1K(IPOSZ,3)*ASRTPI
+              Z2B1K=V2B1K(IPOSZ,3)*ASRTPI
+              Z1B2K=V1B2K(IPOSZ,3)*ASRTPI
+              Z3TEMB=VZTHRE(IPOSZ,1)*ASRTPI
+              Z3TEMK=VZTHRE(IPOSZ,2)*ASRTPI
+C
+              IF(IABCII) GO TO 710
+              FIRB(ICNT,1)=FIRB(ICNT,1) + VXD(IPOSX,1)*VY(IPOSY)*Z0TEMP
+              FIRB(ICNT,2)=FIRB(ICNT,2) + VYD(IPOSY,1)*VX(IPOSX)*Z0TEMP
+              FIRB(ICNT,3)=FIRB(ICNT,3) + VX(IPOSX)*VY(IPOSY)*Z1TEMB
+  710         CONTINUE
+C
+              IF(IABCJJ) GO TO 715
+              FIRK(ICNT,1)=FIRK(ICNT,1) + VXD(IPOSX,2)*VY(IPOSY)*Z0TEMP
+              FIRK(ICNT,2)=FIRK(ICNT,2) + VYD(IPOSY,2)*VX(IPOSX)*Z0TEMP
+              FIRK(ICNT,3)=FIRK(ICNT,3) + VX(IPOSX)*VY(IPOSY)*Z1TEMK
+  715         CONTINUE
+C
+C   SECOND DERIVATIVES
+C
+              IF(IABCII) GO TO 720
+              SECMXB(ICNT,1)=SECMXB(ICNT,1) + VXTWO(IPOSX,1)*VY(IPOSY)
+     *                      *Z0TEMP
+              SECMXB(ICNT,2)=SECMXB(ICNT,2) + VXD(IPOSX,1)*VYD(IPOSY,1)
+     *                      *Z0TEMP
+              SECMXB(ICNT,3)=SECMXB(ICNT,3) + VYTWO(IPOSY,1)*VX(IPOSX)
+     *                      *Z0TEMP
+              SECMXB(ICNT,4)=SECMXB(ICNT,4) + VXD(IPOSX,1)*VY(IPOSY)
+     *                      *Z1TEMB
+              SECMXB(ICNT,5)=SECMXB(ICNT,5) + VYD(IPOSY,1)*VX(IPOSX)
+     *                      *Z1TEMB
+              SECMXB(ICNT,6)=SECMXB(ICNT,6) + VX(IPOSX)*VY(IPOSY)*Z2TEMB
+  720         CONTINUE
+C
+                          IF(IABCJJ) GO TO 725
+                          SECMXK(ICNT,1)=SECMXK(ICNT,1) + VXTWO(IPOSX,2
+     *                    )*VY(IPOSY)*Z0TEMP
+                          SECMXK(ICNT,2)=SECMXK(ICNT,2) + VXD(IPOSX,2)*
+     *                    VYD(IPOSY,2)*Z0TEMP
+                          SECMXK(ICNT,3)=SECMXK(ICNT,3) + VYTWO(IPOSY,2
+     *                    )*VX(IPOSX)*Z0TEMP
+                          SECMXK(ICNT,4)=SECMXK(ICNT,4) + VXD(IPOSX,2)*
+     *                    VY(IPOSY)*Z1TEMK
+                          SECMXK(ICNT,5)=SECMXK(ICNT,5) + VYD(IPOSY,2)*
+     *                    VX(IPOSX)*Z1TEMK
+                          SECMXK(ICNT,6)=SECMXK(ICNT,6) + VX(IPOSX)*VY(
+     *                    IPOSY)*Z2TEMK
+  725                     CONTINUE
+C
+                          IF(IABCII .OR. IABCJJ) GO TO 730
+                          MX1B1K(ICNT,1)=MX1B1K(ICNT,1) + V1B1K(IPOSX,
+     *                    1)*VY(IPOSY)*Z0TEMP
+                          MX1B1K(ICNT,2)=MX1B1K(ICNT,2) + VXD(IPOSX,1)*
+     *                    VYD(IPOSY,2)*Z0TEMP
+                          MX1B1K(ICNT,3)=MX1B1K(ICNT,3) + VXD(IPOSX,1)*
+     *                    VY(IPOSY)*Z1TEMK
+                          MX1B1K(ICNT,4)=MX1B1K(ICNT,4) + VXD(IPOSX,2)*
+     *                    VYD(IPOSY,1)*Z0TEMP
+                          MX1B1K(ICNT,5)=MX1B1K(ICNT,5) + V1B1K(IPOSY,
+     *                    2)*VX(IPOSX)*Z0TEMP
+                          MX1B1K(ICNT,6)=MX1B1K(ICNT,6) + VX(IPOSX)*VYD
+     *                    (IPOSY,1)*Z1TEMK
+                          MX1B1K(ICNT,7)=MX1B1K(ICNT,7) + VXD(IPOSX,2)*
+     *                    VY(IPOSY)*Z1TEMB
+                          MX1B1K(ICNT,8)=MX1B1K(ICNT,8) + VYD(IPOSY,2)*
+     *                    VX(IPOSX)*Z1TEMB
+                          MX1B1K(ICNT,9)=MX1B1K(ICNT,9) + VX(IPOSX)*VY(
+     *                    IPOSY)*Z1B1K
+  730                     CONTINUE
+C
+C   THIRD DERIVATIVES
+C
+                          IF(IABCII) GO TO 735
+                          THRMXB(ICNT,1)=THRMXB(ICNT,1) + VXTHRE(IPOSX,
+     *                    1)*VY(IPOSY)*Z0TEMP
+                          THRMXB(ICNT,2)=THRMXB(ICNT,2) + VXTWO(IPOSX,1)
+     *                    *VYD(IPOSY,1)*Z0TEMP
+                          THRMXB(ICNT,3)=THRMXB(ICNT,3) + VXD(IPOSX,1)*
+     *                    VYTWO(IPOSY,1)*Z0TEMP
+                          THRMXB(ICNT,4)=THRMXB(ICNT,4) + VX(IPOSX)*
+     *                    VYTHRE(IPOSY,1)*Z0TEMP
+                          THRMXB(ICNT,5)=THRMXB(ICNT,5) + VXTWO(IPOSX,1)
+     *                    *VY(IPOSY)*Z1TEMB
+                          THRMXB(ICNT,6)=THRMXB(ICNT,6) + VXD(IPOSX,1)*
+     *                    VYD(IPOSY,1)*Z1TEMB
+                          THRMXB(ICNT,7)=THRMXB(ICNT,7) + VX(IPOSX)*
+     *                    VYTWO(IPOSY,1)*Z1TEMB
+                          THRMXB(ICNT,8)=THRMXB(ICNT,8) + VXD(IPOSX,1)*
+     *                    VY(IPOSY)*Z2TEMB
+                          THRMXB(ICNT,9)=THRMXB(ICNT,9) + VX(IPOSX)*
+     *                    VYD(IPOSY,1)*Z2TEMB
+                          THRMXB(ICNT,10)=THRMXB(ICNT,10) + VX(IPOSX)*
+     *                    VY(IPOSY)*Z3TEMB
+  735                     CONTINUE
+C
+                          IF(IABCJJ) GO TO 740
+                          THRMXK(ICNT,1)=THRMXK(ICNT,1) + VXTHRE(IPOSX,
+     *                    2)*VY(IPOSY)*Z0TEMP
+                          THRMXK(ICNT,2)=THRMXK(ICNT,2) + VXTWO(IPOSX,2)
+     *                    *VYD(IPOSY,2)*Z0TEMP
+                          THRMXK(ICNT,3)=THRMXK(ICNT,3) + VXD(IPOSX,2)*
+     *                    VYTWO(IPOSY,2)*Z0TEMP
+                          THRMXK(ICNT,4)=THRMXK(ICNT,4) + VX(IPOSX)*
+     *                    VYTHRE(IPOSY,2)*Z0TEMP
+                          THRMXK(ICNT,5)=THRMXK(ICNT,5) + VXTWO(IPOSX,2)
+     *                    *VY(IPOSY)*Z1TEMK
+                          THRMXK(ICNT,6)=THRMXK(ICNT,6) + VXD(IPOSX,2)*
+     *                    VYD(IPOSY,2)*Z1TEMK
+                          THRMXK(ICNT,7)=THRMXK(ICNT,7) + VX(IPOSX)*
+     *                    VYTWO(IPOSY,2)*Z1TEMK
+                          THRMXK(ICNT,8)=THRMXK(ICNT,8) + VXD(IPOSX,2)*
+     *                    VY(IPOSY)*Z2TEMK
+                          THRMXK(ICNT,9)=THRMXK(ICNT,9) + VX(IPOSX)*
+     *                    VYD(IPOSY,2)*Z2TEMK
+                          THRMXK(ICNT,10)=THRMXK(ICNT,10) + VX(IPOSX)*
+     *                    VY(IPOSY)*Z3TEMK
+  740                     CONTINUE
+C
+                          IF(IABCII .OR. IABCJJ) GO TO 800
+                          MX2B1K(ICNT,1)=MX2B1K(ICNT,1) + V2B1K(IPOSX,1)
+     *                    *VY(IPOSY)*Z0TEMP
+                          MX2B1K(ICNT,2)=MX2B1K(ICNT,2) + VXTWO(IPOSX,1)
+     *                    *VYD(IPOSY,2)*Z0TEMP
+                          MX2B1K(ICNT,3)=MX2B1K(ICNT,3) + VXTWO(IPOSX,1)
+     *                    *VY(IPOSY)*Z1TEMK
+                          MX2B1K(ICNT,4)=MX2B1K(ICNT,4) + V1B1K(IPOSX,1)
+     *                    *VYD(IPOSY,1)*Z0TEMP
+                          MX2B1K(ICNT,5)=MX2B1K(ICNT,5) + V1B1K(IPOSY,2)
+     *                    *VXD(IPOSX,1)*Z0TEMP
+                          MX2B1K(ICNT,6)=MX2B1K(ICNT,6) + VXD(IPOSX,1)*
+     *                    VYD(IPOSY,1)*Z1TEMK
+                          MX2B1K(ICNT,7)=MX2B1K(ICNT,7) + V1B1K(IPOSX,1)
+     *                    *VY(IPOSY)*Z1TEMB
+                          MX2B1K(ICNT,8)=MX2B1K(ICNT,8) + VXD(IPOSX,1)*
+     *                    VYD(IPOSY,2)*Z1TEMB
+                          MX2B1K(ICNT,9)=MX2B1K(ICNT,9) + VXD(IPOSX,1)*
+     *                    VY(IPOSY)*Z1B1K
+                          MX2B1K(ICNT,10)=MX2B1K(ICNT,10) + VXD(IPOSX,2)
+     *                    *VYTWO(IPOSY,1)*Z0TEMP
+                          MX2B1K(ICNT,11)=MX2B1K(ICNT,11) + VX(IPOSX)*
+     *                    V2B1K(IPOSY,2)*Z0TEMP
+                          MX2B1K(ICNT,12)=MX2B1K(ICNT,12) + VX(IPOSX)*
+     *                    VYTWO(IPOSY,1)*Z1TEMK
+                          MX2B1K(ICNT,13)=MX2B1K(ICNT,13) + VXD(IPOSX,2)
+     *                    *VYD(IPOSY,1)*Z1TEMB
+                          MX2B1K(ICNT,14)=MX2B1K(ICNT,14) + VX(IPOSX)*
+     *                    V1B1K(IPOSY,2)*Z1TEMB
+                          MX2B1K(ICNT,15)=MX2B1K(ICNT,15) + VX(IPOSX)*
+     *                    VYD(IPOSY,1)*Z1B1K
+                          MX2B1K(ICNT,16)=MX2B1K(ICNT,16) + VXD(IPOSX,2)
+     *                    *VY(IPOSY)*Z2TEMB
+                          MX2B1K(ICNT,17)=MX2B1K(ICNT,17) + VX(IPOSX)*
+     *                    VYD(IPOSY,2)*Z2TEMB
+                          MX2B1K(ICNT,18)=MX2B1K(ICNT,18) + VX(IPOSX)*
+     *                    VY(IPOSY)*Z2B1K
+C
+                          MX1B2K(ICNT,1)=MX1B2K(ICNT,1) + V1B2K(IPOSX,1)
+     *                    *VY(IPOSY)*Z0TEMP
+                          MX1B2K(ICNT,2)=MX1B2K(ICNT,2) + VXTWO(IPOSX,2)
+     *                    *VYD(IPOSY,1)*Z0TEMP
+                          MX1B2K(ICNT,3)=MX1B2K(ICNT,3) + VXTWO(IPOSX,2)
+     *                    *VY(IPOSY)*Z1TEMB
+                          MX1B2K(ICNT,4)=MX1B2K(ICNT,4) + V1B1K(IPOSX,1)
+     *                    *VYD(IPOSY,2)*Z0TEMP
+                          MX1B2K(ICNT,5)=MX1B2K(ICNT,5) + V1B1K(IPOSY,2)
+     *                    *VXD(IPOSX,2)*Z0TEMP
+                          MX1B2K(ICNT,6)=MX1B2K(ICNT,6) + VXD(IPOSX,2)*
+     *                    VYD(IPOSY,2)*Z1TEMB
+                          MX1B2K(ICNT,7)=MX1B2K(ICNT,7) + V1B1K(IPOSX,1)
+     *                    *VY(IPOSY)*Z1TEMK
+                          MX1B2K(ICNT,8)=MX1B2K(ICNT,8) + VXD(IPOSX,2)*
+     *                    VYD(IPOSY,1)*Z1TEMK
+                          MX1B2K(ICNT,9)=MX1B2K(ICNT,9) + VXD(IPOSX,2)*
+     *                    VY(IPOSY)*Z1B1K
+                          MX1B2K(ICNT,10)=MX1B2K(ICNT,10) + VXD(IPOSX,1)
+     *                    *VYTWO(IPOSY,2)*Z0TEMP
+                          MX1B2K(ICNT,11)=MX1B2K(ICNT,11) + VX(IPOSX)*
+     *                    V1B2K(IPOSY,2)*Z0TEMP
+                          MX1B2K(ICNT,12)=MX1B2K(ICNT,12) + VX(IPOSX)*
+     *                    VYTWO(IPOSY,2)*Z1TEMB
+                          MX1B2K(ICNT,13)=MX1B2K(ICNT,13) + VXD(IPOSX,1)
+     *                    *VYD(IPOSY,2)*Z1TEMK
+                          MX1B2K(ICNT,14)=MX1B2K(ICNT,14) + VX(IPOSX)*
+     *                    V1B1K(IPOSY,2)*Z1TEMK
+                          MX1B2K(ICNT,15)=MX1B2K(ICNT,15) + VX(IPOSX)*
+     *                    VYD(IPOSY,2)*Z1B1K
+                          MX1B2K(ICNT,16)=MX1B2K(ICNT,16) + VXD(IPOSX,1)
+     *                    *VY(IPOSY)*Z2TEMK
+                          MX1B2K(ICNT,17)=MX1B2K(ICNT,17) + VX(IPOSX)*
+     *                    VYD(IPOSY,1)*Z2TEMK
+                          MX1B2K(ICNT,18)=MX1B2K(ICNT,18) + VX(IPOSX)*
+     *                    VY(IPOSY)*Z1B2K
+  800                   CONTINUE
+  900                 CONTINUE
+                      ISTOP=ICNT
+C
+ 5000               CONTINUE
+C
+C   WE NOW PUT THE DERIVATIVES TOGETHER
+C
+                    DO 5500 ICNT=1,ISTOP
+                      IJ=IJORB(ICNT)
+C
+C   FIRST DERIVATIVES
+C
+                      DO 910 ICRD=1,3
+                        FIRBK(ICRD)= FIRB(ICNT,ICRD) + FIRK(ICNT,ICRD)
+C                       WRITE(IOUT,'(F20.10)')FIRBK(ICRD)
+  910                 CONTINUE
+                      IF(EQUAL) THEN
+                        DO 920 ICRD=1,3
+                          V1DER(IJ,IDER(ICRD))= V1DER(IJ,IDER(ICRD))
+     *                                         + FIRBK(ICRD)
+                          V1DER(IJ,KDER(ICRD))= V1DER(IJ,KDER(ICRD))
+     *                                         - FIRBK(ICRD)
+  920                   CONTINUE
+C
+                      ELSE
+                        DO 930 ICRD=1,3
+                          IF(IABCII) THEN
+                            V1DER(IJ,IDER(ICRD))= V1DER(IJ,IDER(ICRD))
+     *                                           - FIRK(ICNT,ICRD)
+                          ELSE
+                            V1DER(IJ,IDER(ICRD))= V1DER(IJ,IDER(ICRD))
+     *                                           + FIRB(ICNT,ICRD)
+                            IF(.NOT. IABCJJ) THEN
+                              V1DER(IJ,KDER(ICRD))=V1DER(IJ,KDER(ICRD)
+     *                        )                   - FIRBK(ICRD)
+                            END IF
+                          END IF
+C
+                          IF(IABCJJ) THEN
+                            V1DER(IJ,JDER(ICRD))=V1DER(IJ,JDER(ICRD))
+     *                                           - FIRB(ICNT,ICRD)
+                          ELSE
+                            V1DER(IJ,JDER(ICRD))=V1DER(IJ,JDER(ICRD))
+     *                                           + FIRK(ICNT,ICRD)
+                          END IF
+  930                   CONTINUE
+C
+                      END IF
+C
+C   SECOND DERIVATIVES
+C
+                    DO 940 ICRD=1,6
+                      SECBK(ICRD)=SECMXB(ICNT,ICRD) + SECMXK(ICNT,ICRD)
+  940               CONTINUE
+C
+                    IF(EQUAL) THEN
+                      DO 950 ICRD=1,9
+                        IF(ICRD .LE. 6) THEN
+                          N1POS=N2II(ICRD,1)
+                          N2POS=N2II(ICRD,2)
+                          VALUE=SECBK(ICRD) + MX1B1K(ICNT,N1POS)
+     *                                      + MX1B1K(ICNT,N2POS)
+                          V2DER(IJ,IIDER(ICRD))= V2DER(IJ,IIDER(ICRD))
+     *                       + VALUE
+                          V2DER(IJ,KKDER(ICRD))= V2DER(IJ,KKDER(ICRD))
+     *                       + VALUE
+                        END IF
+                        N1POS=N2IK2(ICRD,1)
+                        N2POS=N2IK2(ICRD,2)
+                        N3POS=N2IK2(ICRD,3)
+                        V2DER(IJ,IKDER(ICRD))= V2DER(IJ,IKDER(ICRD))
+     *                       - SECBK(N1POS) - MX1B1K(ICNT,N2POS)
+     *                       - MX1B1K(ICNT,N3POS)
+  950                 CONTINUE
+                    ELSE
+                      DO 960 ICRD=1,9
+                        IF(ICRD .LE. 6) THEN
+                          IF(IABCII) THEN
+                            V2DER(IJ,IIDER(ICRD))= V2DER(IJ,IIDER(ICRD
+     *                      ))                + SECMXK(ICNT,ICRD)
+                          ELSE
+                            V2DER(IJ,IIDER(ICRD))= V2DER(IJ,IIDER(ICRD
+     *                      ))                + SECMXB(ICNT,ICRD)
+                          END IF
+                          IF(IABCJJ) THEN
+                            V2DER(IJ,JJDER(ICRD))= V2DER(IJ,JJDER(ICRD
+     *                      ))                + SECMXB(ICNT,ICRD)
+                          ELSE
+                            V2DER(IJ,JJDER(ICRD))= V2DER(IJ,JJDER(ICRD
+     *                      ))                + SECMXK(ICNT,ICRD)
+                            IF(.NOT. IABCII) THEN
+                              V2DER(IJ,KKDER(ICRD))=V2DER(IJ,KKDER(ICR
+     *                                     D)) + SECBK(ICRD)
+     *                                   + MX1B1K(ICNT,N2II(ICRD,1))
+     *                                   + MX1B1K(ICNT,N2II(ICRD,2))
+                            END IF
+                          END IF
+                        END IF
+C
+C   MIXED CENTER SECOND DERIVATIVES
+C
+                        IDRC=ICRD
+                        JDRC=ICRD
+                        IF(IABC .LT. JJ) JDRC=N2KI(ICRD)
+                        IF(IABC .GT. II) IDRC=N2KI(ICRD)
+                        IF(IABCII) THEN
+                          V2DER(IJ,IJDER(ICRD))= V2DER(IJ,IJDER(ICRD))
+     *                                        - SECMXK(ICNT,N2IK(ICRD))
+                        ELSE
+                          IF(.NOT. IABCJJ) THEN
+                            V2DER(IJ,IJDER(ICRD))=V2DER(IJ,IJDER(ICRD)
+     *                      )      + MX1B1K(ICNT,ICRD)
+                            V2DER(IJ,IKDER(ICRD))=V2DER(IJ,IKDER(ICRD)
+     *                      )      - SECMXB(ICNT,N2IK(ICRD))
+     *                             - MX1B1K(ICNT,IDRC)
+                          END IF
+                        END IF
+                        IF(IABCJJ) THEN
+                          V2DER(IJ,IJDER(ICRD))=V2DER(IJ,IJDER(ICRD))
+     *                             - SECMXB(ICNT,N2IK(ICRD))
+                        ELSE
+                          IF(.NOT. IABCII) THEN
+                            V2DER(IJ,JKDER(ICRD))=V2DER(IJ,JKDER(ICRD)
+     *                      )    -  SECMXK(ICNT,N2IK(ICRD))
+     *                           -  MX1B1K(ICNT,JDRC)
+                          END IF
+                        END IF
+  960                 CONTINUE
+                    END IF
+C
+C   THIRD DERIVATIVES
+C
+                      DO 970 ICRD=1,10
+                        THRBK(ICRD)=THRMXB(ICNT,ICRD)+ THRMXK(ICNT,ICRD)
+  970                 CONTINUE
+                      IF(IDRVF.LE.2) GO TO 975
+C
+                      IF(EQUAL) THEN
+                        DO 980 ICRD=1,18
+                          IF(ICRD .LE. 10) THEN
+                            N1POS=N3III(ICRD,1)
+                            N2POS=N3III(ICRD,2)
+                            N3POS=N3III(ICRD,3)
+                            VALUE=THRBK(ICRD)
+     *                       +   MX2B1K(ICNT,N1POS) + MX1B2K(ICNT,N1POS)
+     *                       +   MX2B1K(ICNT,N2POS) + MX1B2K(ICNT,N2POS)
+     *                       +   MX2B1K(ICNT,N3POS) + MX1B2K(ICNT,N3POS)
+                            V3DER(IJ,IIIDER(ICRD))=V3DER(IJ,IIIDER
+     *                           (ICRD)) + VALUE
+                            V3DER(IJ,KKKDER(ICRD))=V3DER(IJ,KKKDER
+     *                           (ICRD)) - VALUE
+                          END IF
+C
+C   MIXED CENTER
+C
+                         N1POS=N3IIK(ICRD,1)
+                         N2POS=N3IIK(ICRD,2)
+                         N3POS=N3IIK(ICRD,3)
+                         N4POS=N3IIK(ICRD,4)
+                         VALUE= THRBK(N1POS)
+     *                       + MX2B1K(ICNT,N2POS) + MX1B2K(ICNT,N2POS)
+     *                       + MX2B1K(ICNT,N3POS) + MX1B2K(ICNT,N3POS)
+     *                       + MX2B1K(ICNT,N4POS) + MX1B2K(ICNT,N4POS)
+                         FAC1=-1.0D0
+                         FAC2=1.0D0
+                         V3DER(IJ,IIKDER(ICRD))=V3DER(IJ,IIKDER(ICRD))
+     *                         + FAC1*VALUE
+                         V3DER(IJ,IKKDER(ICRD))=V3DER(IJ,IKKDER(ICRD))
+     *                         + FAC2*VALUE
+  980                  CONTINUE
+                     ELSE
+                       DO 990 ICRD=1,27
+                         IF(ICRD .LE. 10) THEN
+                           IF(IABCII) THEN
+                             V3DER(IJ,IIIDER(ICRD))=V3DER(IJ,IIIDER
+     *                       (ICRD))  - THRMXK(ICNT,ICRD)
+                           ELSE
+                             V3DER(IJ,IIIDER(ICRD))=V3DER(IJ,IIIDER
+     *                       (ICRD)) +  THRMXB(ICNT,ICRD)
+                             IF(IABCJJ) THEN
+                               V3DER(IJ,JJJDER(ICRD))=V3DER(IJ,JJJDER
+     *                         (ICRD)) - THRMXB(ICNT,ICRD)
+                             ELSE
+                               N1POS=N3III(ICRD,1)
+                               N2POS=N3III(ICRD,2)
+                               N3POS=N3III(ICRD,3)
+                               VALUE=THRBK(ICRD)
+     *                         + MX2B1K(ICNT,N1POS) + MX1B2K(ICNT,N1POS)
+     *                         + MX2B1K(ICNT,N2POS) + MX1B2K(ICNT,N2POS)
+     *                         + MX2B1K(ICNT,N3POS) + MX1B2K(ICNT,N3POS)
+                               V3DER(IJ,KKKDER(ICRD))=V3DER(IJ,KKKDER
+     *                         (ICRD)) - VALUE
+                             END IF
+                           END IF
+                           IF(.NOT. IABCJJ) THEN
+                             V3DER(IJ,JJJDER(ICRD))=V3DER(IJ,JJJDER
+     *                       (ICRD)) +  THRMXK(ICNT,ICRD)
+                           END IF
+                        END IF
+                        IF(ICRD .LE. 18) THEN
+                          N1POS=N3IIK(ICRD,1)
+                          N4POS=N3IIK(ICRD,4)
+                          IF(IABCII) THEN
+                            V3DER(IJ,IIJDER(ICRD))=V3DER(IJ,IIJDER
+     *                      (ICRD)) + THRMXK(ICNT,N1POS)
+                            V3DER(IJ,IJJDER(ICRD))=V3DER(IJ,IJJDER
+     *                      (ICRD)) - THRMXK(ICNT,N1POS)
+                          ELSE
+                            IF(IABCJJ) THEN
+                              V3DER(IJ,IIJDER(ICRD))=V3DER(IJ,IIJDER
+     *                        (ICRD)) - THRMXB(ICNT,N1POS)
+                              V3DER(IJ,IJJDER(ICRD))=V3DER(IJ,IJJDER
+     *                        (ICRD)) + THRMXB(ICNT,N1POS)
+                            ELSE
+                              N2POS=N3IKK(ICRD,1)
+                              N3POS=N3IKK(ICRD,2)
+                              N4POS=N3IKK(ICRD,3)
+                              V3DER(IJ,IIJDER(ICRD))=V3DER(IJ,IIJDER
+     *                        (ICRD)) + MX2B1K(ICNT,ICRD)
+                              V3DER(IJ,IJJDER(ICRD))=V3DER(IJ,IJJDER
+     *                        (ICRD)) + MX1B2K(ICNT,ICRD)
+                              V3DER(IJ,IIKDER(ICRD))=V3DER(IJ,IIKDER
+     *                        (ICRD)) - THRMXB(ICNT,N1POS)
+     *                        - MX2B1K(ICNT,ICRD)
+                              V3DER(IJ,JJKDER(ICRD))=V3DER(IJ,JJKDER
+     *                        (ICRD)) - THRMXK(ICNT,N1POS)
+     *                        - MX1B2K(ICNT,ICRD)
+                              V3DER(IJ,IKKDER(ICRD))=V3DER(IJ,IKKDER
+     *                        (ICRD)) + THRMXB(ICNT,N1POS)
+     *                        + MX2B1K(ICNT,N2POS) + MX2B1K(ICNT,N3POS)
+     *                        + MX1B2K(ICNT,N4POS)
+                              V3DER(IJ,JKKDER(ICRD))=V3DER(IJ,JKKDER
+     *                        (ICRD)) + THRMXK(ICNT,N1POS)
+     *                        + MX1B2K(ICNT,N2POS) + MX1B2K(ICNT,N3POS)
+     *                        + MX2B1K(ICNT,N4POS)
+                            END IF
+                          END IF
+                        END IF
+                        IF(.NOT. IABCII .AND. .NOT. IABCJJ) THEN
+                          N1POS=N3IJK(ICRD,1)
+                          N2POS=N3IJK(ICRD,2)
+                          IF(IABC .GT. II) THEN
+                            N1POS=N3IJK(ICRD,5)
+                            N2POS=N3IJK(ICRD,6)
+                          END IF
+                          IF(IABC .GT. JJ .AND. IABC .LT. II) THEN
+                            N1POS=N3IJK(ICRD,3)
+                            N2POS=N3IJK(ICRD,4)
+                          END IF
+                          V3DER(IJ,IJKDER(ICRD))=V3DER(IJ,IJKDER
+     *                    (ICRD))
+     *                    - MX2B1K(ICNT,N1POS) - MX1B2K(ICNT,N2POS)
+                        END IF
+  990                 CONTINUE
+                      END IF
+                      GOTO 998
+  975                 CONTINUE
+C
+C   THIS SECTION IS FOR NOT KEEPING THE 3RD DERIVATIVES, BUT RATHER
+C   PRE-MULTIPLYING THEM WITH THE DENSITY MATRIX
+C
+                      IF(EQUAL) THEN
+                        DO 985 ICRD=1,18
+                          IF(ICRD .LE. 10) THEN
+                            N1POS=N3III(ICRD,1)
+                            N2POS=N3III(ICRD,2)
+                            N3POS=N3III(ICRD,3)
+                            VALUE=THRBK(ICRD)
+     *                       +   MX2B1K(ICNT,N1POS) + MX1B2K(ICNT,N1POS)
+     *                       +   MX2B1K(ICNT,N2POS) + MX1B2K(ICNT,N2POS)
+     *                       +   MX2B1K(ICNT,N3POS) + MX1B2K(ICNT,N3POS)
+                            EONE3(IIIDER(ICRD))=EONE3(IIIDER(ICRD))
+     *                       + VALUE*DEN1T(IJ)
+                            EONE3(KKKDER(ICRD))=EONE3(KKKDER
+     *                      (ICRD)) - VALUE*DEN1T(IJ)
+                          END IF
+C
+C   MIXED CENTER
+C
+                         N1POS=N3IIK(ICRD,1)
+                         N2POS=N3IIK(ICRD,2)
+                         N3POS=N3IIK(ICRD,3)
+                         N4POS=N3IIK(ICRD,4)
+                         VALUE= THRBK(N1POS)
+     *                       + MX2B1K(ICNT,N2POS) + MX1B2K(ICNT,N2POS)
+     *                       + MX2B1K(ICNT,N3POS) + MX1B2K(ICNT,N3POS)
+     *                       + MX2B1K(ICNT,N4POS) + MX1B2K(ICNT,N4POS)
+                         EONE3(IIKDER(ICRD))=EONE3(IIKDER(ICRD))
+     *                         - VALUE*DEN1T(IJ)
+                         EONE3(IKKDER(ICRD))=EONE3(IKKDER(ICRD))
+     *                         + VALUE*DEN1T(IJ)
+  985                  CONTINUE
+                     ELSE
+                       DO 995 ICRD=1,27
+                         IF(ICRD .LE. 10) THEN
+                           IF(IABCII) THEN
+                             EONE3(IIIDER(ICRD))=EONE3(IIIDER
+     *                       (ICRD))  - THRMXK(ICNT,ICRD)*DEN1T(IJ)
+                           ELSE
+                             EONE3(IIIDER(ICRD))=EONE3(IIIDER
+     *                       (ICRD)) +  THRMXB(ICNT,ICRD)*DEN1T(IJ)
+                             IF(IABCJJ) THEN
+                               EONE3(JJJDER(ICRD))=EONE3(JJJDER
+     *                         (ICRD)) - THRMXB(ICNT,ICRD)*DEN1T(IJ)
+                             ELSE
+                               N1POS=N3III(ICRD,1)
+                               N2POS=N3III(ICRD,2)
+                               N3POS=N3III(ICRD,3)
+                               VALUE=THRBK(ICRD)
+     *                         + MX2B1K(ICNT,N1POS) + MX1B2K(ICNT,N1POS)
+     *                         + MX2B1K(ICNT,N2POS) + MX1B2K(ICNT,N2POS)
+     *                         + MX2B1K(ICNT,N3POS) + MX1B2K(ICNT,N3POS)
+                               EONE3(KKKDER(ICRD))=EONE3(KKKDER
+     *                         (ICRD)) - VALUE*DEN1T(IJ)
+                             END IF
+                           END IF
+                           IF(.NOT. IABCJJ) THEN
+                             EONE3(JJJDER(ICRD))=EONE3(JJJDER
+     *                       (ICRD)) +  THRMXK(ICNT,ICRD)*DEN1T(IJ)
+                           END IF
+                        END IF
+                        IF(ICRD .LE. 18) THEN
+                          N1POS=N3IIK(ICRD,1)
+                          N4POS=N3IIK(ICRD,4)
+                          IF(IABCII) THEN
+                            EONE3(IIJDER(ICRD))=EONE3(IIJDER
+     *                      (ICRD)) + THRMXK(ICNT,N1POS)*DEN1T(IJ)
+                            EONE3(IJJDER(ICRD))=EONE3(IJJDER
+     *                      (ICRD)) - THRMXK(ICNT,N1POS)*DEN1T(IJ)
+                          ELSE
+                            IF(IABCJJ) THEN
+                              EONE3(IIJDER(ICRD))=EONE3(IIJDER
+     *                        (ICRD)) - THRMXB(ICNT,N1POS)*DEN1T(IJ)
+                              EONE3(IJJDER(ICRD))=EONE3(IJJDER
+     *                        (ICRD)) + THRMXB(ICNT,N1POS)*DEN1T(IJ)
+                            ELSE
+                              N2POS=N3IKK(ICRD,1)
+                              N3POS=N3IKK(ICRD,2)
+                              N4POS=N3IKK(ICRD,3)
+                              EONE3(IIJDER(ICRD))=EONE3(IIJDER
+     *                        (ICRD)) + MX2B1K(ICNT,ICRD)*DEN1T(IJ)
+                              EONE3(IJJDER(ICRD))=EONE3(IJJDER
+     *                        (ICRD)) + MX1B2K(ICNT,ICRD)*DEN1T(IJ)
+                              EONE3(IIKDER(ICRD))=EONE3(IIKDER
+     *                        (ICRD)) + (-THRMXB(ICNT,N1POS)
+     *                        - MX2B1K(ICNT,ICRD))*DEN1T(IJ)
+                              EONE3(JJKDER(ICRD))=EONE3(JJKDER
+     *                        (ICRD)) + (-THRMXK(ICNT,N1POS)
+     *                        - MX1B2K(ICNT,ICRD))*DEN1T(IJ)
+                              EONE3(IKKDER(ICRD))=EONE3(IKKDER
+     *                        (ICRD)) + (THRMXB(ICNT,N1POS)
+     *                        + MX2B1K(ICNT,N2POS) + MX2B1K(ICNT,N3POS)
+     *                        + MX1B2K(ICNT,N4POS))*DEN1T(IJ)
+                              EONE3(JKKDER(ICRD))=EONE3(JKKDER
+     *                        (ICRD)) + (THRMXK(ICNT,N1POS)
+     *                        + MX1B2K(ICNT,N2POS) + MX1B2K(ICNT,N3POS)
+     *                        + MX2B1K(ICNT,N4POS))*DEN1T(IJ)
+                            END IF
+                          END IF
+                        END IF
+                        IF(.NOT. IABCII .AND. .NOT. IABCJJ) THEN
+                          N1POS=N3IJK(ICRD,1)
+                          N2POS=N3IJK(ICRD,2)
+                          IF(IABC .GT. II) THEN
+                            N1POS=N3IJK(ICRD,5)
+                            N2POS=N3IJK(ICRD,6)
+                          END IF
+                          IF(IABC .GT. JJ .AND. IABC .LT. II) THEN
+                            N1POS=N3IJK(ICRD,3)
+                            N2POS=N3IJK(ICRD,4)
+                          END IF
+                          EONE3(IJKDER(ICRD))=EONE3(IJKDER(ICRD))
+     *                    + (-MX2B1K(ICNT,N1POS) - MX1B2K(ICNT,N2POS))
+     *                    *DEN1T(IJ)
+                        END IF
+  995                 CONTINUE
+                      END IF
+  998               CONTINUE
+ 5500               CONTINUE
+C
+ 6000             CONTINUE
+C
+      RETURN
+      END

@@ -1,0 +1,1275 @@
+C     PROGRAM ANHLIN
+C**********************************************************
+c Moved to PSI area on 2/4/89 by clj.
+C**********************************************************
+C***LAST UPDATED ON FEBRUARY 11, 1988 BY YUKIO YAMAGUCHI***
+C**********************************************************
+      SUBROUTINE LTYPLI(ZETA,CXY,F3Q,CLTYP)
+C   THE CALCULATION OF L-TYPE DOUBLING CONSTANTS
+C   FOR A LINEAR POLYATOMIC MOLECULE
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION ZETA(N3N,N3N,3),CXY(3,3,N3N),F3Q(N3N,N3N,N3N)
+      DIMENSION CLTYP(N3N,3,3)
+      DIMENSION CCC(3,3)
+      COMMON/VIB101/NATOM,N3N,NATRI,ILIN,NVIB
+      COMMON/VIB106/ROTAA(3),ROTGC(3),ROTCM(3),ROTMH(3)
+      COMMON/VIB108/IAXIS(3),NDEG(150),NDAB(150,5),IMAG(150)
+      COMMON/VIB109/CLIMIT,FLIM1,FLIM2
+      COMMON/VIB203/IOFF(150),IPRNT
+      COMMON/VIB204/SQM(150),ROOT(150),FREQ(150)
+      COMMON/VIB205/IFREQ,NFRQ(150)
+      DATA A00,HALF,ONE,TWO / 0.0D+00 , 0.5D+00 , 1.0D+00 , 2.0D+00 /
+      DATA WLIMIT / 1.0D-02 /
+      DATA DLIMIT / 1.0D-02 /
+      DATA PI,CL / 3.1415926536D+00 , 2.99792458D+00 /
+    1 FORMAT(//,2X,' ***********************************'/
+     1          2X,' ***THE L-TYPE DOUBLING CONSTANTS***'/
+     2          2X,' ***********************************')
+    2 FORMAT(//,2X,' ZETA MATRIX, IABC = ',I5/)
+    3 FORMAT(2X,I5,4F10.5)
+    4 FORMAT(//,2X,' QE(T) VALU'/)
+    5 FORMAT(2X,' QVIB',5X,' IVIB',7X,' FREQENCY',9X,' HARMONIC',
+     1      14X,' ANHARMONIC',12X,' TOTAL',14X,' TOTAL'/
+     2      24X,' IN CM-1',10X,' IN CM-1',15X,' IN CM-1',
+     3      15X,' IN CM-1',12X,' IN MHZ'/)
+    6 FORMAT(2X,I5,5X,I5,8X,F10.5,F20.10,3X,F20.10,3X,F20.10,3X,F20.10)
+    7 FORMAT(//,2X,' DE = ',F20.10/
+     1          2X,' BE = ',F20.10/)
+    8 FORMAT(//,2X,' QET = ',F20.10/
+     1          2X,' AET = ',F20.10/)
+    9 FORMAT(//,2X,' VALU4H = ',F20.10/
+     1          2X,' VALU4A = ',F20.10/
+     2          2X,' VALU4  = ',F20.10/
+     3          2X,' VALU4X = ',F20.10/)
+   10 FORMAT(//,2X,' VALU8T = ',F20.10/
+     1          2X,' VALU8S = ',F20.10/
+     2          2X,' VALU8  = ',F20.10/)
+   11 FORMAT(//,2X,' VALU9T = ',F20.10/
+     1          2X,' VALU9S = ',F20.10/
+     2          2X,' VALU9SP= ',F20.10/
+     3          2X,' VALU9  = ',F20.10/)
+   12 FORMAT(//,2X,' IVIB   =  ',I5/
+     1          2X,' VALU1  = ',F20.10/
+     2          2X,' VALU2  = ',F20.10/
+     3          2X,' VALU3  = ',F20.10/
+     4          2X,' VALU4  = ',F20.10/
+     5          2X,' VALU5  = ',F20.10/
+     6          2X,' VALU6  = ',F20.10/
+     7          2X,' VALU7  = ',F20.10/
+     8          2X,' VALU8  = ',F20.10/
+     9          2X,' VALU9  = ',F20.10/
+     A          2X,' VALU10 = ',F20.10/
+     B          2X,' QJT    = ',F20.10/
+     C          2X,' VALUH  = ',F20.10/
+     D          2X,' VALUA  = ',F20.10/
+     E          2X,' VALUT  = ',F20.10/)
+   13 FORMAT(//,2X,' QJ(T) VALU'/)
+   14 FORMAT(2X,' QVIB',5X,' IVIB',7X,' FREQENCY',9X,' HARMONIC',
+     1      14X,' ANHARMONIC',12X,' TOTAL',14X,' TOTAL'/
+     2      24X,' IN CM-1',10X,' IN D-07 CM-1',10X,' IN D-07 CM-1',
+     3      10X,' IN D-07 CM-1',7X,' IN KHZ'/)
+   15 FORMAT(//,2X,' QK(T) VALU'/)
+C
+C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+C%  HIGHER-ORDER L-TYPE DOUBLING CONSTANTS FOR LINEAR MOLEUCLES        %
+C%  REFERENCE : J.K.G. WATSON, J. MOL. SPECTROSC. 101,83 (1983).       %
+C%                                                                     %
+C%  NOTE :                                                             %
+C%         ZETA(S,T)=-ZETA(T,S)                                        %
+C%         IN THIS SUBROUTINE ZETA(S,T) HAS BEEN USED.                 %
+C%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+C
+      WRITE(6,1)
+C
+C   NOTE : THE MOLECULAR AXIS IS CHOSEN AS THE Z AXIS
+      IXX=1
+      IYY=2
+      IZZ=3
+      IF(IPRNT.LE.2) GO TO 201
+      DO 101 IABC=1,3
+      WRITE(6,2) IABC
+      CALL MATOUT(ZETA(1,1,IABC),N3N,N3N,NVIB,NVIB,6)
+  101 CONTINUE
+      IF(IPRNT.GT.2) THEN
+        DO 150 IABC=1,NVIB
+        WRITE(6,*) ' IABC = ',IABC
+        DO 149 I=1,3
+        DO 149 J=1,3
+        CCC(I,J)=CXY(I,J,IABC)*1.0D+07
+  149   CONTINUE
+        CALL MATOUT(CCC,3,3,3,3,6)
+  150   CONTINUE
+      END IF
+C
+C:::::::::::::::::::::::::::::::
+C:::ONLY FOR DEGENERATE MODES:::
+C:::::::::::::::::::::::::::::::
+  201 CONTINUE
+C   CALCULATION OF Q(E)
+      CALL ZERO(CLTYP,N3N*9)
+C***********************************************************************
+C***FOLLOWINGS ARE FOR AN ALTERNATE EXPRESSION                         *
+C***THEY ARE TESTED TO GIVE THE SAME RESULTS                           *
+C***********************************************************************
+C*    DO 103 IVIB=1,NVIB                                               *
+C*    IF(NDEG(IVIB).EQ.1) GO TO 103                                    *
+C*    FRQI=FREQ(IVIB)                                                  *
+C*    FRQI2=FRQI*FRQI                                                  *
+C                                                                      *
+C   SUM OVER NON-DEGENERATE MODES                                      *
+C*    VALU2=A00                                                        *
+C*    DO 102 JVIB=1,NVIB                                               *
+C*    IF(NDEG(JVIB).NE.1) GO TO 102                                    *
+C*    FRQJ=FREQ(JVIB)                                                  *
+C*    FRQJ2=FRQJ*FRQJ                                                  *
+C*    FACT2=(FRQI2*3.0D+00+FRQJ2)/(FRQI2-FRQJ2)                        *
+C*    VALU2=VALU2+(ZETA(IVIB,JVIB,IXX)**2+ZETA(IVIB,JVIB,IYY)**2)*FACT2*
+C*102 CONTINUE                                                         *
+C*    VALUH=-(VALU2*ROTCM(IXX)*ROTCM(IXX)*TWO)/FRQI                    *
+C*    VALUA=A00                                                        *
+C*    VALUT=VALUH+VALUA                                                *
+C*    CLTYP(IVIB,1,1)=VALUH                                            *
+C*    CLTYP(IVIB,2,1)=VALUA                                            *
+C*    CLTYP(IVIB,3,1)=VALUT                                            *
+C*    IF(IPRNT.LE.2) GO TO 103                                         *
+C*    WRITE(6,3) IVIB,FRQI,VALUH,VALUA,VALUT                           *
+C*103 CONTINUE                                                         *
+C***********************************************************************
+C
+      BE=ROTCM(IXX)
+      BE2=BE*BE
+      DO 105 IVIB=1,NVIB
+      IF(NDEG(IVIB).EQ.1) GO TO 105
+      FRQI=FREQ(IVIB)
+      FRQI2=FRQI*FRQI
+C
+C   SUM OVER NON-DEGENERATE MODES
+      VALU2=ONE
+      DO 104 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 104
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      FACT2=(FRQI2*4.0D+00)/(FRQJ2-FRQI2)
+      VALU2=VALU2+(ZETA(IVIB,JVIB,IXX)**2+ZETA(IVIB,JVIB,IYY)**2)*FACT2
+  104 CONTINUE
+      VALUH=(VALU2*BE2*TWO)/FRQI
+      VALUA=A00
+      VALUT=VALUH+VALUA
+      CLTYP(IVIB,1,1)=VALUH
+      CLTYP(IVIB,2,1)=VALUA
+      CLTYP(IVIB,3,1)=VALUT
+      IF(IPRNT.LE.2) GO TO 105
+      WRITE(6,3) IVIB,FRQI,VALUH,VALUA,VALUT
+  105 CONTINUE
+C
+      WRITE(6,4)
+      WRITE(6,5)
+      DO 106 II=1,NVIB
+      IVIB=NFRQ(II)
+      IF(NDEG(IVIB).LE.1) GO TO 106
+      FRQI=FREQ(IVIB)
+      VALUH=CLTYP(IVIB,1,1)
+      VALUA=CLTYP(IVIB,2,1)
+      VALUT=CLTYP(IVIB,3,1)
+      VALUM=VALUT*CL*1.0D+04
+      WRITE(6,6) II,IVIB,FRQI,VALUH,VALUA,VALUT,VALUM
+  106 CONTINUE
+C
+C   HIGHER-ORDER L-TYPE DOUBLING CONSTANTS
+      VALU0=A00
+      DO 107 IVIB=1,NVIB
+      IF(NDEG(IVIB).NE.1) GO TO 107
+      FRQI=FREQ(IVIB)
+      FACT=CXY(IXX,IXX,IVIB)*CXY(IXX,IXX,IVIB)
+      VALU0=VALU0+FACT*FRQI
+  107 CONTINUE
+      DE=VALU0*HALF
+      BE=ROTCM(IXX)
+      BE2=BE*BE
+      BE4=BE2*BE2
+      IF(IPRNT.GT.2) THEN
+        WRITE(6,7) DE,BE
+      END IF
+C
+      DO 130 IVIB=1,NVIB
+      IF(NDEG(IVIB).LE.1) GO TO 130
+      FRQI=FREQ(IVIB)
+      FRQI2=FRQI*FRQI
+      FRQI3=FRQI2*FRQI
+      FRQI4=FRQI2*FRQI2
+C
+C   CALCULATE QE(T) AND AE(T)
+C   1ST , 2ND AND 3RD TERMS
+      VAL1=A00
+      VAL2=A00
+      DO 111 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 111
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      DNUM=(FRQI2*3.0D+00+FRQJ2)
+      FACT=(ZETA(JVIB,IVIB,IXX)**2+ZETA(JVIB,IVIB,IYY)**2)
+      DNOM=(FRQJ2-FRQI2)
+      VAL1=VAL1+(FACT*DNUM)/DNOM
+      VAL2=VAL2+CXY(IXX,IXX,JVIB)*F3Q(JVIB,IVIB,IVIB)
+  111 CONTINUE
+      QET=VAL1*BE2*TWO/FRQI
+      AET=QET*HALF-VAL2*HALF
+      IF(IPRNT.GT.2) THEN
+        WRITE(6,8) QET,AET
+      END IF
+C
+      VALU1=-(4.0D+00*DE*QET)/BE
+      VALU2=(TWO*BE4)/FRQI3
+      VALU3=BE2*(AET*TWO-QET)/FRQI2
+C
+C   4TH , 5TH AND 6TH TERMS
+      VAL4=A00
+      VAL5=A00
+      VAL6=A00
+      DO 112 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 112
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      FRQJH=DSQRT(FRQJ)
+      FACT4=(ZETA(JVIB,IVIB,IXX)**2+ZETA(JVIB,IVIB,IYY)**2)
+      DNUM4=FACT4*(FRQJ2+FRQI2)
+      DNOM4=(FRQJ2-FRQI2)**2
+      VAL4=VAL4+DNUM4/DNOM4
+      DNUM5=CXY(IXX,IXX,JVIB)*(ZETA(JVIB,IVIB,IXX)+ZETA(JVIB,IVIB,IYY))
+     1     *FRQJ**(1.50D+00)
+      DNOM5=(FRQJ2-FRQI2)
+      VAL5=VAL5+DNUM5/DNOM5
+      VAL6=VAL6+CXY(IXX,IXX,JVIB)*(ZETA(JVIB,IVIB,IXX)
+     1                            +ZETA(JVIB,IVIB,IYY))/FRQJH
+  112 CONTINUE
+      VALU4H=-(8.0D+00*BE2*QET)*VAL4
+      VALU4A=(4.0D+00*BE2*VAL2)*VAL4
+      VALU4=VALU4H+VALU4A
+      VALU5=-(12.0D+00*BE*FRQI)*(VAL5*VAL5)
+      VALU6=-(8.0D+00*BE*FRQI)*(VAL5*VAL6)
+      IF(IPRNT.GT.2) THEN
+        VALU4X=-(4.0D+00*BE2*(TWO*AET+QET))*VAL4
+        WRITE(6,9) VALU4H,VALU4A,VALU4,VALU4X
+      END IF
+C
+C   7TH TERM
+      VAL7=A00
+      DO 115 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 115
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      DO 114 KVIB=1,NVIB
+      IF(NDEG(KVIB).NE.1) GO TO 114
+      FRQK=FREQ(KVIB)
+      FRQK2=FRQK*FRQK
+      FRQKH=DSQRT(FRQK)
+      DO 113 LVIB=1,NVIB
+      IF(NDEG(LVIB).NE.1) GO TO 113
+      FRQL=FREQ(LVIB)
+      FRQL2=FRQL*FRQL
+      FRQLH=DSQRT(FRQL)
+      DNUM=CXY(IXX,IXX,JVIB)*F3Q(JVIB,KVIB,LVIB)
+     1    *(ZETA(KVIB,IVIB,IXX)+ZETA(KVIB,IVIB,IYY))
+     2    *(ZETA(LVIB,IVIB,IXX)+ZETA(LVIB,IVIB,IYY))* FRQKH*FRQLH
+      DNOM=(FRQK2-FRQI2)*(FRQL2-FRQI2)
+      VAL7=VAL7+DNUM/DNOM
+  113 CONTINUE
+  114 CONTINUE
+  115 CONTINUE
+      VALU7=-(VAL7*BE2*FRQI)*8.0D+00
+C
+C   8TH TERM
+      VAL8T=A00
+      VAL8S=A00
+      DO 117 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.2) GO TO 117
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      IF(DABS(FRQI-FRQJ).LE.DLIMIT) GO TO 117
+      VAL8T=VAL8T+(FRQI2*3.0D+00+FRQJ2)/(FRQI2-FRQJ2)
+      DO 116 KVIB=1,NVIB
+      IF(NDEG(KVIB).NE.1) GO TO 116
+      FRQK=FREQ(KVIB)
+      FRQK2=FRQK*FRQK
+      DNOMS=(FRQK2-FRQI2)
+      VAL8S=VAL8S+(ZETA(KVIB,IVIB,IXX)+ZETA(KVIB,IVIB,IYY))
+     1           *(ZETA(KVIB,JVIB,IXX)+ZETA(KVIB,JVIB,IYY))/DNOMS
+  116 CONTINUE
+  117 CONTINUE
+      VAL8T=VAL8T*HALF
+      VAL8S=VAL8S*HALF
+      VALU8=-(BE4*FRQI*VAL8T*VAL8S*VAL8S)*32.0D+00
+      IF(IPRNT.GT.2) THEN
+        WRITE(6,10) VAL8T,VAL8S,VALU8
+      END IF
+C
+C   9TH TERM
+      VAL9T=A00
+      VAL9S=A00
+      VAL9SP=A00
+      DO 120 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.2) GO TO 120
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      IF(DABS(FRQI-FRQJ).LE.DLIMIT) GO TO 120
+      VAL9T=VAL9T+DSQRT(FRQI3*FRQJ)/(FRQI2-FRQJ2)
+      DO 118 KVIB=1,NVIB
+      IF(NDEG(KVIB).NE.1) GO TO 118
+      FRQK=FREQ(KVIB)
+      FRQK2=FRQK*FRQK
+      DNOMS=FRQK2-FRQI2
+      VAL9S=VAL9S+(ZETA(KVIB,IVIB,IXX)+ZETA(KVIB,IVIB,IYY))
+     1           *(ZETA(KVIB,JVIB,IXX)+ZETA(KVIB,JVIB,IYY))/DNOMS
+  118 CONTINUE
+      DO 119 LVIB=1,NVIB
+      IF(NDEG(LVIB).NE.1) GO TO 119
+      VAL9SP=VAL9SP+CXY(IXX,IXX,LVIB)*F3Q(LVIB,IVIB,JVIB)
+  119 CONTINUE
+  120 CONTINUE
+      VAL9T=VAL9T*HALF
+      VAL9S=VAL9S*HALF
+      VAL9SP=VAL9SP*HALF
+      VALU9=(BE2*VAL9T*VAL9S*VAL9SP)*16.0D+00
+      IF(IPRNT.GT.2) THEN
+        WRITE(6,11) VAL9T,VAL9S,VAL9SP,VALU9
+      END IF
+C
+      VAL10=A00
+      DO 121 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 121
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      FRQJ4=FRQJ2*FRQJ2
+      DNOM10=FRQI*(FRQJ2-FRQI2)**3
+      DNUM10=(ZETA(JVIB,IVIB,IXX)**2+ZETA(JVIB,IVIB,IYY)**2)
+     1      *(FRQJ4+FRQJ2*FRQI2*10.0D+00+FRQI4*5.0D+00)
+      VAL10=VAL10+DNUM10/DNOM10
+  121 CONTINUE
+      VALU10=-(VAL10*BE4)*8.0D+00
+C
+      VALUH=VALU1+VALU2+VALU4H+VALU5+VALU6+VALU8
+      VALUA=VALU3+VALU4A+VALU7+VALU9
+      QJT=VALU1+VALU2+VALU3+VALU4+VALU5+VALU6+VALU7+VALU8+VALU9
+      IF(IPRNT.GT.2) THEN
+        VALU1=VALU1*1.0D+08
+        VALU2=VALU2*1.0D+08
+        VALU3=VALU3*1.0D+08
+        VALU4=VALU4*1.0D+08
+        VALU5=VALU5*1.0D+08
+        VALU6=VALU6*1.0D+08
+        VALU7=VALU7*1.0D+08
+        VALU8=VALU8*1.0D+08
+        VALU9=VALU9*1.0D+08
+        VALU10=VALU10*1.0D+08
+        VALUH=VALUH*1.0D+08
+        VALUA=VALUA*1.0D+08
+C
+        VALUTX=VALUH+VALUA
+        WRITE(6,12) IVIB,VALU1,VALU2,VALU3,VALU4,VALU5,VALU6,VALU7,
+     1              VALU8,VALU9,VALU10,QJT,VALUH,VALUA,VALUTX
+      END IF
+      CLTYP(IVIB,1,2)=VALUH
+      CLTYP(IVIB,2,2)=VALUA
+      CLTYP(IVIB,3,2)=QJT
+      QKT=-QJT+VALU10
+      CLTYP(IVIB,1,3)=-VALUH+VALU10
+      CLTYP(IVIB,2,3)=-VALUA
+      CLTYP(IVIB,3,3)=QKT
+C
+  130 CONTINUE
+C
+      WRITE(6,13)
+      WRITE(6,14)
+      DO 132 II=1,NVIB
+      IVIB=NFRQ(II)
+      IF(NDEG(IVIB).LE.1) GO TO 132
+      FRQI=FREQ(IVIB)
+      VALUH=CLTYP(IVIB,1,2)*1.0D+07
+      VALUA=CLTYP(IVIB,2,2)*1.0D+07
+      VALUT=CLTYP(IVIB,3,2)*1.0D+07
+      VALUM=VALUT*CL
+      WRITE(6,6) II,IVIB,FRQI,VALUH,VALUA,VALUT,VALUM
+  132 CONTINUE
+      WRITE(6,15)
+      WRITE(6,14)
+      DO 133 II=1,NVIB
+      IVIB=NFRQ(II)
+      IF(NDEG(IVIB).LE.1) GO TO 133
+      FRQI=FREQ(IVIB)
+      VALUH=CLTYP(IVIB,1,3)*1.0D+07
+      VALUA=CLTYP(IVIB,2,3)*1.0D+07
+      VALUT=CLTYP(IVIB,3,3)*1.0D+07
+      VALUM=VALUT*CL
+      WRITE(6,6) II,IVIB,FRQI,VALUH,VALUA,VALUT,VALUM
+  133 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE ROVLIR(ZETA,AXY,F3Q,EE,RVCNST)
+C   THE CALCULATION OF VIBRATION-ROTATION INTERACTION CONSTANTS
+C   FOR A LINEAR POLYATOMIC MOLECULE
+      IMPLICIT REAL*8 (A-H,O-Z)
+      CHARACTER*1 RAXIS
+      CHARACTER*25 RTYPE
+      DIMENSION F3Q(N3N,N3N,N3N),ZETA(N3N,N3N,3),AXY(3,3,N3N)
+      DIMENSION EE(N3N,N3N),RVCNST(NVIB,3)
+      COMMON/VIB101/NATOM,N3N,NATRI,ILIN,NVIB
+      COMMON/VIB103/PARA,WAVE,CONST,CYCL,CONV
+      COMMON/VIB106/ROTAA(3),ROTGC(3),ROTCM(3),ROTMH(3)
+      COMMON/VIB108/IAXIS(3),NDEG(150),NDAB(150,5),IMAG(150)
+      COMMON/VIB109/CLIMIT,FLIM1,FLIM2
+      COMMON/VIB203/IOFF(150),IPRNT
+      COMMON/VIB204/SQM(150),ROOT(150),FREQ(150)
+      COMMON/VIB205/IFREQ,NFRQ(150)
+      COMMON/VIB206/RAXIS(3),RTYPE(6)
+      COMMON/VIB209/SALP(3)
+      DATA PH,AVN / 6.626176D+00 , 6.022045D+00 /
+      DATA PI,CL / 3.1415926536D+00 , 2.99792458D+00 /
+      DATA A00,HALF,ONE,TWO / 0.0D+00 , 0.5D+00 , 1.0D+00 , 2.0D+00 /
+      DATA WLIMIT / 1.0D+00 /
+      DATA ZLIMIT / 1.0D-05 /
+    1 FORMAT(//,2X,' **************************************************'
+     1        /,2X,' ***THE VIBRATION-ROTATION INTERACTION CONSTANTS***'
+     2        /,2X,' **************************************************'
+     3        )
+    2 FORMAT(//,2X,' ZETA MATRIX, IABC = ',I5/)
+    3 FORMAT(//,2X,' F3(QI*QJ*QK) MATRIX (IN CM-1), IVIB = ',I5/)
+    4 FORMAT(//,2X,' AXY MATRIX, IVIB = ',I5/)
+    5 FORMAT(//,2X,' QVIB',5X,' IVIB',10X,' A',21X,' B'/
+     1          27X,' IN CM-1',15X,' IN CM-1'/)
+    6 FORMAT(2X,I5,5X,I5,3X,F20.10,3X,F20.10)
+    7 FORMAT(//,2X,' PRINCIPAL MOMENTS OF INERTIA WITH ZERO-POINT VIBRAT
+     1IONAL CORRECTION'/
+     2 4X,5H AXIS,9X,11H IN AMU.A+2,9X,10H IN G.CM+2,10X,
+     3 8H IN CM-1,15X,7H IN MHZ/38X,8H (*D+39)/)
+    8 FORMAT(8X,A1,3X,3F20.10,F20.5)
+    9 FORMAT(//,2X,' ::::::::::::::::::::::::::::::::::::'/
+     1          2X,' :::CORIOLIS RESONANCE IS OBSERVED:::'/
+     2          2X,' ::::::::::::::::::::::::::::::::::::'/)
+   10 FORMAT(2X,' RESONANCE LIMIT IS SET TO ',F10.3,' CM-1'/)
+C
+      WRITE(6,1)
+      RCONST=1.0D-01*PI*DSQRT(CL/(PH*AVN))
+      IAA=IAXIS(1)
+      IBB=IAXIS(2)
+      ICC=IAXIS(3)
+      NCORIO=0
+C
+      IF(IPRNT.LE.2) GO TO 201
+      DO 101 IABC=1,3
+      WRITE(6,2) IABC
+      CALL MATOUT(ZETA(1,1,IABC),N3N,N3N,N3N,N3N,6)
+  101 CONTINUE
+      DO 103 III=1,NVIB
+      IVIB=NFRQ(III)
+      WRITE(6,3) IVIB
+      DO 102 I=1,NVIB
+      II=NFRQ(I)
+      DO 102 J=1,NVIB
+      JJ=NFRQ(J)
+      EE(I,J)=F3Q(II,JJ,IVIB)
+  102 CONTINUE
+      CALL ANHOUT(EE,N3N,N3N,NVIB,NVIB,6)
+  103 CONTINUE
+      DO 104 IVIB=1,NVIB
+      WRITE(6,4) IVIB
+      CALL MATOUT(AXY(1,1,IVIB),3,3,3,3,6)
+  104 CONTINUE
+C
+C::::::::::::::::::::::::::::::
+C:::FOR NON-DEGENERATE MODES:::
+C::::::::::::::::::::::::::::::
+  201 CONTINUE
+      DO 113 IVIB=1,NVIB
+      IF(NDEG(IVIB).NE.1) GO TO 113
+      FRQI=FREQ(IVIB)
+      FRQI2=FRQI*FRQI
+      VALSA1=(AXY(IAA,IAA,IVIB)**2/ROTAA(1))*0.75D+00
+      VALSB1=(AXY(IBB,IBB,IVIB)**2/ROTAA(2))*0.75D+00
+C   SUM OVER DEGENERATE MODES
+      VALSA2=A00
+      VALSB2=A00
+      DO 111 JVIB=1,NVIB
+      IF(NDEG(JVIB).EQ.1) GO TO 111
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      IF(DABS(FRQI-FRQJ).LE.CLIMIT) GO TO 203
+      FACT2=0.5D+00*(FRQI2*3.0D+00+FRQJ2)/(FRQI2-FRQJ2)
+      GO TO 204
+C////////////////////////////////////
+C///CORIOLIS RESONANCE CORRECTIONS///
+C////////////////////////////////////
+  203 CONTINUE
+      FACT2=-(0.25D+00*(FRQI-FRQJ)**2)/(FRQJ*(FRQI+FRQJ))
+      IF(DABS(ZETA(IVIB,JVIB,IAA)).GT.ZLIMIT.OR.
+     *   DABS(ZETA(IVIB,JVIB,IBB)).GT.ZLIMIT) THEN
+        NCORIO=NCORIO+1
+      END IF
+C///////////////////////////////
+C///END OF CORIOLIS RESONANCE///
+C///////////////////////////////
+  204 CONTINUE
+      ZFACT=ZETA(IVIB,JVIB,IAA)**2+ZETA(IVIB,JVIB,IBB)**2
+      VALSA2=VALSA2+FACT2*ZFACT
+      VALSB2=VALSB2+FACT2*ZFACT
+  111 CONTINUE
+C   SUM OVER NON-DEGENERATE MODES
+      VALSA3=A00
+      VALSB3=A00
+      DO 112 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 112
+      FRQJ=FREQ(JVIB)
+      FACT3=(FRQI*F3Q(IVIB,IVIB,JVIB)*RCONST)/(FRQJ**(1.5D+00))
+      VALSA3=VALSA3+AXY(IAA,IAA,JVIB)*FACT3
+      VALSB3=VALSB3+AXY(IBB,IBB,JVIB)*FACT3
+  112 CONTINUE
+      ROTSA=-(VALSA1+VALSA2+VALSA3)*(ROTCM(1)*ROTCM(1)*TWO)/FRQI
+      ROTSB=-(VALSB1+VALSB2+VALSB3)*(ROTCM(2)*ROTCM(2)*TWO)/FRQI
+      RVCNST(IVIB,1)=ROTSA
+      RVCNST(IVIB,2)=ROTSB
+  113 CONTINUE
+C
+C::::::::::::::::::::::::::
+C:::FOR DEGENERATE MODES:::
+C::::::::::::::::::::::::::
+      DO 115 IVIB=1,NVIB
+      IF(NDEG(IVIB).EQ.1) GO TO 115
+      FRQI=FREQ(IVIB)
+      FRQI2=FRQI*FRQI
+      VALTA1=A00
+      VALTB1=A00
+      VALTA2=A00
+      VALTB2=A00
+      VALTA3=A00
+      VALTB3=A00
+C   SUM OVER NON-DEGENERATE MODES
+      DO 114 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 114
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      IF(DABS(FRQI-FRQJ).LE.CLIMIT) GO TO 205
+      FACT2=0.5D+00*(FRQI2*3.0D+00+FRQJ2)/(FRQI2-FRQJ2)
+      GO TO 206
+C////////////////////////////////////
+C///CORIOLIS RESONANCE CORRECTIONS///
+C////////////////////////////////////
+  205 CONTINUE
+      FACT2=-(0.25D+00*(FRQI-FRQJ)**2)/(FRQJ*(FRQI+FRQJ))
+      IF(DABS(ZETA(IVIB,JVIB,IAA)).GT.ZLIMIT.OR.
+     *   DABS(ZETA(IVIB,JVIB,IBB)).GT.ZLIMIT) THEN
+        NCORIO=NCORIO+1
+      END IF
+C///////////////////////////////
+C///END OF CORIOLIS RESONANCE///
+C///////////////////////////////
+  206 CONTINUE
+      ZFACT=ZETA(IVIB,JVIB,IAA)**2+ZETA(IVIB,JVIB,IBB)**2
+      VALTA2=VALTA2+FACT2*ZFACT
+      VALTB2=VALTB2+FACT2*ZFACT
+      FACT3=(FRQI*F3Q(IVIB,IVIB,JVIB)*RCONST)/(FRQJ**(1.5D+00))
+      VALTA3=VALTA3+AXY(IAA,IAA,JVIB)*FACT3
+      VALTB3=VALTB3+AXY(IBB,IBB,JVIB)*FACT3
+  114 CONTINUE
+      ROTTA=-(VALTA1+VALTA2+VALTA3)*(ROTCM(1)*ROTCM(1)*TWO)/FRQI
+      ROTTB=-(VALTB1+VALTB2+VALTB3)*(ROTCM(2)*ROTCM(2)*TWO)/FRQI
+      RVCNST(IVIB,1)=ROTTA
+      RVCNST(IVIB,2)=ROTTB
+  115 CONTINUE
+C
+C   CALCULATE THE ROTATIONAL CONSTANTS
+C   WITH ZERO-POINT VIBRATIONAL CORRECTION
+      CALL ZERO(SALP,3)
+      WRITE(6,5)
+      DO 120 III=1,NVIB
+      IVIB=NFRQ(III)
+      ROTA=RVCNST(IVIB,1)
+      ROTB=RVCNST(IVIB,2)
+      SALP(1)=SALP(1)+ROTA
+      SALP(2)=SALP(2)+ROTB
+      WRITE(6,6) III,IVIB,ROTA,ROTB
+  120 CONTINUE
+      WRITE(6,7)
+      DO 122 I=1,2
+      PB=ROTCM(I)-SALP(I)*HALF
+      PT=CONST/PB
+      PA=PT*PARA
+      PC=CYCL/PT
+      WRITE(6,8) RAXIS(I),PT,PA,PB,PC
+  122 CONTINUE
+C
+      IF(NCOR.NE.0) THEN
+        WRITE(6,9)
+        WRITE(6,10) CLIMIT
+      END IF
+C
+      RETURN
+      END
+      SUBROUTINE CENTLI(BXY,CXY,F3Q,EE)
+C   THE CALCULATION OF CENTRIFUGAL DISTORTION CONSTANTS
+C   FOR A LINEAR POLYATOMIC MOLECULE
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION BXY(3,3,N3N),CXY(3,3,N3N)
+      DIMENSION F3Q(N3N,N3N,N3N),EE(N3N,N3N)
+      COMMON/VIB101/NATOM,N3N,NATRI,ILIN,NVIB
+      COMMON/VIB106/ROTAA(3),ROTGC(3),ROTCM(3),ROTMH(3)
+      COMMON/VIB108/IAXIS(3),NDEG(150),NDAB(150,5),IMAG(150)
+      COMMON/VIB203/IOFF(150),IPRNT
+      COMMON/VIB204/SQM(150),ROOT(150),FREQ(150)
+      COMMON/VIB205/IFREQ,NFRQ(150)
+      COMMON/VIB207/TABCD(3,3,3,3),PABC(3,3,3)
+      COMMON/VIB208/TAABB(3,3),TABAB(3,3)
+      DATA WLIMIT / 1.0D+00 /
+      DATA CL / 2.99792458D+00 /
+      DATA A00,HALF,ONE,TWO / 0.0D+00 , 0.5D+00 , 1.0D+00 , 2.0D+00 /
+    1 FORMAT(//,2X,' ******************************************'/
+     1          2X,' ***THE CENTRIFUGAL DISTORTION CONSTANTS***'/
+     2          2X,' ******************************************')
+    2 FORMAT(//,2X,' F3(QI*QJ*QK) MATRIX (IN CM-1), IVIB = ',I5/)
+    3 FORMAT(//,2X,' TAABB MATRIX FROM BXY MATRICES (IN CM-1)'/)
+    4 FORMAT(//,2X,' TABAB MATRIX FROM BXY MATRICES (IN CM-1)'/)
+    5 FORMAT(//,2X,' FOR A LINEAR POLYATOMIC MOLECULE'/
+     1          2X,' DJ = ',F20.10,' D-10 CM-1',
+     2         10X,' DJ = ',F20.10,' MHZ'/)
+    6 FORMAT(2X,' HJ = ',F20.10,' D-10 CM-1',
+     1         10X,' HJ = ',F20.10,' HZ'/)
+C
+      WRITE(6,1)
+C   ELEMENTS OF F3Q ARE IN CM-1
+      IF(IPRNT.LE.2) GO TO 201
+      DO 102 III=1,NVIB
+      IVIB=NFRQ(III)
+      WRITE(6,2) IVIB
+      DO 101 I=1,NVIB
+      II=NFRQ(I)
+      DO 101 J=1,NVIB
+      JJ=NFRQ(J)
+      EE(I,J)=F3Q(II,JJ,IVIB)
+  101 CONTINUE
+      CALL ANHOUT(EE,N3N,N3N,NVIB,NVIB,6)
+  102 CONTINUE
+C
+  201 CONTINUE
+C   FOR A LINEAR POLYATOMIC MOLECULES
+C   QUARTIC CENTRIFUGAL CONSTANTS
+C
+C***********************************************************************
+C***FOLLOWING CODES ARE FOR ALTERNATE EXPRESSIONS                      *
+C***THEY ARE TESTED TO GIVE THE SAME RESULTS                           *
+C***********************************************************************
+C*    DO 103 I=1,3                                                     *
+C*    DO 103 J=1,3                                                     *
+C*    TAABB(I,J)=TABCD(I,I,J,J)                                        *
+C*    TABAB(I,J)=TABCD(I,J,I,J)                                        *
+C*103 CONTINUE                                                         *
+C*    IF(IPRNT.LE.2) GO TO 202                                         *
+C*    WRITE(6,3)                                                       *
+C*    CALL MATOUT(TAABB,3,3,3,3,6)                                     *
+C*    WRITE(6,4)                                                       *
+C*    CALL MATOUT(TABAB,3,3,3,3,6)                                     *
+C                                                                      *
+C*202 CONTINUE                                                         *
+C*    IXX=1                                                            *
+C*    DJ=-TAABB(IXX,IXX)*0.25D+00                                      *
+C*    DJCM=DJ*1.0D+10                                                  *
+C*    DJMH=DJ*CL*1.0D+4                                                *
+C*    WRITE(6,5) DJCM,DJMH                                             *
+C***********************************************************************
+C*    DJ=A00                                                           *
+C*    DO 104 IVIB=1,NVIB                                               *
+C*    IF(NDEG(IVIB).NE.1) GO TO 104                                    *
+C*    FRQI=FREQ(IVIB)                                                  *
+C*    IF(DABS(FRQI).LE.WLIMIT) GO TO 104                               *
+C*    FACT=BXY(IXX,IXX,IVIB)*BXY(IXX,IXX,IVIB)/FRQI                    *
+C*    DJ=DJ+FACT/TWO                                                   *
+C*104 CONTINUE                                                         *
+C*    DJCM=DJ*1.0D+10                                                  *
+C*    DJMH=DJ*CL*1.0D+4                                                *
+C*    WRITE(6,5) DJCM,DJMH                                             *
+C***********************************************************************
+C
+      IXX=1
+      DJ=A00
+      DO 105 IVIB=1,NVIB
+      IF(NDEG(IVIB).NE.1) GO TO 105
+      FRQI=FREQ(IVIB)
+      IF(DABS(FRQI).LE.WLIMIT) GO TO 105
+      FACT=CXY(IXX,IXX,IVIB)*CXY(IXX,IXX,IVIB)*FRQI
+      DJ=DJ+FACT/TWO
+  105 CONTINUE
+      DJCM=DJ*1.0D+10
+      DJMH=DJ*CL*1.0D+4
+      WRITE(6,5) DJCM,DJMH
+C
+C   SEXTIC CENTRIFUGAL DISTORTION CONSTANTS
+C***********************************************************************
+C***FOLLWOING CODES ARE FOR AN ALTERNATE EXPRESSION                    *
+C***THEY ARE TESTED TO GIVE THE SAME RESUTLS                           *
+C***********************************************************************
+C*    IXX=1                                                            *
+C*    VALU1=(DJ*DJ*4.0D+00)/ROTCM(IXX)                                 *
+C*    VALU2=A00                                                        *
+C*    VALU3=A00                                                        *
+C*    ROTSQ2=ROTCM(IXX)*ROTCM(IXX)*TWO                                 *
+C*    DO 110 IVIB=1,NVIB                                               *
+C*    IF(NDEG(IVIB).NE.1) GO TO 110                                    *
+C*    FRQI=FREQ(IVIB)                                                  *
+C*    FRQI3=FRQI**3                                                    *
+C*    BI=BXY(IXX,IXX,IVIB)                                             *
+C*    VALU2=VALU2-ROTSQ2*BXY(IXX,IXX,IVIB)*BXY(IXX,IXX,IVIB)/FRQI3     *
+C*    DO 109 JVIB=1,NVIB                                               *
+C*    IF(NDEG(JVIB).NE.1) GO TO 109                                    *
+C*    FRQJ=FREQ(JVIB)                                                  *
+C*    BJ=BXY(IXX,IXX,JVIB)                                             *
+C*    DO 108 KVIB=1,NVIB                                               *
+C*    IF(NDEG(KVIB).NE.1) GO TO 108                                    *
+C*    FRQK=FREQ(KVIB)                                                  *
+C*    BK=BXY(IXX,IXX,KVIB)                                             *
+C*    FACT=BI*BJ*BK                                                    *
+C*    VALU3=VALU3-FACT*F3Q(IVIB,JVIB,KVIB)/(FRQI*FRQJ*FRQK)            *
+C*108 CONTINUE                                                         *
+C*109 CONTINUE                                                         *
+C*110 CONTINUE                                                         *
+C*    HJ=VALU1+VALU2+VALU3/6.0D+00                                     *
+C*    HJCM=HJ*1.0D+10                                                  *
+C*    HJHZ=HJ*CL*1.0D+10                                               *
+C*    WRITE(6,6) HJCM,HJHZ                                             *
+C***********************************************************************
+C
+      IXX=1
+      VALU1=(DJ*DJ*4.0D+00)/ROTCM(IXX)
+      VALU2=A00
+      VALU3=A00
+      ROTSQ2=ROTCM(IXX)*ROTCM(IXX)*TWO
+      DO 115 IVIB=1,NVIB
+      IF(NDEG(IVIB).NE.1) GO TO 115
+      FRQI=FREQ(IVIB)
+      CI=CXY(IXX,IXX,IVIB)
+      VALU2=VALU2-ROTSQ2*CXY(IXX,IXX,IVIB)*CXY(IXX,IXX,IVIB)/FRQI
+      DO 114 JVIB=1,NVIB
+      IF(NDEG(JVIB).NE.1) GO TO 114
+      CJ=CXY(IXX,IXX,JVIB)
+      DO 113 KVIB=1,NVIB
+      IF(NDEG(KVIB).NE.1) GO TO 113
+      CK=CXY(IXX,IXX,KVIB)
+      FACT=CI*CJ*CK
+      VALU3=VALU3+FACT*F3Q(IVIB,JVIB,KVIB)
+  113 CONTINUE
+  114 CONTINUE
+  115 CONTINUE
+      HJ=VALU1+VALU2+VALU3/6.0D+00
+C
+      HJCM=HJ*1.0D+10
+      HJHZ=HJ*CL*1.0D+10
+      WRITE(6,6) HJCM,HJHZ
+      RETURN
+      END
+      SUBROUTINE VLTYLI(F3Q,F4Q,CLTYP)
+C   THE CALCULATION OF VIBRATIONAL L-TYPE DOUBLING CONSTANTS
+C   FOR A LINEAR POLYATOMIC MOLECULE
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION CLTYP(N3N,N3N)
+      DIMENSION F3Q(N3N,N3N,N3N),F4Q(N3N,N3N,N3N,N3N)
+      COMMON/VIB101/NATOM,N3N,NATRI,ILIN,NVIB
+      COMMON/VIB108/IAXIS(3),NDEG(150),NDAB(150,5),IMAG(150)
+      COMMON/VIB109/CLIMIT,FLIM1,FLIM2
+      COMMON/VIB203/IOFF(150),IPRNT
+      COMMON/VIB204/SQM(150),ROOT(150),FREQ(150)
+      COMMON/VIB205/IFREQ,NFRQ(150)
+      DATA A00,HALF,ONE,TWO / 0.0D+00 , 0.5D+00 , 1.0D+00 , 2.0D+00 /
+      DATA WLIMIT / 1.0D-02 /
+      DATA PI,CL / 3.1415926536D+00 , 2.99792458D+00 /
+    1 FORMAT(//,2X,' ***********************************************'/
+     1          2X,' ***THE VIBRATIONAL L-TYPE DOUBLING CONSTANTS***'/
+     2          2X,' ***********************************************')
+    2 FORMAT(2X,I5,4F10.5)
+    3 FORMAT(//,2X,' QVIB',5X,' IVIB',7X,' FREQENCY',9X,' CUBIC',
+     1         12X,' QUARTIC',10X,' TOTAL',9X,' TOTAL'/
+     2         24X,' IN CM-1',10X,' IN CM-1',10X,' IN CM-1',
+     3         10X,' IN CM-1',7X,' IN MHZ'/)
+    4 FORMAT(2X,I5,5X,I5,8X,F10.5,F15.5,3X,F15.5,3X,F15.5,3X,F15.5)
+C
+      WRITE(6,1)
+C
+C   NOTE : THE MOLECULAR AXIS IS CHOSEN AS THE Z AXIS
+      IXX=1
+      IYY=2
+      IZZ=3
+C
+C:::::::::::::::::::::::::::::::
+C:::ONLY FOR DEGENERATE MODES:::
+C:::::::::::::::::::::::::::::::
+      DO 105 IVIB=1,NVIB
+      IF(NDEG(IVIB).EQ.1) GO TO 105
+      FRQI=FREQ(IVIB)
+      FRQI2=FRQI*FRQI
+      IVA=NDAB(IVIB,1)
+      IVB=NDAB(IVIB,2)
+      DO 104 JVIB=1,NVIB
+      IF(NDEG(JVIB).EQ.1) GO TO 104
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      JVA=NDAB(JVIB,1)
+      JVB=NDAB(JVIB,2)
+      IF(IVIB.EQ.JVIB) GO TO 104
+C
+C   SUM OVER NON-DEGENERATE MODES
+      VALU3=A00
+      DO 103 KVIB=1,NVIB
+      IF(NDEG(KVIB).NE.1) GO TO 103
+      FRQK=FREQ(JVIB)
+      FRQK2=FRQK*FRQK
+      DNUM=(FRQK2-FRQI2-FRQJ2)*FRQK
+      FAC=F3Q(IVA,JVA,KVIB)
+      FACT=FAC*FAC
+      WPPP=FRQI+FRQJ+FRQK
+      WPPM=FRQI+FRQJ-FRQK
+      WPMP=FRQI-FRQJ+FRQK
+      WPMM=FRQI-FRQJ-FRQK
+      DIJK=WPPP*WPPM*WPMP*WPMM
+      VALU3=VALU3-(0.5D+00*FACT*DNUM)/(DIJK)
+  103 CONTINUE
+      VALU4=(F4Q(IVA,IVA,JVA,JVA)-F4Q(IVA,IVA,JVB,JVB))/4.0D+00
+      VALUT=VALU3+VALU4
+      CLTYP(IVIB,1)=VALU3
+      CLTYP(IVIB,2)=VALU4
+      CLTYP(IVIB,3)=VALUT
+      IF(IPRNT.LE.2) GO TO 105
+      WRITE(6,2) IVIB,FRQI,VALU3,VALU4,VALUT
+  104 CONTINUE
+  105 CONTINUE
+C
+      WRITE(6,3)
+      DO 106 II=1,NVIB
+      IVIB=NFRQ(II)
+      IF(NDEG(IVIB).LE.1) GO TO 106
+      FRQI=FREQ(IVIB)
+      VALU3=CLTYP(IVIB,1)
+      VALU4=CLTYP(IVIB,2)
+      VALUT=CLTYP(IVIB,3)
+      VALUM=VALUT*CL*1.0D+04
+      WRITE(6,4) II,IVIB,FRQI,VALU3,VALU4,VALUT,VALUM
+  106 CONTINUE
+C
+      RETURN
+      END
+      SUBROUTINE LINEAR(ZETA,F3Q,F4Q,XIJ,GIJ)
+C   THE ANHARMONICITY CONTSTANTS FOR A LINEAR POLYATOMIC MOLECULE
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION F3Q(N3N,N3N,N3N),F4Q(N3N,N3N,N3N,N3N),ZETA(N3N,N3N,3)
+      DIMENSION XIJ(N3N,N3N),GIJ(N3N,N3N)
+      COMMON/VIB101/NATOM,N3N,NATRI,ILIN,NVIB
+      COMMON/VIB106/ROTAA(3),ROTGC(3),ROTCM(3),ROTMH(3)
+      COMMON/VIB108/IAXIS(3),NDEG(150),NDAB(150,5),IMAG(150)
+      COMMON/VIB109/CLIMIT,FLIM1,FLIM2
+      COMMON/VIB203/IOFF(150),IPRNT
+      COMMON/VIB204/SQM(150),ROOT(150),FREQ(150)
+      COMMON/VIB205/IFREQ,NFRQ(150)
+      DATA A00,ONE / 0.0D+00 , 1.0D+00 /
+      DATA WLIMIT / 1.0D+00 /
+      DATA DLIMIT / 1.0D-01 /
+      DATA PLIMIT / 1.0D-05 /
+    1 FORMAT(//,2X,' *********************************************'/
+     1          2X,' ***THE VIBRATIONAL ANHARMONICITY CONSTANTS***'/
+     2          2X,' *********************************************'/)
+    2 FORMAT(//,2X,' ANHARMONIC CONSTANTS IN CM-1'/
+     1          2X,' IVIB',3X,' JVIB',8X,' FREQ(I)',5X,' FREQ(J)',
+     2          7X,' VALU1',7X,' VALU2',7X,' VALU3',7X,' VALU4',
+     3          7X,' XIJ',9X,' GIJ'/)
+    3 FORMAT(2X,I5,3X,I5,3X,8(F13.3))
+    4 FORMAT(//,2X,' ANHARMONIC CONSTANTS IN CM-1'/
+     1          4X,' QI',5X,' QJ',8X,' FREQ(I)',5X,' FREQ(J)',
+     2          7X,' XIJ',9X,' GIJ'/)
+    5 FORMAT(2X,I5,3X,I5,3X,4(F13.3))
+    6 FORMAT(//,2X,' THEORETICAL FREQUENCIES IN CM-1'/
+     1          2X,' NO.',9X,' HARMONIC',14X,' DELTA',
+     2         13X,' FUNDAMENTAL'/)
+    7 FORMAT(2X,I5,4X,F13.3,7X,F13.3,12X,F13.3)
+    8 FORMAT(//,2X,' :::::::::::::::::::::::::::::::::::::::::::::::'/
+     1          2X,' :::ANHARMONIC RESONANCE (TYPE I) IS OBSERVED:::'/
+     2          2X,' :::::::::::::::::::::::::::::::::::::::::::::::'/)
+    9 FORMAT(//,2X,' ::::::::::::::::::::::::::::::::::::::::::::::::'/
+     1          2X,' :::ANHARMONIC RESONANCE (TYPE II) IS OBSERVED:::'/
+     2          2X,' ::::::::::::::::::::::::::::::::::::::::::::::::'/)
+   10 FORMAT(2X,' RESONANCE LIMIT IS SET TO ',F10.3,' CM-1'/)
+C
+C:::::::::::::::::::::::::::::::::::::::
+C:::CALCULATE ANHARMONICITY CONSTANTS:::
+C:::::::::::::::::::::::::::::::::::::::
+      IANH1=0
+      IANH2=0
+C
+      WRITE(6,1)
+      IF(IPRNT.GT.2)
+     *WRITE(6,2)
+      IAA=IAXIS(1)
+      IBB=IAXIS(2)
+      ICC=IAXIS(3)
+C
+      DO 120 IVIB=1,N3N
+      FRQI=FREQ(IVIB)
+      FRQI2=FRQI*FRQI
+      IVA=NDAB(IVIB,1)
+      IVB=NDAB(IVIB,2)
+      DO 120 JVIB=1,N3N
+      FRQJ=FREQ(JVIB)
+      FRQJ2=FRQJ*FRQJ
+      JVA=NDAB(JVIB,1)
+      JVB=NDAB(JVIB,2)
+C
+      VALU1=A00
+      VALU2=A00
+      VALU3=A00
+      VALU4=A00
+      VALU5=A00
+      GVAL1=A00
+      GVAL2=A00
+      XRS=A00
+      GRS=A00
+      IF(DABS(FRQI).LE.WLIMIT) GO TO 230
+      IF(DABS(FRQJ).LE.WLIMIT) GO TO 230
+      IF(IVIB.NE.JVIB) GO TO 210
+C
+C+++++++++++++++++++++++++++++++++++++++++
+C+++DIAGONAL CONSTANTS (NON-DEGENERATE)+++
+C+++++++++++++++++++++++++++++++++++++++++
+      IF(NDEG(IVIB).NE.1) GO TO 205
+      VALU1=F4Q(IVIB,IVIB,IVIB,IVIB)
+      DO 101 KVIB=1,N3N
+C   SUM OVER ONLY NON-DEGENERATE MODES
+      FRQK=FREQ(KVIB)
+      IF(DABS(FRQK).LE.WLIMIT) GO TO 101
+      IF(NDEG(KVIB).NE.1) GO TO 101
+      FRQK2=FRQK*FRQK
+      FAC=F3Q(IVIB,IVIB,KVIB)
+      FACT=FAC*FAC
+      IF(DABS(FRQI+FRQI-FRQK).LE.FLIM1) GO TO 201
+      DNUM=FRQI2*8.0D+00-FRQK2*3.0D+00
+      DENM=FRQI2*4.0D+00-FRQK2
+      VALU2=VALU2+(DNUM*FACT)/(FRQK*DENM)
+C***********************************************************************
+C***FOLLOWING CODES ARE FOR AN ALTERNATE EXPRESSION                    *
+C***THEY ARE TESTED TO GIVE THE SAME RESULTS                           *
+C***********************************************************************
+C*    DNUM=ONE/((FRQI+FRQI+FRQK)*2.0D+00)-ONE/((FRQI+FRQI-FRQK)*2.0D+00)
+C*   *    +2.0D+00/FRQK                                                *
+C     VALU2=VALU2+(DNUM*FACT)                                          *
+C***********************************************************************
+      GO TO 101
+C/////////////////////////////////
+C///FERMI RESONANCE CORRECTIONS///
+C/////////////////////////////////
+  201 CONTINUE
+      DNUM=ONE/((FRQI+FRQI+FRQK)*2.0D+00)+2.0D+00/FRQK
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH1=IANH1+1
+      END IF
+      VALU2=VALU2+FACT*DNUM
+C////////////////////////////
+C///END OF FERMI RESONANCE///
+C////////////////////////////
+  101 CONTINUE
+      XRS=(VALU1-VALU2)/16.0D+00
+      GO TO 230
+C
+C+++++++++++++++++++++++++++++++++++++
+C+++DIAGONAL CONSTANTS (DEGENERATE)+++
+C+++++++++++++++++++++++++++++++++++++
+  205 CONTINUE
+      VALU1=F4Q(IVIB,IVIB,IVIB,IVIB)
+      GVAL1=-VALU1
+      DO 102 KVIB=1,N3N
+C   SUM OVER NON-DEGENERATE MODES
+      FRQK=FREQ(KVIB)
+      IF(DABS(FRQK).LE.WLIMIT) GO TO 102
+      IF(NDEG(KVIB).NE.1) GO TO 102
+      FRQK2=FRQK*FRQK
+      FAC=F3Q(IVIB,IVIB,KVIB)
+      FACT=FAC*FAC
+      IF(DABS(FRQI+FRQI-FRQK).LE.FLIM1) GO TO 206
+      DNUM=FRQI2*8.0D+00-FRQK2*3.0D+00
+      DENM=FRQI2*4.0D+00-FRQK2
+      VALU2=VALU2+(DNUM*FACT)/(FRQK*DENM)
+      GVAL2=GVAL2+(FACT*FRQK)/DENM
+      GO TO 102
+C/////////////////////////////////
+C///FERMI RESONANCE CORRECTIONS///
+C/////////////////////////////////
+  206 CONTINUE
+      DNUM=ONE/((FRQI+FRQI+FRQK)*2.0D+00)+2.0D+00/FRQK
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH1=IANH1+1
+      END IF
+      VALU2=VALU2+FACT*DNUM
+      GNUM=ONE/((FRQI+FRQI+FRQK)*2.0D+00)
+      GVAL2=GVAL2-FACT*GNUM
+C////////////////////////////
+C///END OF FERMI RESONANCE///
+C////////////////////////////
+  102 CONTINUE
+      XRS=(VALU1-VALU2)/16.0D+00
+      GRS=(GVAL1/3.0D+00-GVAL2)/16.0D+00
+      GO TO 230
+C
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C+++OFF-DIAGONAL CONSTANTS (NON-DEGENERATE & NON-DEGENERATE)+++
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  210 CONTINUE
+      IF(NDEG(IVIB).NE.1) GO TO 215
+      IF(NDEG(JVIB).NE.1) GO TO 215
+      VALU1=F4Q(IVIB,IVIB,JVIB,JVIB)
+      DO 103 KVIB=1,NVIB
+C   SUM OVER ONLY NON-DEGENERATE MODES
+      FRQK=FREQ(KVIB)
+      IF(DABS(FRQK).LE.WLIMIT) GO TO 103
+      IF(NDEG(KVIB).NE.1) GO TO 103
+      FRQK2=FRQK*FRQK
+      WPPP=FRQI+FRQJ+FRQK
+      WPPM=FRQI+FRQJ-FRQK
+      WPMP=FRQI-FRQJ+FRQK
+      WPMM=FRQI-FRQJ-FRQK
+      DIJK=WPPP*WPPM*WPMP*WPMM
+      DNUM2=F3Q(IVIB,IVIB,KVIB)*F3Q(KVIB,JVIB,JVIB)
+      VALU2=VALU2+DNUM2/FRQK
+      FAC=F3Q(IVIB,JVIB,KVIB)
+      FACT=FAC*FAC
+      IF(DABS(WPPM).LE.FLIM2) GO TO 211
+      IF(DABS(WPMP).LE.FLIM2) GO TO 212
+      IF(DABS(WPMM).LE.FLIM2) GO TO 213
+      DNUM3=(FRQK2-FRQI2-FRQJ2)*FRQK
+      VALU3=VALU3+(DNUM3*FACT)/DIJK
+C***********************************************************************
+C***FOLLOWING CODES ARE FOR AN ALTERNATIVE EXPRESSION                  *
+C***THEY ARE TESTED TO GIVE THE SAME RESULTS                           *
+C***********************************************************************
+C*    DNUM3=ONE/WPPP-ONE/WPPM+ONE/WPMP-ONE/WPMM                        *
+C*    VALU3=VALU3+(DNUM3*FACT)/4.0D+00                                 *
+C***********************************************************************
+      GO TO 103
+C/////////////////////////////////
+C///FERMI RESONANCE CORRECTIONS///
+C/////////////////////////////////
+C   WI+WJ=WK
+  211 CONTINUE
+      DNUM3=ONE/WPPP+ONE/WPMP-ONE/WPMM
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GO TO 103
+C   WI+WK=WJ
+  212 CONTINUE
+      DNUM3=ONE/WPPP-ONE/WPPM-ONE/WPMM
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GO TO 103
+C   WJ+WK=WI
+  213 CONTINUE
+      DNUM3=ONE/WPPP-ONE/WPPM+ONE/WPMP
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+C////////////////////////////
+C///END OF FERMI RESONANCE///
+C////////////////////////////
+  103 CONTINUE
+      XRS=(VALU1-VALU2-VALU3*2.0D+00)/4.0D+00
+      GO TO 230
+C
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C+++OFF-DIAGONAL CONSTANTS (DEGENERATE & NON-DEGENERATE)+++
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C   NOTE : RELATIONSHIPS AMONG CUBIC FORCE CONSTANTS
+C     (S,TA,TA)=(S,TB,TB)
+C     (S,TA,TB)=0
+C     (S,TA,TA')=(S,TB,TB')
+C     (S,TA,TB')=0
+  215 CONTINUE
+      IF(NDEG(IVIB).NE.1.AND.NDEG(JVIB).NE.1) GO TO 225
+      VALU1=F4Q(IVIB,IVIB,JVIB,JVIB)
+C   SUM OVER NON-DEGENERATE MODES
+      DO 105 KVIB=1,NVIB
+      FRQK=FREQ(KVIB)
+      IF(DABS(FRQK).LE.WLIMIT) GO TO 105
+      IF(NDEG(KVIB).NE.1) GO TO 105
+      DNUM2=F3Q(IVIB,IVIB,KVIB)*F3Q(KVIB,JVIB,JVIB)
+      VALU2=VALU2+DNUM2/FRQK
+  105 CONTINUE
+C   SUM OVER DEGENERATE MODES
+      DO 106 KVIB=1,NVIB
+      FRQK=FREQ(KVIB)
+      IF(DABS(FRQK).LE.WLIMIT) GO TO 106
+      FRQK2=FRQK*FRQK
+      IF(NDEG(KVIB).EQ.1) GO TO 106
+      WPPP=FRQI+FRQJ+FRQK
+      WPPM=FRQI+FRQJ-FRQK
+      WPMP=FRQI-FRQJ+FRQK
+      WPMM=FRQI-FRQJ-FRQK
+      DIJK=WPPP*WPPM*WPMP*WPMM
+      DNUM3=(FRQK2-FRQI2-FRQJ2)*FRQK
+      FAC=F3Q(IVIB,JVIB,KVIB)
+      FACT=FAC*FAC
+      IF(DABS(WPPM).LE.FLIM2) GO TO 217
+      IF(DABS(WPMP).LE.FLIM2) GO TO 218
+      IF(DABS(WPMM).LE.FLIM2) GO TO 219
+      VALU3=VALU3+(DNUM3*FACT)/DIJK
+      GO TO 106
+C/////////////////////////////////
+C///FERMI RESONANCE CORRECTIONS///
+C/////////////////////////////////
+C   WI+WJ=WK
+  217 CONTINUE
+      DNUM3=ONE/WPPP+ONE/WPMP-ONE/WPMM
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GO TO 106
+C   WI+WK=WJ
+  218 CONTINUE
+      DNUM3=ONE/WPPP-ONE/WPPM-ONE/WPMM
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GO TO 106
+C   WJ+WK=WI
+  219 CONTINUE
+      DNUM3=ONE/WPPP-ONE/WPPM+ONE/WPMP
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+C////////////////////////////
+C///END OF FERMI RESONANCE///
+C////////////////////////////
+  106 CONTINUE
+      ZFACT=(ZETA(IVIB,JVIB,IAA)**2+ZETA(IVIB,JVIB,IBB)**2)*ROTCM(IBB)
+      VALU4=(FRQI/FRQJ+FRQJ/FRQI)*ZFACT
+      XRS=(VALU1-VALU2-VALU3*2.0D+00)/4.0D+00+VALU4
+      GO TO 230
+C
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C+++OFF-DIAGONAL CONSTANTS (DEGENERATE & DEGENERATE)+++
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  225 CONTINUE
+      IF(DABS(FRQI-FRQJ).LE.DLIMIT) GO TO 230
+      VALU1=(F4Q(IVA,IVA,JVA,JVA)+F4Q(IVA,IVA,JVB,JVB))*0.5D+00
+      DO 109 KVIB=1,NVIB
+C   SUM OVER NON-DEGENERATE MODES
+      FRQK=FREQ(KVIB)
+      IF(DABS(FRQK).LE.WLIMIT) GO TO 109
+      IF(NDEG(KVIB).NE.1) GO TO 109
+      FRQK2=FRQK*FRQK
+      WPPP=FRQI+FRQJ+FRQK
+      WPPM=FRQI+FRQJ-FRQK
+      WPMP=FRQI-FRQJ+FRQK
+      WPMM=FRQI-FRQJ-FRQK
+      DIJK=WPPP*WPPM*WPMP*WPMM
+      DNUM2=F3Q(IVIB,IVIB,KVIB)*F3Q(KVIB,JVIB,JVIB)
+      DNUM3=(FRQK2-FRQI2-FRQJ2)*FRQK
+      FAC=F3Q(IVA,JVA,KVIB)
+      FACT=FAC*FAC
+      VALU2=VALU2+DNUM2/FRQK
+      IF(DABS(WPPM).LE.FLIM2) GO TO 226
+      IF(DABS(WPMP).LE.FLIM2) GO TO 227
+      IF(DABS(WPMM).LE.FLIM2) GO TO 228
+      VALU3=VALU3+(DNUM3*FACT)/DIJK
+      GVAL1=GVAL1+(FRQI*FRQJ*FRQK*FACT)/DIJK
+      GO TO 109
+C/////////////////////////////////
+C///FERMI RESONANCE CORRECTIONS///
+C/////////////////////////////////
+C   WI+WJ=WK
+  226 CONTINUE
+      DNUM3=ONE/WPPP+ONE/WPMP-ONE/WPMM
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GFACT=ONE/WPPP-ONE/WPMP+ONE/WPMM
+      GVAL1=GVAL1+(GFACT*FACT)/8.0D+00
+      GO TO 109
+C   WI+WK=WJ
+  227 CONTINUE
+      DNUM3=ONE/WPPP-ONE/WPPM-ONE/WPMM
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GFACT=ONE/WPPP-ONE/WPPM+ONE/WPMM
+      GVAL1=GVAL1+(GFACT*FACT)/8.0D+00
+      GO TO 109
+C   WJ+WK=WI
+  228 CONTINUE
+      DNUM3=ONE/WPPP-ONE/WPPM+ONE/WPMP
+      IF(DABS(FAC).GT.PLIMIT) THEN
+        IANH2=IANH2+1
+      END IF
+      VALU3=VALU3+(DNUM3*FACT)/4.0D+00
+      GFACT=ONE/WPPP-ONE/WPPM-ONE/WPMP
+      GVAL1=GVAL1+(GFACT*FACT)/8.0D+00
+      GO TO 109
+C////////////////////////////
+C///END OF FERMI RESONANCE///
+C////////////////////////////
+  109 CONTINUE
+      XRS=(VALU1-VALU2-VALU3)/4.0D+00
+      GRS=GVAL1*0.5D+00
+C
+  230 CONTINUE
+      XIJ(IVIB,JVIB)=XRS
+      GIJ(IVIB,JVIB)=GRS
+      IF(IPRNT.LE.2) GO TO 120
+      WRITE(6,3) IVIB,JVIB,FRQI,FRQJ,VALU1,VALU2,VALU3,VALU4,XRS,GRS
+  120 CONTINUE
+C
+      IF(IANH1.NE.0) THEN
+        WRITE(6,8)
+        WRITE(6,10) FLIM1
+      END IF
+      IF(IANH2.NE.0) THEN
+        WRITE(6,9)
+        WRITE(6,10) FLIM2
+      END IF
+C
+C*    IF(IPRNT.GT.2) GO TO 231
+      WRITE(6,4)
+      DO 122 II=1,NVIB
+      IVIB=NFRQ(II)
+      FRQI=FREQ(IVIB)
+C*    DO 122 JJ=1,II
+      DO 122 JJ=1,NVIB
+      JVIB=NFRQ(JJ)
+      FRQJ=FREQ(JVIB)
+      XRS=XIJ(IVIB,JVIB)
+      GRS=GIJ(IVIB,JVIB)
+      WRITE(6,5) II,JJ,FRQI,FRQJ,XRS,GRS
+  122 CONTINUE
+C
+C:::::::::::::::::::::::::::::::::::::::
+C:::CALCULATE FUNDAMENTAL FREQUENCIES:::
+C:::::::::::::::::::::::::::::::::::::::
+  231 CONTINUE
+      WRITE(6,6)
+      DO 125 II=1,NVIB
+      IVIB=NFRQ(II)
+      DEGI=NDEG(IVIB)
+      VALU1=FREQ(IVIB)
+      VALU2=XIJ(IVIB,IVIB)*(ONE+DEGI)
+      VALU3=A00
+      VALU4=GIJ(IVIB,IVIB)
+      DO 124 JJ=1,NVIB
+      JVIB=NFRQ(JJ)
+      IF(IVIB.EQ.JVIB) GO TO 124
+      VALU3=VALU3+XIJ(IVIB,JVIB)
+  124 CONTINUE
+      DELTA=VALU2+VALU3*0.5D+00+VALU4
+      VALUT=VALU1+DELTA
+      WRITE(6,7) II,VALU1,DELTA,VALUT
+  125 CONTINUE
+C
+      RETURN
+      END

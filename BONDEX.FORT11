@@ -1,0 +1,1404 @@
+      SUBROUTINE FENTRY(CC,IA,MAXCOR)
+C     THE BOND-INDEX AND VALENCE  PROGRAM
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+c Moved to PSI distribution disk on 020389 - clj.
+C**********************************************************************
+C*  BY:  YUKIO YAMAGUCHI                                              *
+C*  DATE:  FEBRUARY 15, 1989                                          *
+C*  REASON:  FENTRY*
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         search:  c3-18-88  *
+C*  DATE:  MARCH  18,  1988                                           *
+C*  REASON: DECREASE CORE TO RUN IN 7MB ON 9370                       *
+C*          and remove variable "GY" in block data section            *
+C**********************************************************************
+C*  BY:  GUSTAVO E. SCUSERIA                                          *
+C*  DATE:  APRIL 30, 1987                                             *
+C*  REASON:  BUG FOR TCSCF CASE FIXED                                 *
+C**********************************************************************
+C*  BY:  GUSTAVO E. SCUSERIA                                          *
+C*  DATE:  MAY 18, 1987                                               *
+C*  REASON:  PRINT OUT GEOMETRY                                       *
+C**********************************************************************
+C
+C
+C     *****************************************************
+C     *****************************************************
+C     **  A PROGRAM TO CALCULATE SOPHISTICATED NUMBERS ? **
+C     **                                                 **
+C     **            BROUGHT TO YOU BY                    **
+C     **                                                 **
+C     **                 GES                             **
+C     *****************************************************
+C     *****************************************************
+C
+C     PLEASE NOTIFY ANY WEIRD RESULTS OR BUGS.
+C
+C     INPUT: SET UP # BONDEX ## IN YOUR INPUT FILE
+C            ISCFCI, IPRNT, ITYFC (3I5)
+C            ISCFCI= 0,1 SCF CALCULATION
+C                    2   CI CALCULATION
+C            IPRNT = 0,1 MINIMUM PRINT OUT
+C                    2   EXTENDED PRINT OUT INCLUDING DENSITY MATRIX
+C            ITYFC = 3   SPD FUNCTIONS (INPUT$ CODES)
+C                  = 5   IF F OR G ARE PRESENT (PINPUT$ CODES)
+C
+C     NOTE!! IF USING  ISCFCI=2 , 3RD FLAG IN # ONEPDM ## MUST BE .GE. 1
+C            AND FIRST FLAG .EQ. 1 (YES, THE PRINT OPTION!)
+C            YOU'LL ALSO NEED TO RUN MASTER$ BEFORE ONEPDM$
+C            (AND INTS$ BEFORE MASTER$, SORRY)
+C
+C     IF USING MORE THAN 200 BFS OR 112 ATOMS TAKE A LOOK AT THE FORTRAN
+C     LAST UPDATE : APRIL 7, 1987
+C
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+c3-18-88  DIMENSION CC(360000),IA(1)
+C2-15-89  DIMENSION CC(360000),IA(1)
+      DIMENSION CC(MAXCOR),IA(1)
+      DIMENSION I30(200),A30(100)
+      COMMON/BASIS/NBASIS,NBFAO,NBFSO,NBATRI
+      COMMON/COORD/CHGS(112),X(3,112),WW(112)
+      COMMON/FLAGS/MPOINT,MCONST
+      COMMON/FUNCS/NATOM,N3N,NSYM
+      COMMON/GAUSS/ZS(200),CS(200)
+      COMMON/NORBS/NAST(112),NAED(112)
+      COMMON/NSHEL/KNUC(200),KTYPE(200),KPRIM(200),KLOC(200),
+     1 KMIN(200),KMAX(200),KNG(200),NSHELL,NPRIM
+      COMMON/PARAS/MXCOEF,LOCVEC
+      COMMON/QVALS/QORB(256),QATM(112),QNET(112)
+      COMMON/SIGNS/IOFF(500),IPRNT
+      COMMON/CI101/IOPEN,IOCC,JOCC,KOCC
+C2-15-89 EQUIVALENCE (CC,IA)
+      EQUIVALENCE (I30,A30)
+    1 FORMAT(//,2X,' THE BOND-INDEX AND VALENCE PROGRAM'/
+     .         ,2X,'       GES VERSION 05.18.87        '/)
+    2 FORMAT(16I5)
+    3 FORMAT(/,2X,' PARAMETERS'/
+     * 2X,' ISCFCI = ',I8/
+     * 2X,' IPRNT  = ',I8/
+     * 2X,' ITYFC  = ',I8/
+     * 2X,' NBASIS = ',I8/
+     * 2X,' NBFAO  = ',I8/
+     * 2X,' NBFSO  = ',I8/
+     * 2X,' NBATRI = ',I8/
+     * 2X,' NATOM  = ',I8/
+     * 2X,' N3N    = ',I8/
+     * 2X,' NSYM   = ',I8/
+     * 2X,' IOPEN  = ',I8/
+     * 2X,' NSHELL = ',I8/
+     * 2X,' NPRIM  = ',I8/)
+    4 FORMAT(/,3X,20A4)
+    5 FORMAT(//,2X,' ENUC  = ',F20.10/
+     1          2X,' ESCF  = ',F20.10/)
+    6 FORMAT(//,2X,' REQUIRED MEMORY EXCEEDS MAXCOR'/
+     1          2X,' ICMAX = ',I10,5X,' MAXCOR = ',I10/)
+    7 FORMAT(//,2X,' WARNING! NO INPUT TO BONDEX HAS BEEN FOUND. '/
+     1          2X,'          DEFAULT PARAMETERS WILL BE USED. ',/)
+C
+      CALL TSTART(6)
+      CALL NOUNFL
+C
+      ITAPE3=3
+      INPUT=5
+      ITAPE6=6
+      ITAP30=30
+C2-15-89  MAXCOR=360000
+c3-18-88  MAXCOR=360000
+      CALL RFILE(ITAP30)
+C
+      WRITE(6,1)
+      WRITE(3,1)
+C
+C   ISCFCI IS A PARAMETER FOR TYPE OF WAVE FUNCTION
+C     ISCFCI = 0 OR 1  FOR SCF
+C     ISCFCI = 2       FOR CI
+C   IPRINT IS A PARAMETER FOR SIZE OF OUTPUT
+C   ITYFC  IS A PARAMETER FOR DEALING WITH SPD (3) OR FG (5) BFS.
+C
+C   SET UP DEFAULT VALUES IF INPUT TO PROPER IS NOT FOUND
+C
+      ISCFCI = 1
+      IPRINT = 0
+      ITYFC  = 3
+C
+      CALL LOCATE(INPUT,'# BONDEX #',IERR)
+C
+      IF(IERR .NE. 0)  WRITE(6,7)
+      IF(IERR .NE. 0)  GOTO 100
+      READ(5,2) ISCFCI,IPRNT, ITYFC
+      IF(ISCFCI.EQ.0)ISCFCI=1
+      IF(ITYFC .EQ.0)ITYFC=3
+  100 CONTINUE
+      IOFF(1)=0
+      DO 101 I=1,499
+  101 IOFF(I+1)=IOFF(I)+I
+C
+      CALL SREW(ITAP30)
+      CALL WREADW(ITAP30,I30,200,101,JUNK)
+      MPOINT=I30(2)
+      MCONST=I30(3)
+      NCALCS=I30(5)
+      NBFSO=I30(18)
+      NATOM=I30(19)
+      NBFAO=I30(22)
+      NSHELL=I30(27)
+      NPRIM=I30(32)
+      NSYM=I30(41)
+      MXCOEF=I30(42)
+      IOPEN=I30(43)
+      NBASIS=NBFSO
+      N3N=NATOM*3
+      NBATRI=IOFF(NBFAO+1)
+C
+      WRITE(6,3) ISCFCI,IPRNT,ITYFC,NBASIS,NBFAO,NBFSO,NBATRI,NATOM,
+     1           N3N,NSYM,IOPEN,NSHELL,NPRIM
+C
+C   READ IN LABELS
+      JUNK=101+MCONST+MPOINT+NCALCS-1
+      CALL WREADW(ITAP30,LOCCAL,1,JUNK,JUNK)
+      CALL WREADW(ITAP30,I30,60,LOCCAL,LOCCAL)
+      WRITE(6,4) (I30(I),I=1,20)
+      CALL WREADW(ITAP30,I30,20,LOCCAL,JUNK)
+      LOCVEC=I30(1)
+C
+C   READ IN GEOMETRY
+      LOCCAL=LOCCAL+20
+      CALL WREADW(ITAP30,X,NATOM*6,LOCCAL,LOCCAL)
+      WRITE(6,994)
+  994 FORMAT(//,'GEOMETRY FROM FILE30',/)
+      DO 66 I=1,NATOM
+      WRITE(6,993)I,X(1,I),X(2,I),X(3,I)
+  993 FORMAT(1X,I4,5X,3(F12.8,5X))
+   66 CONTINUE
+C
+C   READ IN ENUC AND ESCF
+      CALL WREADW(ITAP30,A30,20,LOCCAL,LOCCAL)
+      ENUC=A30(1)
+      ESCF=A30(2)
+      WRITE(6,5) ENUC,ESCF
+C
+C   READ IN BASIS SET INFORMATION
+CC    WRITE(6,21)
+      WRITE(3,21)
+   21 FORMAT(//,2X,' NOW YOU ARE IN BASSET'/)
+      IC1=1
+C.................UAS.....
+      CALL BASSET(CC(IC1),ITYFC)
+C
+C   READ IN EIGENVECTORS
+CC    WRITE(6,22)
+      WRITE(3,22)
+   22 FORMAT(//,2X,'NOW YOU ARE IN EIGVEC'/)
+      IC1=1
+      IC2=IC1+NBFAO*NBFSO
+      IC3=IC2+NBASIS
+      IC4=IC3+NBASIS
+      IC5=IC4+NBFSO*NBFSO
+      IC6=IC5+NBFAO*NBFSO
+      ICMAX=IC6+NBFAO*NBFSO
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C................UAS     EIG     OCC     ESO     EAO     EE......
+      CALL EIVEC(CC(IC1),CC(IC2),CC(IC3),CC(IC4),CC(IC5),CC(IC6))
+C
+C   FORM A DENSITY MATRIX
+CC    WRITE(6,23)
+      WRITE(3,23)
+   23 FORMAT(//,2X,' NOW YOU ARE IN DENSTY'/)
+      IC1=1
+      IC2=IC1+NBFAO*NBFSO
+      IC3=IC2+NBASIS
+      IC4=IC3+NBASIS
+      IC5=IC4+NBFSO*NBFSO
+      IC6=IC5+NBFAO*NBFSO
+      ICMAX=IC6+NBATRI
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+C.................OCC     EAO     P.......
+      CALL DENSTY(CC(IC3),CC(IC5),CC(IC6),ISCFCI)
+C
+C   CALCULATE THE DAM INDEX
+CC    WRITE(6,27)
+      WRITE(3,27)
+   27 FORMAT(//,2X,' NOW YOU ARE IN VINDEX'/)
+      IC1=1
+      IC2=IC1+NBFAO*NBFSO
+      IC3=IC2+NBASIS
+      IC4=IC3+NBASIS
+      IC5=IC4+NBFSO*NBFSO
+      IC6=IC5+NBFAO*NBFSO
+      IOV=IC6+NBATRI
+      IBON=IOV+NBATRI
+      IPRO=IBON+NBASIS*NBASIS
+      IVIN=IPRO+NBASIS*NBASIS
+      IV1 =IVIN+NATOM*NATOM
+      IE1 =IV1 +NBASIS*NBASIS
+      IGAMMA=IE1+NBASIS
+      IPOSV=WPADTI(IGAMMA)
+CCC     IPOSV=IGAMMA*2-1
+      IBETA=IGAMMA+NBASIS
+      IVPOS=WPADTI(IBETA)
+      IBETAQ=IBETA+NBASIS
+      IORD=WPADTI(IBETAQ)
+      IW=IBETAQ+NBASIS
+      IMINX=IW+NBASIS
+      ICMAX=IMINX+NBASIS
+      IF(ICMAX.GT.MAXCOR) GO TO 399
+      CALL DIPORB(CC(IOV),CC(IC6),CC(IBON),CC(IPRO),CC(IVIN),ISCFCI,
+     .            CC(IV1),CC(IE1),CC(IMINX),
+     .            CC(IGAMMA),CC(IBETA),CC(IBETAQ),CC(IW),
+     .            IA(IPOSV),IA(IVPOS),IA(IORD))
+      GO TO 400
+  399 WRITE(6,6) ICMAX,MAXCOR
+  400 CONTINUE
+      CALL TSTOP(6)
+C
+      RETURN
+C2-15-89 STOP
+      END
+C<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      SUBROUTINE BASSET(UAS,ITYFC)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION UAS(NBFAO,NBFSO)
+      DIMENSION CONTR(600),I30(200)
+      COMMON/BASIS/NBASIS,NBFAO,NBFSO,NBATRI
+      COMMON/COORD/CHGS(112),XX(3,112),WW(112)
+      COMMON/FLAGS/MPOINT,MCONST
+      COMMON/FUNCS/NATOM,N3N,NSYM
+      COMMON/GAUSS/ZS(200),CS(200)
+      COMMON/NORBS/NAST(112),NAED(112)
+      COMMON/NSHEL/KNUC(200),KTYPE(200),KPRIM(200),KLOC(200),
+     1 KMIN(200),KMAX(200),KNG(200),NSHELL,NPRIM
+      COMMON/SIGNS/IPQ(500),IPRNT
+      DATA ZERO / 0.0D+00 /
+    1 FORMAT(//,2X,' NPRIM  IS ',I5)
+    2 FORMAT(2X,I5,2F20.10)
+    3 FORMAT(//,2X,' NSHELL IS ',I5)
+    4 FORMAT(2X,8I5)
+    5 FORMAT(//,2X,' NATOM IS ',I5)
+    6 FORMAT(2X,I5,4F20.10,5X,2I5)
+C
+      ITAP30=30
+      JUNK=101+MCONST
+      CALL WREADW(ITAP30,I30,MPOINT,JUNK,JUNK)
+C
+C   READ IN BASIS SET
+      CALL WREADW(ITAP30,CHGS,NATOM*2,I30(1),JUNK)
+      CALL WREADW(ITAP30,ZS,NPRIM*2,I30(5),JUNK)
+      CALL WREADW(ITAP30,CONTR,NPRIM*2*ITYFC,I30(6),JUNK)
+      CALL WREADW(ITAP30,KPRIM,NSHELL,I30(7),JUNK)
+      CALL WREADW(ITAP30,KNUC,NSHELL,I30(8),JUNK)
+      CALL WREADW(ITAP30,KTYPE,NSHELL,I30(9),JUNK)
+      CALL WREADW(ITAP30,KNG,NSHELL,I30(10),JUNK)
+      CALL WREADW(ITAP30,KLOC,NSHELL,I30(11),JUNK)
+      CALL WREADW(ITAP30,KMIN,NSHELL,I30(12),JUNK)
+      CALL WREADW(ITAP30,KMAX,NSHELL,I30(13),JUNK)
+      CALL WREADW(ITAP30,UAS,NBFAO*NBFSO*2,I30(29),JUNK)
+C
+      IJ=0
+      DO 102 I=1,ITYFC
+      DO 101 J=1,NPRIM
+      IJ=IJ+1
+      VALU=CONTR(IJ)
+      IF(VALU.EQ.ZERO) GO TO 101
+      CS(J)=VALU
+  101 CONTINUE
+  102 CONTINUE
+C
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(6,1) NPRIM
+      DO 103 I=1,NPRIM
+  103 WRITE(6,2) I,ZS(I),CS(I)
+      WRITE(6,3) NSHELL
+      DO 104 I=1,NSHELL
+  104 WRITE(6,4) I,KNUC(I),KTYPE(I),KPRIM(I),KLOC(I),KMIN(I),KMAX(I),
+     1 KNG(I)
+C
+C   FORM ARRAIES FOR AO'S
+  201 CONTINUE
+      NAST(1)=1
+      IATOM=1
+      DO 105 I=1,NSHELL
+      II=KNUC(I)
+      IF(II.EQ.IATOM) GO TO 105
+      IATOM=IATOM+1
+      NAED(IATOM-1)=KLOC(I)-1
+      NAST(IATOM)=KLOC(I)
+  105 CONTINUE
+      NAED(NATOM)=NBASIS
+      IF(IPRNT.LE.3) GO TO 202
+      WRITE(6,5) NATOM
+      DO 106 I=1,NATOM
+  106 WRITE(6,6) I,XX(1,I),XX(2,I),XX(3,I),CHGS(I),NAST(I),NAED(I)
+  202 CONTINUE
+C
+      RETURN
+      END
+C<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      SUBROUTINE EIVEC(UAS,EIG,OCC,ESO,EAO,EE)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION UAS(NBFAO,NBFSO),EIG(NBASIS),OCC(NBASIS)
+      DIMENSION ESO(NBFSO,NBFSO),EAO(NBFAO,NBFSO)
+      DIMENSION EE(NBFAO*NBFSO)
+      DIMENSION NLAMDA(10),NCLOSD(10),NOPEN(10),OCT(2)
+      DIMENSION ALPT(15),BETT(15)
+      COMMON/BASIS/NBASIS,NBFAO,NBFSO,NBATRI
+      COMMON/FUNCS/NATOM,N3N,NSYM
+      COMMON/SIGNS/IPQ(500),IPRNT
+      COMMON/PARAS/MXCOEF,LOCVEC
+      COMMON/CI101/IOPEN,IOCX,JOCX,KOCX
+      DATA ZERO,ONE,TWO / 0.0D+00 , 1.0D+00 , 2.0D+00 /
+    1 FORMAT(//,2X,' UAS MATRIX'/)
+    2 FORMAT(//,2X,' NOPEN = ',10I5/)
+    3 FORMAT(//,2X,' ESO MATRIX'/)
+    4 FORMAT(//,2X,' EAO MATRIX'/)
+C
+      ITAP30=30
+      CALL WREADW(ITAP30,EE,MXCOEF*2,LOCVEC,LOCVEC)
+      CALL WREADW(ITAP30,EIG,NBFSO*2,LOCVEC,LOCVEC)
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(6,1)
+      CALL MATOUT(UAS,NBFAO,NBFSO,NBFAO,NBFSO,6)
+C
+C   READ IN SO-MO EIGENVECTORS
+  201 CONTINUE
+      LOCVEC=LOCVEC+NSYM
+      CALL WREADW(ITAP30,NLAMDA,NSYM,LOCVEC,LOCVEC)
+      CALL WREADW(ITAP30,NCLOSD,NSYM,LOCVEC,LOCVEC)
+      WRITE(3,28) (NLAMDA(I),I=1,NSYM)
+   28 FORMAT(2X,' NLAMDA = ',10I5/)
+      WRITE(3,29) (NCLOSD(I),I=1,NSYM)
+   29 FORMAT(2X,' NCLOSD = ',10I5/)
+C
+C   READ IN COUPLING CONSTANTS FOR OPEN SHELLS
+      WRITE(3,30) IOPEN
+      IF(IPRNT.GT.2)
+     *WRITE(6,30) IOPEN
+   30 FORMAT(2X,' IOPEN = ',I5/)
+      IF(IOPEN.NE.0) THEN
+      KOPEN=IABS(IOPEN)
+      CALL WREADW(ITAP30,NOPEN,NSYM,LOCVEC,LOCVEC)
+      WRITE(3,2) (NOPEN(I),I=1,NSYM)
+      IF(IPRNT.GT.2)
+     *WRITE(6,2) (NOPEN(I),I=1,NSYM)
+      CALL WREADW(ITAP30,ALPT,KOPEN*2,LOCVEC,LOCVEC)
+      WRITE(3,31) (ALPT(I),I=1,KOPEN)
+      IF(IPRNT.GT.2)
+     *WRITE(6,31) (ALPT(I),I=1,KOPEN)
+   31 FORMAT(2X,' ALPT = ',10F12.5/)
+      CALL WREADW(ITAP30,BETT,KOPEN*2,LOCVEC,LOCVEC)
+      WRITE(3,32) (BETT(I),I=1,KOPEN)
+      IF(IPRNT.GT.2)
+     *WRITE(6,32) (BETT(I),I=1,KOPEN)
+   32 FORMAT(2X,' BETT = ',10F12.5/)
+      END IF
+      IF(IOPEN.GE.0) GO TO 202
+      OCT(1)=TWO/(ONE-ALPT(1))
+      OCT(2)=TWO/(ONE-ALPT(3))
+C
+C   FORM OCCUPATION VECTOR
+  202 CONTINUE
+      DO 101 I=1,NBASIS
+  101 OCC(I)=ZERO
+      ITC=0
+      I=0
+      DO 107 ISM=1,NSYM
+      DO 104 J=I+1,I+NCLOSD(ISM)
+      OCC(J)=TWO
+  104 CONTINUE
+      K=I+NCLOSD(ISM)
+      IF(IOPEN.LT.0.AND.NOPEN(ISM).NE.0) GO TO 204
+      IF(IOPEN.EQ.0) GO TO 206
+      DO 105 J=K+1,K+NOPEN(ISM)
+      OCC(J)=ONE
+  105 CONTINUE
+      GO TO 206
+  204 CONTINUE
+      DO 106 J=K+1,K+NOPEN(ISM)
+      IF(IOPEN.GT.0) GO TO 205
+      ITC=ITC+1
+      OCC(J)=OCT(ITC)
+      GO TO 106
+  205 OCC(J)=ONE
+  106 CONTINUE
+  206 CONTINUE
+      I=I+NLAMDA(ISM)
+  107 CONTINUE
+C
+C   FORM SO-MO EIGENVECTOR MATRIX
+      DO 111 I=1,NBFSO
+      DO 111 J=1,NBFSO
+      ESO(I,J)=ZERO
+  111 CONTINUE
+      I=0
+      J=0
+      DO 115 ISYM=1,NSYM
+      N=NLAMDA(ISYM)
+      DO 114 K=J+1,J+N
+      DO 113 L=J+1,J+N
+      I=I+1
+      ESO(L,K)=EE(I)
+  113 CONTINUE
+  114 CONTINUE
+      J=J+N
+  115 CONTINUE
+C
+      IF(IPRNT.LE.3) GO TO 207
+      WRITE(6,3)
+      CALL EIGOUT(ESO,EIG,OCC,NBFSO,NBFSO,NBASIS,NBASIS,6)
+C
+C   TRANSFORM EIGENVECTORS FROM SO TO AO BASIS
+  207 CONTINUE
+      DO 117 I=1,NBFAO
+      DO 117 J=1,NBASIS
+      VALU=ZERO
+      DO 116 K=1,NBFSO
+      VALU=VALU+UAS(I,K)*ESO(K,J)
+  116 CONTINUE
+      EAO(I,J)=VALU
+  117 CONTINUE
+      IF(IPRNT.LE.3) GO TO 208
+      WRITE(6,4)
+      CALL EIGOUT(EAO,EIG,OCC,NBFAO,NBFAO,NBASIS,NBASIS,6)
+  208 CONTINUE
+C
+      RETURN
+      END
+C<<<<<<<<<<<<<<<<<<
+      SUBROUTINE DENSTY(OCC,EAO,P,ISCFCI)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION OCC(NBASIS),EAO(NBFAO,NBFSO),P(NBATRI)
+      COMMON/BASIS/NBASIS,NBFAO,NBFSO,NBATRI
+      COMMON/SIGNS/IOFF(500),IPRNT
+      DATA ZERO / 0.0D+00 /
+    1 FORMAT(//,2X,' DENSITY MATRIXIN TINE DENSITY'/)
+C
+C  IF THE WAVE FUNCTION IS NOT AN SCF WAVE FUNCTION THEN READ IN THE
+C  AO ONE PDM FROM THE MASTER FILE.
+C
+      IF(ISCFCI.GT.1) GOTO 300
+C
+C   FORM DENSITY MATRIX
+      DO 101 I=1,NBATRI
+  101 P(I)=ZERO
+      IJ=0
+      DO 103 I=1,NBFAO
+      DO 103 J=1,I
+      IJ=IJ+1
+      VALU=ZERO
+      DO 102 K=1,NBASIS
+      IF(OCC(K).LE.ZERO) GO TO 102
+      VALU=VALU+EAO(I,K)*EAO(J,K)*OCC(K)
+  102 CONTINUE
+      P(IJ)=VALU
+  103 CONTINUE
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(6,1)
+C     CALL PRINT(P,NBATRI,NBFAO,6)
+C
+  201 CONTINUE
+      RETURN
+  300 CONTINUE
+C
+C INITIALIZE THE MASTER FILE.
+C
+      CALL INITMF(1)
+C
+      IF(ISCFCI.EQ.2) CALL MREAD(P,34)
+CTJL  IF(ISCFCI.EQ.3) CALL MREAD(P,37)
+C
+      IF(IPRNT.LE.3) GO TO 301
+      WRITE(6,1)
+C     CALL PRINT(P,NBATRI,NBFAO,6)
+  301 CONTINUE
+      RETURN
+      END
+C<<<<<<<<<<<<<<<<<<<<<<
+      SUBROUTINE DIPORB(OV,D,BOND,PROD,VINDEX,ISCFCI,
+     .            V1,E1,MINDEX,
+     .            GAMMA,BETA,BETAQ,W,
+     .            IPOSV,IVPOS,IORD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      LOGICAL IANDJ,EQUAL
+      COMMON/BASIS/NT,NBFAO,NBFSO,NBATRI
+     .      /COORD/ZAN(112),C(3,112),WW(112)
+     .      /EXYZS/EX(7,7,13),EY(7,7,13),EZ(7,7,13)
+     .      /FUNCS/NATOM,N3N,NSYM
+     .      /GAUSS/ZS(200),CS(200)
+     .      /IJVEC/IX(84),IY(84),IZ(84),JX(84),JY(84),JZ(84)
+     .      /INDIX/IJX(225),IJY(225),IJZ(225),IJPOS(225)
+     .      /NSHEL/KNUC(200),KTYPE(200),KSTART(200),KLOC(200),
+     .             KMIN(200),KMAX(200),KNG(200),NSHELL,NPRIM
+     .      /ROOT /XX,U(9),WT(9),NROOTS
+     .      /SIGNS/IPQ(500),IPRNT
+      REAL * 8 MINDEX(NATOM)
+      DIMENSION OV1 (9000),SAVE(9000)
+      DIMENSION OV(NBATRI),D(NBATRI),BOND(NT,NT),PROD(NT,NT),
+     .          VINDEX(NATOM,NATOM)
+      DIMENSION VX0(36),VY0(36),VZ0(36),VX1(36),VY1(36),VZ1(36),
+     .          VX2(36),VY2(36),VZ2(36),VXS(36),VYS(36),VZS(36)
+      DIMENSION V1(NT*NT),E1(NT),GAMMA(NT),BETA(NT),BETAQ(NT),W(NT),
+     .          IPOSV(NT),IVPOS(NT),IORD(NT)
+      DATA ITOL / 10 /
+      DATA PI212 / 1.1283791670955D+00 /
+      DATA PI32 / 5.56832799683170D+00 /
+      DATA ZERO,HALF,ONE,TWO / 0.0D+00 , 0.5D+00 , 1.0D+00 , 2.0D+00 /
+      DATA NQLIM / 7 /
+C
+      TOL=ITOL*2.30258D+00
+C     ZERO ALL THE CORE
+      DO 101 I=1,NBATRI
+      OV(I)=ZERO
+  101 CONTINUE
+C
+C:::::::::::::::::::::::::::::
+C:::::----- I SHELL -----:::::
+C:::::::::::::::::::::::::::::
+C
+      DO 6000 ISH=1,NSHELL
+C
+      IATOM=KNUC(ISH)
+      AX=C(1,IATOM)
+      AY=C(2,IATOM)
+      AZ=C(3,IATOM)
+      IGMIN=KSTART(ISH)
+      IGMAX=IGMIN+KNG(ISH)-1
+      LIT=KTYPE(ISH)
+      MINI=KMIN(ISH)
+      MAXI=KMAX(ISH)
+      LOCI=KLOC(ISH)
+C
+C:::::::::::::::::::::::::::::
+C:::::----- J SHELL -----:::::
+C:::::::::::::::::::::::::::::
+C
+      DO 5000 JSH=1,ISH
+C
+      JATOM=KNUC(JSH)
+      BX=C(1,JATOM)
+      BY=C(2,JATOM)
+      BZ=C(3,JATOM)
+      JGMIN=KSTART(JSH)
+      JGMAX=JGMIN+KNG(JSH)-1
+      LJT=KTYPE(JSH)
+      MINJ=KMIN(JSH)
+      MAXJ=KMAX(JSH)
+      LOCJ=KLOC(JSH)
+      IANDJ=ISH.EQ.JSH
+      EQUAL=IATOM.EQ.JATOM
+C
+C     ----- WORK OUT INDICES FOR COMBINING INTEGRALS -----
+C
+      MIJ=0
+      JMAX=MAXJ
+      II=-1
+      DO 103 I=MINI,MAXI
+      II=II+1
+      JJ=-1
+      NX=IX(I)
+      NY=IY(I)
+      NZ=IZ(I)
+      IF(IANDJ) JMAX=I
+      DO 102 J=MINJ,JMAX
+      MIJ=MIJ+1
+      JJ=JJ+1
+      IJX(MIJ)=NX+JX(J)
+      IJY(MIJ)=NY+JY(J)
+      IJZ(MIJ)=NZ+JZ(J)
+      IDXI=LOCI+II
+      IDXJ=LOCJ+JJ
+      IDXS=IPQ(MAX0(IDXI,IDXJ))+MIN0(IDXI,IDXJ)
+      IJPOS(MIJ)=IDXS
+  102 CONTINUE
+  103 CONTINUE
+C
+      XAB=AX-BX
+      YAB=AY-BY
+      ZAB=AZ-BZ
+      RAB=XAB*XAB+YAB*YAB+ZAB*ZAB
+      NROOTS=(LIT+LJT-2)/2+2
+      MAXIJ=MAX0(LIT+1,LJT+2)
+C
+      DO 4000 IG=IGMIN,IGMAX
+      CSI=CS(IG)*PI32
+      AI=ZS(IG)
+      AXI=AI*AX
+      AYI=AI*AY
+      AZI=AI*AZ
+C
+C     IF(IANDJ) JGMAX=IG
+      DO 3000 JG=JGMIN,JGMAX
+      CSJ=CS(JG)
+      BJ=ZS(JG)
+      BXJ=BJ*BX
+      BYJ=BJ*BY
+      BZJ=BJ*BZ
+C
+      PP=AI+BJ
+      TPP=ONE/PP
+      TEMP=(AI*BJ*RAB)*TPP
+C
+C     ----- IGNORE INTEGRAL IF PRE-EXPONENTIAL TOO SMALL -----
+C
+      IF(TEMP.GT.TOL) GO TO 3000
+C
+C     ----- DENSITY FACTOR -----
+C
+      TP=DSQRT(TPP)
+      DIJ=CSI*CSJ*DEXP(-TEMP)*TPP
+      DIJS=CSI*CSJ*DEXP(-TEMP)*(TPP**1.5D0)
+C     IF(IANDJ.AND.IG.NE.JG) DIJ=DIJ+DIJ
+      PFAC=DIJ*TP
+      PFACH=PFAC*HALF
+      DIJPI=DIJ*PI212
+      PTWO=TPP*HALF
+C
+C     FORM SOME PRODUCTS NEEDED IN INTEGRAL EVALUATION
+C
+      PX=(AXI+BXJ)*TPP
+      PY=(AYI+BYJ)*TPP
+      PZ=(AZI+BZJ)*TPP
+      IF(EQUAL) GO TO 201
+      PAX=PX-AX
+      PAY=PY-AY
+      PAZ=PZ-AZ
+      PBX=PX-BX
+      PBY=PY-BY
+      PBZ=PZ-BZ
+      GO TO 202
+  201 CONTINUE
+      PAX=ZERO
+      PAY=ZERO
+      PAZ=ZERO
+      PBX=ZERO
+      PBY=ZERO
+      PBZ=ZERO
+C
+  202 CONTINUE
+      CALL ECAL(PAX,PAY,PAZ,PBX,PBY,PBZ,PTWO,MAXIJ)
+C
+C     PCX=PX-CX
+C     PCY=PY-CY
+C     PCZ=PZ-CZ
+C     XX=PP*(PCX*PCX+PCY*PCY+PCZ*PCZ)
+C     IF(NROOTS.LE.3) THEN
+C     CALL RT123
+C     ELSE IF(NROOTS.EQ.4) THEN
+C     CALL ROOT4
+C     ELSE IF(NROOTS.EQ.5) THEN
+C     CALL ROOT5
+C     ELSE IF(NROOTS.LE.9) THEN
+C     CALL DROOT
+C     ELSE
+C     STOP ' NOT ENOUGH ROOTS IN ONEINT'
+C     END IF
+C
+C     DO 1000 IROOT=1,NROOTS
+C     ROOT2=U(IROOT)/(ONE+U(IROOT))
+C     WW=WT(IROOT)*(-DIJPI)
+C     AROOT2=-ROOT2*(PP+PP)
+C
+C     IN=-NQLIM
+C     DO 910 NI=1,LIT
+C     IN=IN+NQLIM
+C     DO 909 NJ=1,LJT
+C     MAXT=NI+NJ-1
+C     JN=IN+NJ
+C     CALL GCAL(PCX,PCY,PCZ,VXX,VYY,VZZ,VXX1,VYY1,VZZ1,VXX2,VYY2,VZZ2,
+C    .          BJ,AROOT2,NI,NJ,MAXT)
+C     VX0(JN)=VXX
+C     VY0(JN)=VYY
+C     VZ0(JN)=VZZ
+C     VX1(JN)=VXX1
+C     VY1(JN)=VYY1
+C     VZ1(JN)=VZZ1
+C     VX2(JN)=VXX2
+C     VY2(JN)=VYY2
+C     VZ2(JN)=VZZ2
+C 909 CONTINUE
+C 910 CONTINUE
+C
+C     DO 912 I=1,MIJ
+C     NX=IJX(I)
+C     NY=IJY(I)
+C     NZ=IJZ(I)
+C     X=VX0(NX)
+C     Y=VY0(NY)
+C     Z=VZ0(NZ)
+C     X1=VX1(NX)
+C     Y1=VY1(NY)
+C     Z1=VZ1(NZ)
+C     X2=VX2(NX)
+C     Y2=VY2(NY)
+C     Z2=VZ2(NZ)
+C     IJ=IJPOS(I)
+C     SDXX(IJ)=SDXX(IJ)+X2*Y*Z*WW
+C     SDYY(IJ)=SDYY(IJ)+X*Y2*Z*WW
+C     SDZZ(IJ)=SDZZ(IJ)+X*Y*Z2*WW
+C     SDXY(IJ)=SDXY(IJ)+X1*Y1*Z*WW
+C     SDXZ(IJ)=SDXZ(IJ)+X1*Y*Z1*WW
+C     SDYZ(IJ)=SDYZ(IJ)+X*Y1*Z1*WW
+C 912 CONTINUE
+C1000 CONTINUE
+C
+      IN=-NQLIM
+      DO 930 NI=1,LIT
+      IN=IN+NQLIM
+      DO 929 NJ=1,LJT
+      JN=IN+NJ
+      VXS(JN)=EX(NI,NJ,1)
+      VYS(JN)=EY(NI,NJ,1)
+      VZS(JN)=EZ(NI,NJ,1)
+  929 CONTINUE
+  930 CONTINUE
+C
+      DO 962 I=1,MIJ
+      NX=IJX(I)
+      NY=IJY(I)
+      NZ=IJZ(I)
+      SX=VXS(NX)
+      SY=VYS(NY)
+      SZ=VZS(NZ)
+      IJ=IJPOS(I)
+      OV(IJ)=OV(IJ)+SX*SY*SZ*DIJS
+  962 CONTINUE
+C
+ 2000 CONTINUE
+C
+ 3000 CONTINUE
+ 4000 CONTINUE
+ 5000 CONTINUE
+ 6000 CONTINUE
+      IF(IPRNT.GT.2)THEN
+      WRITE(6,630)
+  630 FORMAT(1X,//,'OVERLAP MATRIX',/)
+      CALL PRINT(OV,NBATRI,NBFAO,6)
+      ENDIF
+      IF(IPRNT.GT.1)THEN
+      WRITE(6,631)
+  631 FORMAT(1X,//,'DENSITY MATRIX',/)
+      CALL PRINT( D,NBATRI,NBFAO,6)
+      ENDIF
+C
+      IJK=0
+      TRACE=0.0D0
+      DO 5030 I=1,NT
+      DO 5030 J=1,I
+      IJK=IJK+1
+      IF(I.EQ.J)THEN
+      TRACE=TRACE+D(IJK)*OV(IJK)
+      ELSE
+      TRACE=TRACE+2.D0*D(IJK)*OV(IJK)
+      END IF
+ 5030 CONTINUE
+      WRITE(6,606)TRACE
+  606 FORMAT(//,'TRACE OF P*S    IS  ',F12.6 )
+      DO 6102 I=1,NT
+      DO 6101 J=1,NT
+      PROD(I,J)=0.0D0
+      DO 6100 K=1,NT
+      IK=IPQ(MAX0(I,K))+MIN0(I,K)
+      KJ=IPQ(MAX0(K,J))+MIN0(K,J)
+      PROD(I,J)=PROD(I,J)+D(IK)*OV(KJ)
+ 6100 CONTINUE
+ 6101 CONTINUE
+ 6102 CONTINUE
+      DO 6200 IC=1,NATOM
+      MINDEX(IC)=0.0D0
+      DO 6200 JC=1,NATOM
+ 6200 VINDEX(IC,JC)=0.0D0
+      DO 6300 ISH=1,NSHELL
+      IAT=KNUC(ISH)
+      IFI=KLOC(ISH)
+      ILI=IFI+KMAX(ISH)-KMIN(ISH)
+      DO 6295 JSH=1,NSHELL
+      JAT=KNUC(JSH)
+      IFJ=KLOC(JSH)
+      ILJ=IFJ+KMAX(JSH)-KMIN(JSH)
+      DO 6290 I=IFI,ILI
+      DO 6290 J=IFJ,ILJ
+      VINDEX(IAT,JAT)=VINDEX(IAT,JAT)+PROD(I,J)*PROD(J,I)
+C     IF(IAT.EQ.JAT)MINDEX(IAT)=MINDEX(IAT)-PROD(I,J)*PROD(J,I)
+C     IF(I.EQ.J)MINDEX(IAT)=MINDEX(IAT)+2.D0*PROD(I,J)
+ 6290 CONTINUE
+ 6295 CONTINUE
+ 6300 CONTINUE
+      WRITE(6,673)
+  673 FORMAT(1X,//,'MULLIKEN BOND-INDEX',/)
+      CALL MATOUT(VINDEX,NATOM,NATOM,NATOM,NATOM,6)
+      WRITE(6,683)
+  683 FORMAT (//,1X,'MULLIKEN VALENCES',/)
+C     DO 6322 IC=1,NATOM
+C     WRITE(6,612)IC,MINDEX(IC)
+C6322 CONTINUE
+      DO 6322 IC=1,NATOM
+      VAL=0.0D0
+      DO 6320 JC=1,NATOM
+      IF(JC.EQ.IC)GO TO 6319
+      VAL=VAL+VINDEX(IC,JC)
+ 6319 CONTINUE
+ 6320 CONTINUE
+      WRITE(6,612)IC,VAL
+ 6322 CONTINUE
+C     DO 9898 I=1,NBATRI
+C9898 SAVE(I)=OV(I)
+ 
+C
+C     CALCULATE S**1/2
+C
+      IW=6
+      CALL LIGEN3(NT,NBATRI,NT*NT,OV,V1,E1)
+C    .            GAMMA,BETA,BETAQ,W,IPOSV,IVPOS,IORD,P,Q)
+      IF(IPRNT.GT.1)THEN
+      WRITE(IW,609)
+  609 FORMAT(1X,/,'OVERLAP MATRIX EIGENVALUES',/)
+      WRITE(IW,607) (I,E1(I),I=1,NT)
+  607 FORMAT(6(1X,I6,2X,F12.6))
+      ENDIF
+      IF(IPRNT.GT.2)THEN
+      WRITE(IW,608)
+  608 FORMAT(1X,/,'OVERLAP MATRIX EIGENVECTORS',/)
+      CALL MATOUT (V1,NT,NT,NT,NT,6)
+      END IF
+      DO 100 I=1,NT
+      DO 100 J=1,I
+      DUM=0.0D+00
+      DAM=0.0D+00
+      IJ=IPQ(I)+J
+      DO 50 K=1,NT
+      K1INK= (K-1)*NT
+      DAM=DAM+V1(K1INK+I)*V1(K1INK+J)/      E1(K)
+   50 DUM=DUM+V1(K1INK+I)*V1(K1INK+J)*DSQRT(E1(K))
+C     OV1(IJ)=DAM
+  100 OV(IJ)=DUM
+C     WRITE(*,*)'INVERSE OF OVERLAP MATRIX'
+C     CALL PRINT(OV1,NBATRI,NBFAO,6)
+C
+C     DO 5102 I=1,NT
+C     DO 5101 J=1,NT
+C     PROD(I,J)=0.0D0
+C     DO 5100 K=1,NT
+C     IK=IPQ(MAX0(I,K))+MIN0(I,K)
+C     KJ=IPQ(MAX0(K,J))+MIN0(K,J)
+C     PROD(I,J)=PROD(I,J)+OV1(IK)*SAVE(KJ)
+C5100 CONTINUE
+C5101 CONTINUE
+C5102 CONTINUE
+C     WRITE(*,*)'UNIT MATRIX'
+C     CALL MATOUT(PROD,NT,NT,NT,NT,6)
+      IF(IPRNT.GT.2)THEN
+      WRITE(6,632)
+  632 FORMAT(1X,//,'HALF OVERLAP MATRIX',/)
+      CALL PRINT(OV,NBATRI,NBFAO,6)
+      END IF
+      DO 7102 I=1,NT
+      DO 7101 J=1,NT
+      PROD(I,J)=0.0D0
+      DO 7100 K=1,NT
+      IK=IPQ(MAX0(I,K))+MIN0(I,K)
+      KJ=IPQ(MAX0(K,J))+MIN0(K,J)
+      PROD(I,J)=PROD(I,J)+OV(IK)*D(KJ)
+ 7100 CONTINUE
+ 7101 CONTINUE
+ 7102 CONTINUE
+      DO 7105 I=1,NT
+      DO 7104 J=1,NT
+      BOND(I,J)=0.0D0
+      DO 7103 K=1,NT
+      KJ=IPQ(MAX0(K,J))+MIN0(K,J)
+      BOND(I,J)=BOND(I,J)+PROD(I,K)*OV(KJ)
+ 7103 CONTINUE
+ 7104 CONTINUE
+ 7105 CONTINUE
+      TRACE=0.0 D0
+      DO 7107 I=1,NT
+ 7107 TRACE=TRACE+BOND(I,I)
+      WRITE(6,611)TRACE
+  611 FORMAT(//,'TRACE OF S1/2*P*S1/2 IS  ',F12.6)
+      TRACE=0.0 D0
+      DO 7108 I=1,NT
+      DO 7108 J=1,NT
+ 7108 TRACE=TRACE+BOND(I,J)*BOND(I,J)
+      WRITE(6,615)TRACE
+  615 FORMAT(//,' TRACE OF (S1/2*P*S1/2)**2  IS  ',F12.6 )
+      DO 7200 IC=1,NATOM
+      DO 7200 JC=1,NATOM
+ 7200 VINDEX(IC,JC)=0.0D0
+      DO 7300 ISH=1,NSHELL
+      IAT=KNUC(ISH)
+      IFI=KLOC(ISH)
+      ILI=IFI+KMAX(ISH)-KMIN(ISH)
+      DO 7295 JSH=1,NSHELL
+      JAT=KNUC(JSH)
+      IFJ=KLOC(JSH)
+      ILJ=IFJ+KMAX(JSH)-KMIN(JSH)
+      DO 7290 I=IFI,ILI
+      DO 7290 J=IFJ,ILJ
+      VINDEX(IAT,JAT)=VINDEX(IAT,JAT)+BOND(I,J)*BOND(J,I)
+ 7290 CONTINUE
+ 7295 CONTINUE
+ 7300 CONTINUE
+      WRITE(6,633)
+  633 FORMAT(1X,//,'LOWDIN BOND-INDEX',/)
+      CALL MATOUT(VINDEX,NATOM,NATOM,NATOM,NATOM,6)
+      WRITE(6,613)
+  613 FORMAT (//,1X,'LOWDIN VALENCES',/)
+      DO 7322 IC=1,NATOM
+      VAL=0.0D0
+      DO 7320 JC=1,NATOM
+      IF(JC.EQ.IC)GO TO 7319
+      VAL=VAL+VINDEX(IC,JC)
+ 7319 CONTINUE
+ 7320 CONTINUE
+      WRITE(6,612)IC,VAL
+  612 FORMAT (1X,I4,3X,F12.4)
+ 7322 CONTINUE
+C
+C   ( S1/2*P*S1/2 )**2  ELEM. IJ
+C
+C     DO 8102 I=1,NT
+C     DO 8101 J=1,NT
+C     PROD(I,J)=0.0D0
+C     DO 8100 K=1,NT
+C     PROD(I,J)=PROD(I,J)+BOND(I,K)*BOND(K,J)
+C8100 CONTINUE
+C8101 CONTINUE
+C8102 CONTINUE
+C     DO 8200 IC=1,NATOM
+C     DO 8200 JC=1,NATOM
+C8200 VINDEX(IC,JC)=0.0D0
+C     DO 8300 ISH=1,NSHELL
+C     IAT=KNUC(ISH)
+C     IFI=KLOC(ISH)
+C     ILI=IFI+KMAX(ISH)-KMIN(ISH)
+C     DO 8295 JSH=1,NSHELL
+C     JAT=KNUC(JSH)
+C     IFJ=KLOC(JSH)
+C     ILJ=IFJ+KMAX(JSH)-KMIN(JSH)
+C     DO 8290 I=IFI,ILI
+C     DO 8290 J=IFJ,ILJ
+C     VINDEX(IAT,JAT)=VINDEX(IAT,JAT)+PROD(I,J)
+C8290 CONTINUE
+C8295 CONTINUE
+C8300 CONTINUE
+C     WRITE(6,633)
+C     CALL MATOUT(VINDEX,NATOM,NATOM,NATOM,NATOM,6)
+C     WRITE(6,613)
+C     DO 8322 IC=1,NATOM
+C     VAL=0.0D0
+C     DO 8320 JC=1,NATOM
+C     IF(JC.EQ.IC)GO TO 8319
+C     VAL=VAL+VINDEX(IC,JC)
+C8319 CONTINUE
+C8320 CONTINUE
+C     WRITE(6,612)IC,VAL
+C8322 CONTINUE
+      RETURN
+      END
+C======================================================================
+      SUBROUTINE ECAL(PAX,PAY,PAZ,PBX,PBY,PBZ,PTWO,MAXIJ)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      LOGICAL EQUAL
+      COMMON/EXYZS/EX(7,7,13),EY(7,7,13),EZ(7,7,13)
+      DATA ZERO,ONE / 0.0D+00 , 1.0D+00 /
+C
+      EX(1,1,1)=ONE
+      EY(1,1,1)=ONE
+      EZ(1,1,1)=ONE
+C
+      DO 110 II=2,MAXIJ
+      DO 109 JJ=1,II
+      EQUAL=II.EQ.JJ
+      IJTOT=(II-2)+(JJ-1)
+      KMAX=II+JJ-1
+      DO 108 KK=1,KMAX
+      PXX=ZERO
+      PYY=ZERO
+      PZZ=ZERO
+      QXX=ZERO
+      QYY=ZERO
+      QZZ=ZERO
+C
+      KM1=KK-1
+      IF(KM1.LT.1) GO TO 201
+      PXX=PXX+EX(II-1,JJ,KM1)*PTWO
+      PYY=PYY+EY(II-1,JJ,KM1)*PTWO
+      PZZ=PZZ+EZ(II-1,JJ,KM1)*PTWO
+      IF(EQUAL) GO TO 201
+      QXX=QXX+EX(JJ,II-1,KM1)*PTWO
+      QYY=QYY+EY(JJ,II-1,KM1)*PTWO
+      QZZ=QZZ+EZ(JJ,II-1,KM1)*PTWO
+C
+  201 CONTINUE
+      IF(KM1.GT.IJTOT) GO TO 202
+      PXX=PXX+EX(II-1,JJ,KK)*PAX
+      PYY=PYY+EY(II-1,JJ,KK)*PAY
+      PZZ=PZZ+EZ(II-1,JJ,KK)*PAZ
+      IF(EQUAL) GO TO 202
+      QXX=QXX+EX(JJ,II-1,KK)*PBX
+      QYY=QYY+EY(JJ,II-1,KK)*PBY
+      QZZ=QZZ+EZ(JJ,II-1,KK)*PBZ
+C
+  202 CONTINUE
+      IF(KK.GT.IJTOT) GO TO 203
+      KP1=KK+1
+      T=DBLE(KK)
+      PXX=PXX+EX(II-1,JJ,KP1)*T
+      PYY=PYY+EY(II-1,JJ,KP1)*T
+      PZZ=PZZ+EZ(II-1,JJ,KP1)*T
+      IF(EQUAL) GO TO 203
+      QXX=QXX+EX(JJ,II-1,KP1)*T
+      QYY=QYY+EY(JJ,II-1,KP1)*T
+      QZZ=QZZ+EZ(JJ,II-1,KP1)*T
+C
+  203 CONTINUE
+      EX(II,JJ,KK)=PXX
+      EY(II,JJ,KK)=PYY
+      EZ(II,JJ,KK)=PZZ
+      IF(EQUAL) GO TO 205
+      EX(JJ,II,KK)=QXX
+      EY(JJ,II,KK)=QYY
+      EZ(JJ,II,KK)=QZZ
+C
+  205 CONTINUE
+  108 CONTINUE
+  109 CONTINUE
+  110 CONTINUE
+C
+      RETURN
+      END
+C<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      SUBROUTINE GCAL(PCX,PCY,PCZ,VX,VY,VZ,VX1,VY1,VZ1,VX2,VY2,VZ2,
+     .                BJ,A22,NI,NJ,MAXT)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION GX(10),GY(10),GZ(10)
+      COMMON/EXYZS/EX(7,7,13),EY(7,7,13),EZ(7,7,13)
+      DATA ZERO,ONE / 0.0D+00 , 1.0D+00 /
+C
+      GX(1)=ONE
+      GY(1)=ONE
+      GZ(1)=ONE
+      GX(2)=PCX*A22
+      GY(2)=PCY*A22
+      GZ(2)=PCZ*A22
+C
+      DO 101 I=2,MAXT+1
+      XI1=DBLE(I-1)
+      GX(I+1)=(PCX*GX(I)+XI1*GX(I-1))*A22
+      GY(I+1)=(PCY*GY(I)+XI1*GY(I-1))*A22
+      GZ(I+1)=(PCZ*GZ(I)+XI1*GZ(I-1))*A22
+  101 CONTINUE
+C
+  201 CONTINUE
+      VX=ZERO
+      VY=ZERO
+      VZ=ZERO
+      DO 102 I=1,MAXT
+      VX=VX+EX(NI,NJ,I)*GX(I)
+      VY=VY+EY(NI,NJ,I)*GY(I)
+      VZ=VZ+EZ(NI,NJ,I)*GZ(I)
+  102 CONTINUE
+C
+      VX1=ZERO
+      VY1=ZERO
+      VZ1=ZERO
+      DO 103 I=1,MAXT
+      VX1=VX1-EX(NI,NJ,I)*GX(I+1)
+      VY1=VY1-EY(NI,NJ,I)*GY(I+1)
+      VZ1=VZ1-EZ(NI,NJ,I)*GZ(I+1)
+  103 CONTINUE
+C
+      VX2=ZERO
+      VY2=ZERO
+      VZ2=ZERO
+      DO 104 I=1,MAXT
+      VX2=VX2+EX(NI,NJ,I)*GX(I+2)
+      VY2=VY2+EY(NI,NJ,I)*GY(I+2)
+      VZ2=VZ2+EZ(NI,NJ,I)*GZ(I+2)
+  104 CONTINUE
+C
+C
+      RETURN
+      END
+C<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      BLOCK DATA
+c3-18-88  REAL*8 GY
+c3-18-88  the above line appears not to be needed as GY is not in common
+      COMMON/IJVEC/IX(84),IY(84),IZ(84),JX(84),JY(84),JZ(84)
+C
+C FIRST ROW CONTAINS S,P, AND D INDICES
+C SECOND ROW CONTAINS F
+C THIRD ROW CONTAINS G
+C FOURTH AND FIFTH ROWS CONTAIN  H
+C SIXTH AND SEVENTH ROWS CONTAIN  I
+C
+      DATA IX / 1, 8, 1, 1,15, 1, 1, 8, 8, 1,
+     *         22, 1, 1,15,15, 8, 1, 8, 1, 8,
+     *         29, 1, 1,22,22, 8, 1, 8, 1,15,15, 1,15, 8, 8,
+     *         36, 1, 1,29,29, 8, 1, 8, 1,22,22,15, 1,15, 1,22, 8, 8,15,
+     *          8,15,
+     *         43, 1, 1,36,36, 8, 1, 8, 1,29,29,15, 1,15, 1,22,22, 1,29,
+     *          8, 8,22,22,15, 8,15, 8,15/
+      DATA JX / 0, 1, 0, 0, 2, 0, 0, 1, 1, 0,
+     *          3, 0, 0, 2, 2, 1, 0, 1, 0, 1,
+     *          4, 0, 0, 3, 3, 1, 0, 1, 0, 2, 2, 0, 2, 1, 1,
+     *          5, 0, 0, 4, 4, 1, 0, 1, 0, 3, 3, 2, 0, 2, 0, 3, 1, 1, 2,
+     *          1, 2,
+     *          6, 0, 0, 5, 5, 1, 0, 1, 0, 4, 4, 2, 0, 2, 0, 3, 3, 0, 5,
+     *          1, 1, 3, 3, 2, 1, 2, 1, 2/
+      DATA IY / 1, 1, 8, 1, 1,15, 1, 8, 1, 8,
+     *          1,22, 1, 8, 1,15,15, 1, 8, 8,
+     *          1,29, 1, 8, 1,22,22, 1, 8,15, 1,15, 8,15, 8,
+     *          1,36, 1, 8, 1,29,29, 1, 8,15, 1,22,22, 1,15, 8,22, 8,15,
+     *         15, 8,
+     *          1,43, 1, 8, 1,36,36, 1, 8,15, 1,29,29, 1,15,22, 1,22, 8,
+     *         29, 8,15, 8,22,22, 8,15,15/
+      DATA JY / 0, 0, 1, 0, 0, 2, 0, 1, 0, 1,
+     *          0, 3, 0, 1, 0, 2, 2, 0, 1, 1,
+     *          0, 4, 0, 1, 0, 3, 3, 0, 1, 2, 0, 2, 1, 2, 1,
+     *          0, 5, 0, 1, 0, 4, 4, 0, 1, 2, 0, 3, 3, 0, 2, 1, 3, 1, 2,
+     *          2, 1,
+     *          0, 6, 0, 1, 0, 5, 5, 0, 1, 2, 0, 4, 4, 0, 2, 3, 0, 3, 1,
+     *          5, 1, 2, 1, 3, 3, 1, 2, 2/
+      DATA IZ / 1, 1, 1, 8, 1, 1,15, 1, 8, 8,
+     *          1, 1,22, 1, 8, 1, 8,15,15, 8,
+     *          1, 1,29, 1, 8, 1, 8,22,22, 1,15,15, 8, 8,15,
+     *          1, 1,36, 1, 8, 1, 8,29,29, 1,15, 1,15,22,22, 8, 8,22, 8,
+     *         15,15,
+     *          1, 1,43, 1, 8, 1, 8,36,36, 1,15, 1,15,29,29, 1,22,22, 8,
+     *          8,29, 8,15, 8,15,22,22,15/
+      DATA JZ / 0, 0, 0, 1, 0, 0, 2, 0, 1, 1,
+     *          0, 0, 3, 0, 1, 0, 1, 2, 2, 1,
+     *          0, 0, 4, 0, 1, 0, 1, 3, 3, 0, 2, 2, 1, 1, 2,
+     *          0, 0, 5, 0, 1, 0, 1, 4, 4, 0, 2, 0, 2, 3, 3, 1, 1, 3, 1,
+     *          2, 2,
+     *          0, 0, 6, 0, 1, 0, 1, 5, 5, 0, 2, 0, 2, 4, 4, 0, 3, 3, 1,
+     *          1, 4, 1, 2, 1, 2, 3, 3, 2/
+C
+      END
+C======================================================================-
+      SUBROUTINE LIGEN3(N,NTWO,NSQUAR,A,VEC,EIG)
+C     SUBROUTINE LIGEN3(N,NTWO,NSQUAR,A,VEC,EIG,
+C    .                  GAMMA,BETA,BETASQ,W,IPOSV,IVPOS,IORD,P,Q)
+      IMPLICIT REAL*8 (A-H,O-Z)
+C        *****  A GIVENS HOUSHOLDER MATRIX DIAGONALIZATION  *****
+C        *****  ROUTINE SAME AS EIGEN BUT WORKS WITH A      *****
+C        *****  LINEAR ARRAY.                               *****
+      COMMON/SIGNS/IA(500),IPRNT
+C     DIMENSION       IA(NT2)
+C     DIMENSION IN(N),IA(NT2)
+      DIMENSION W(200),GAMMA(200),BETA(200),BETASQ(200)
+      DIMENSION P(200),Q(200),IPOSV(400),IVPOS(400),IORD(400)
+      DIMENSION A(NTWO),VEC(NSQUAR),EIG(N)
+      EQUIVALENCE (IPOSV(1),GAMMA(1)),(IVPOS(1),BETA(1)),
+     1 (IORD(1),BETASQ(1)),(P(1),BETA(1)),(Q(1),BETA(1))
+      RHOSQ=1.D-18
+      IF(N.EQ.0) GO TO 560
+      N1=N-1
+      N2=N-2
+      GAMMA(1)=A(1)
+      IF(N2) 280,270,120
+  120 DO 260 NR=1,N2
+      IK=IA(NR+1)+NR
+      B=A(IK)
+      S=0.0D+00
+      DO 130 I=NR,N2
+      IJ=IA(I+2)+NR
+  130 S=S+A(IJ)**2
+C        *****  PREPARE FOR POSSIBLE BYPASS OF TRANSFORMATION ****
+      A(IK)=0.0D+00
+      IF(S.LE.0.0D+00) GO TO 250
+      S=S+B*B
+      SGN=+1.0D+00
+      IF(B.GE.0.0D+00) GO TO 160
+      SGN=-1.0D+00
+  160 SQRTS= DSQRT(S)
+      D=SGN/(SQRTS+SQRTS)
+      TEMP= DSQRT(.5D+00+B*D)
+      W(NR)=TEMP
+      A(IK)=TEMP
+      D=D/TEMP
+      B=-SGN*SQRTS
+C        *****  -D- IS FACTOR OF PROPORTIONALITY. NOW       *****
+C        *****  COMPUTE AND SAVE -W- VECTOR. EXTRA SINGLY   *****
+C        *****  SUBSCRIPTED -W- VECTOR FOR SPEED.           *****
+      DO 170 I=NR,N2
+      IJ=IA(I+2)+NR
+      TEMP=D*A(IJ)
+      W(I+1)=TEMP
+  170 A(IJ)=TEMP
+C        *****  PREMULTIPLY VECTOR -W- BY MATRIX -A- TO     *****
+C        *****  OBTAIN -P- VECTOR. SIMULTANEOUSLY ACCUMULATE ****
+C        *****  DOT PRODUCT -WP- -- SCALR -K-.              *****
+      WTAW=0.0D+00
+      DO 220 I=NR,N1
+      SUM=0.0D+00
+      II=IA(I+1)
+      DO 180 J=NR,I
+      IJ=II+J+1
+  180 SUM=SUM+A(IJ)*W(J)
+      I1=I+1
+      IF(N1.LT.I1) GO TO 210
+      DO 200 J=I1,N1
+      IJ=IA(J+1)+I+1
+  200 SUM=SUM+A(IJ)*W(J)
+  210 P(I)=SUM
+  220 WTAW=WTAW+SUM*W(I)
+      DO 230 I=NR,N1
+  230 Q(I)=P(I)-WTAW*W(I)
+C        *****  NOW FORM -PAP- MATRIX, REQUIRED PART        *****
+      DO 240 J=NR,N1
+      QJ=Q(J)
+      WJ=W(J)
+      JJ=J+1
+      DO 240 I=J,N1
+      IJ=IA(I+1)+JJ
+  240 A(IJ)=A(IJ)-2.0D+00*(W(I)*QJ+WJ*Q(I))
+  250 BETA(NR)=B
+      BETASQ(NR)=B*B
+      IL=IK+1
+  260 GAMMA(NR+1)=A(IL)
+  270 IJ=IA(N)+N-1
+      B=A(IJ)
+      BETA(N-1)=B
+      BETASQ(N-1)=B*B
+      IJ=IJ+1
+      GAMMA(N)=A(IJ)
+  280 BETASQ(N)=0.0D+00
+C        *****  ADJOIN AN IDENTYTY MATRIX TO BE POST-       *****
+C        *****  MULTIPLIED BY ROTATIONS                     *****
+      NN=N*N
+      DO 299 I=1,NN
+  299 VEC(I)=0.0D+00
+      DO 300 I=1,N
+      IJ=I+(I-1)*N
+  300 VEC(IJ)=1.0D+00
+      M=N
+      SUM=0.0D+00
+      NPAS=1
+      GO TO 400
+  310 SUM=SUM+SHIFT
+      COSA=1.0D+00
+      G=GAMMA(1)-SHIFT
+      PP=G
+      PPBS=PP*PP+BETASQ(1)
+      PPBR= DSQRT(PPBS)
+      DO 370 J=1,M
+      COSAP=COSA
+      IF(PPBS.NE.0.0D+00) GO TO 320
+      SINA=0.0D+00
+      SINA2=0.0D+00
+      COSA=1.0D+00
+      GO TO 350
+  320 SINA=BETA(J)/PPBR
+      SINA2=BETASQ(J)/PPBS
+      COSA=PP/PPBR
+C        *****  POSTMULTIPLY IDENTITY BY -P- TRANSPOSE .    *****
+      NT=J+NPAS
+      IF(NT.LT.N) GO TO 330
+      NT=N
+  330 IJ=(J-1)*N
+      IK=IJ+N
+      DO 340 I=1,NT
+      II=I+IJ
+      IL=I+IK
+      TEMP=COSA*VEC(II)+SINA*VEC(IL)
+      VEC(IL)=-SINA*VEC(II)+COSA*VEC(IL)
+  340 VEC(II)=TEMP
+  350 DIA=GAMMA(J+1)-SHIFT
+      U=SINA2*(G+DIA)
+      GAMMA(J)=G+U
+      G=DIA-U
+      PP=DIA*COSA-SINA*COSAP*BETA(J)
+      IF(J.NE.M) GO TO 360
+      BETA(J)=SINA*PP
+      BETASQ(J)=SINA2*PP*PP
+      GO TO 380
+  360 PPBS=PP*PP+BETASQ(J+1)
+      PPBR= DSQRT(PPBS)
+      BETA(J)=SINA*PPBR
+  370 BETASQ(J)=SINA2*PPBS
+  380 GAMMA(M+1)=G
+C        *****  TEST FOR CONVERGENCE OF LAST DIAGONAL ELEMENT ****
+      NPAS=NPAS+1
+      IF(BETASQ(M).GT.RHOSQ) GO TO 410
+  390 EIG(M+1)=GAMMA(M+1)+SUM
+  400 BETA(M)=0.0D+00
+      BETASQ(M)=0.0D+00
+      M=M-1
+      IF(M.EQ.0) GO TO 430
+      IF(BETASQ(M).LE.RHOSQ) GO TO 390
+C        *****  TAKE ROOT OF CORMER 2 BY 2 NEAREST TO       *****
+C        *****  LOWER DIAGONAL IN VALUE AS ESTIMATE OF      *****
+C        *****  EIGENVALUE TO USE FOR SHIFT                 *****
+  410 A2=GAMMA(M+1)
+      R2=.5D+00*A2
+      R1=.5D+00*GAMMA(M)
+      R12=R1+R2
+      DIF=R1-R2
+      TEMP= DSQRT(DIF*DIF+BETASQ(M))
+      R1=R12+TEMP
+      R2=R12-TEMP
+      DIF= DABS(A2-R1)- DABS(A2-R2)
+      IF(DIF.LT.0.0D+00) GO TO 420
+      SHIFT=R2
+      GO TO 310
+  420 SHIFT=R1
+      GO TO 310
+  430 EIG(1)=GAMMA(1)+SUM
+      DO 440 J=1,N
+      IPOSV(J)=J
+      IVPOS(J)=J
+  440  IORD(J)=J
+      M=N
+      GO TO 470
+  450 DO 460 J=1,M
+      IF(EIG(J).LE.EIG(J+1)) GO TO 460
+      TEMP=EIG(J)
+      EIG(J)=EIG(J+1)
+      EIG(J+1)=TEMP
+      ITEMP=IORD(J)
+      IORD(J)=IORD(J+1)
+      IORD(J+1)=ITEMP
+  460 CONTINUE
+  470 M=M-1
+      IF(M.NE.0) GO TO 450
+      IF(N1.EQ.0) GO TO 500
+      DO 490 L=1,N1
+      NV=IORD(L)
+      NP=IPOSV(NV)
+      IF(NP.EQ.L) GO TO 490
+      LV=IVPOS(L)
+      IVPOS(NP)=LV
+      IPOSV(LV)=NP
+      IL=(L-1)*N
+      IK=(NP-1)*N
+      DO 480 I=1,N
+      II=I+IL
+      JJ=I+IK
+      TEMP=VEC(II)
+      VEC(II)=VEC(JJ)
+  480 VEC(JJ)=TEMP
+  490 CONTINUE
+C        *****  BACK TRANSFORM THE VECTORS OF THE TRIPLE    *****
+C        *****  DIAGONAL MATRIX.                            *****
+  500 DO 550 NRR=1,N
+      K=N1
+  510 K=K-1
+      IF(K.LE.0) GO TO 550
+      SUM=0.0D+00
+      DO 520 I=K,N1
+      IJ=IA(I+1)+K
+      IK=I+1+(NRR-1)*N
+  520 SUM=SUM+VEC(IK)*A(IJ)
+      SUM=SUM+SUM
+      DO 530 I=K,N1
+      IJ=IA(I+1)+K
+      IK=I+1+(NRR-1)*N
+  530 VEC(IK)=VEC(IK)-SUM*A(IJ)
+      GO TO 510
+  550 CONTINUE
+  560 CONTINUE
+      RETURN
+      END

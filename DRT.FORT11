@@ -1,0 +1,2284 @@
+      subroutine fentry(rjunk,ijunk,mjunk)
+C**********************************************************************
+C*   NOTICE OF PROGRAM MODIFICATION                                   *
+C**********************************************************************
+C*  By:  Curtis Janssen                     Key: clj021489            *
+C*  Date:  2/14/89                                                    *
+C*  Reason: Put in dummy run time core allocation. *
+C**********************************************************************
+c Moved to PSI distribution disk on 020289 - clj.
+C**********************************************************************
+C*  BY:  RICHARD REMINGTON                         search:  c3-24-88  *
+C*  DATE:  MARCH  24,  1988                                           *
+C*  REASON: DECREASE CORE TO RUN IN 7MB ON 9370                       *
+C**********************************************************************
+C      BY:  Curtis Janssen                                            *
+C    DATE:  Aug. 25, 1987 at UGA                                      *
+C  REASON:  Remove a branch to the inside of a do loop in WEIGHT.     *
+C**********************************************************************
+C      BY:  RICHARD REMINGTON                                         *
+C    DATE:  FEBRUARY 13, 1985                                         *
+C  REASON:  CLEANUP OUTPUT AND STANDARDIZE UNIT 6 TO OUTPUT AND       *
+C     UNIT 3 TO CHECK                                                 *
+C**********************************************************************
+C      BY:  RICHARD REMINGTON                                         *
+C    DATE:  FEBRUARY 12, 1985                                         *
+C  REASON:  CHANGE UNIT NUMBERS !! 10=>30, 8=>58                      *
+C**********************************************************************
+C
+C
+      IMPLICIT INTEGER (A-Z)
+C
+c3-24-88  COMMON  Z(90000)
+      COMMON  Z(90000)
+C
+      CALL TSTART (3)
+      CALL TSTART (6)
+      CALL NOUNFL
+C
+c3-24-88  CALL MNDRT(Z,90000)
+      CALL MNDRT(Z,90000)
+C
+      CALL TSTOP (3)
+      CALL TSTOP (6)
+C
+C     CALL EXIT
+C
+      STOP
+      END
+      SUBROUTINE MNDRT(Z,CORTOP)
+C
+C*******************************************************************
+C
+C     GOULD 8705 VERSION, INTERIOR BALLISTICS DIVISION
+C                         BALLISTICS RESEARCH LABORATORY
+C                         ABERDEEN PROVING GROUND, MARYLAND.
+C
+C
+C   DISTINCT ROW TABLE PROGRAM FOR THE SDGUGA CI SYSTEM.
+C     WRITTEN BY PAUL SAXE, UC BERKELEY, 1981-1982
+C
+C   THIS PROGRAM WILL READ A FLEXIBLE INPUT FORMAT OF ORBITAL CODES,
+C   REARRANGE THE ORBITALS TO A FORM SUITABLE FOR THE CI AND GENERATE  *
+C   ALL THE ARRAYS NEEDED TO DESCRIBE THE CI CALCULATION AND THE
+C   INTEGRAL STORAGE. THE INPUT CONSISTS OF THE FOLLOWING CARDS
+C
+C   1. LABEL CARD (26A3)
+C   2. OPTIONS CARD (16I5)
+C       A. PRINTING OPTION (POWERS OF TWO TO TURN ON INDIVIDUAL ONES)  *
+C           1  PRINT DRT
+C           2  PRINT EXTERNAL WEIGHT ARRAYS
+C           4  PRINT INTEGRAL POINTER ARRAYS
+C           8
+C          16
+C          32
+C       B. EXCITATION LEVEL FOR EXCITATIONS INTO VIRTUALS (DEFAULT 2)  *
+C       C. EXCITATION LEVEL FOR REFERENCES IN ORBITALS FLAGGED '%'
+C                (DEFAULT 0)
+C       D. INTERACTING CONFIGURATIONS ONLY (DEFAULT YES FOR ONE
+C             REFERENCE AND %, NO FOR MULTI-REFERENCE)
+C
+C             USE A 1 TO TURN OF LIMITATION TO SPIN INTERACTING
+C                SPACE,
+C             A 2 TO LIMIT VALENCE REFERENCES TO THOSE OF THE
+C                SAME SYMMETRY AS THE ONE REFERENCE,
+C             AND 3 TO SYMMETRY LIMIT VALENCE REFERNCES BUT TO
+C                USE FULL SPIN-SPACE.
+C
+C       E. INTEGRAL BLOCK SIZE DESIRED IN THOUSANDS (DEFAULT 25000)
+C       F. USE 4-EXTERNAL ARRAYS IN CI IF NON-ZERO (DEFAULT=0)
+C       G. REASSIGN OUTPUT TO THIS LFN IF NOT 0
+C       H. SET FERMI-LEVEL TO THIE OPTIN IF NON-ZERO
+C   3. NUMBER OF SYMMETRIES, OF BASIS FCNT, OF REFERENCES  (3I5)
+C   4. OCCUPATION CODES: (REPEAT COUNT)(KEY)CODE SYMMETRY
+C          FZC  FROZEN CORE
+C          FZV  FROZEN VIRTUAL
+C          COR  RESTRICTED CORE (INTEGRALS ARE TRANSFORMED)
+C          VIR  RESTRICTED VIRTUAL
+C          DOC  DOUBLY OCCUPIED
+C          UOC  VIRTUAL
+C          ALP  ALPHA OCCUPANCY (SPIN INCREASE)
+C          BET  BETA OCCUPANCY  (SPIN DECREASE)
+C          SPE  SPECIAL ORBITALS TO BE DEFINED LATER IN INPUT
+C
+C          REPEAT COUNT (OPTIONAL) IS NUMBER OF IDENTICAL ORBITALS
+C          KEY IS % FOR VALENCE EXCITATION ORBITALS
+C                 / FOR ORBITALS DIFFERING IN DIFFERENT REFERENCES
+C          SYMMETRY IS A NUMBER (1-8) IDENTIFYING SYMMETRY TYPE,
+C                N.B. FOR D2H MANDATORY TO NUMBER IN COTTONS WAY.
+C
+C          EXAMPLE: FZC1 2%DOC1 3 %UOC1 15UOC3  (BLANKS IGNORED)
+C   5. EXTRA CODES FOR REFERENCES GREATER THAN FIRST. GIVE ONLY
+C      CODES FOR ORBITALS CORRESPONDING TO THOSE FLAGGED WITH A '/'
+C      IN SECTION 4! FOR EXAMPLE, THREE-CONFIGS FROM TWO-ORBITALS
+C      COULD BE AS FOLLOWS
+C            4)  /DOC1 3DOC1 /UOC1 5UOC1
+C            5)   UOC1 DOC1     ALP1 BET1
+C   6. IF THERE ARE SPECIAL CODES, THE PROGRAM NEEDS TO KNOW HOW
+C      TO HANDLE THEM. THE POSSIBILITIES ARE:
+C        A. GVB  PLACING THIS IN FIRST THREE POSITIONS OF THIS CARD
+C                CAUSES A TWO-REFERENCE INTERACTING CALCULATION TO
+C                BE RUN.
+C        B. OSS  FOR OPEN-SHELL SINGLET
+C        C. MAT  TO ENTER MATRIX,ETC.  NEXT CARDS ARE
+C            1. NO. E- IN SPECIAL ORBITALS, SPIN*2, AND TOTAL SYMMETRY *
+C                  SPECIAL ORBITALS. (3I5)
+C            2. MATRIX OF EXCITATIONS INTO ORBITALS, DIMENSION 4**NO.  *
+C               SPECIAL ORBITALS. ENTERED AS MULTI-DIMENSIONAL ARRAY
+C               IN FORTRAN, LEFTMOST INDEX GIVING CASE (1-4) FOR WALK  *
+C               FOR FIRST SPECIAL ORBITAL, ETC. (4(4I1,1X)).
+C               EXAMPLE, FOR GVB PAIR: 0000 0111 0111 0112
+C
+C   THE CI PROGRAM CAN HANDLE ARBITRARY REFERENCE SETS,ARBITRARY
+C   EXCITATION LEVELS, REFERENCES SUCH AS TRTIPLES IN A SELECTED SPACE *
+C   AND SAY SINGLES OUTSIDE THAT SPACE. THERE IS ESSENTIALLY NO LIMIT  *
+C   TO THE TOTAL NUMBER OF UNPAIRED ELECTRONS, ORBITALS OR
+C   CONFIGURATIONS EXCEPT FOR COMPUTER TIME AVALIABLE.
+C
+C*******************************************************************
+C
+C     31 MARCH 1983  CHANGED ORBITAL ORDER TO HANDLE CI GRADIENTS
+C                    WITH RESTRICTED CORE AND VIRTUAL ORBITALS.
+C                                                           PWS
+C
+C     22 JUNE 1983   MODIFIED PALDUS TO CALCULATE INTERACTING SPACE
+C                    FOR VALENCE TYPE CALCULATIONS, AT LEAST FOR
+C                    CLOSED SHELL TYPE REFERENCE FUNCTION   PWS
+C
+C
+C     24 JUNE 1983   ADDED ROUTINE REF TO CALCULATE WEIGHT (NUMBER)
+C                    OF REFERENCE CONFIGURATION(S) FOR SINGLE
+C                    REFERENCE, MULTI-REFERENCE AND VALENCE TYPE
+C                    CALCULATIONS. WILL NOT WORK FOR SPECIAL
+C                    CALCULATIONS.                          PWS
+C
+C     28 JUNE 1983   MODIFIED PALDUS AGAIN SO THAT CAN GET CORRECT
+C                    INTERACTING SPACE FOR AT LEAST 3-IN-3 TYPE
+C                    REFERENCES                             PWS
+C
+C     28 JUNE 1983   SET UP INTERACTING OPTION OF 2 TO RESTRICT
+C                    VALENCE TYPE REFERNCES TO SAME SYMMETRY.
+C                                                           PWS
+C
+C     1 JANUARY 1984 PE 3252 VERSION ADAPTED TO GOULD 8705, BRL/IBD.
+C                    1 PROBLEM IN SCAN WITH FUNCTION IN IF STATEMENT,
+C                    AND CHANGED BLOCK DATA NAMES SO THEY DIFFER FROM
+C                    THE COMMON BLOCK NAMES. VERSION 6
+C                                                           PWS
+C
+C*******************************************************************
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+      DOUBLE PRECISION RSECS, VERSIN
+      CHARACTER*1 MULTRF,VALENC
+      CHARACTER*3 CODES,WORDS
+      CHARACTER*4 LABEL
+C
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /VERSIN/ VERSIN
+C
+      DIMENSION Z(CORTOP)
+C
+C
+C     VERSIONS WITH SAME INTEGER PART ARE COMPATIBLE,FRACTION IS DDMMYY
+      VERSIN=6.010184
+C
+CIBM  CALL TIME(START)
+      DO 1 I=1,CORTOP
+         Z(I)=0
+    1 CONTINUE
+      CALL LOCATE(INPUT,'# DRT ####',IERROR)
+      IF (IERROR.NE.0) THEN
+         WRITE (OUT,91)
+         WRITE (ERROUT,91)
+   91    FORMAT (' # DRT: ERROR -- NO INPUT FOUND',//)
+         CALL EXIT
+      END IF
+      READ (INPUT,2) LABEL
+    2 FORMAT (26A3)
+      READ (INPUT,3) OPTION
+    3 FORMAT (16I5)
+      IF (OPTION(7).GT.0) OUT=OPTION(7)
+C
+C     ----- OPEN OUTPUT FILE IN APPEND ONLY MODE -----
+C
+C     OPEN (UNIT=OUT,OPENMODE='A')
+C
+      READ (INPUT,3) NSYM,NBF,NREFS
+      VER=VERSIN
+      DAY=(VERSIN-VER)*100
+      MO=((VERSIN-VER)*100-DAY)*100
+      YR=(((VERSIN-VER)*100-DAY)*100-MO)*100+0.5
+      WRITE (OUT,30) VER,DAY,MO,YR,LABEL,(OPTION(I),I=1,6),NSYM,NBF
+     #,              NREFS
+   30 FORMAT (' ',79(' '),/,T30,'DISTINCT ROW TABLE PROGRAM VERSION'
+     #,        I2,/,T40,I2,'/',I2,'/',I2,//,1X,26A3,//
+     #,       '   PRNT   X  VALX  INT  BLK  OUT ',/,1X,6I5,//,T10
+     #,       'NUMBER OF SYMMETRIES, OF BASIS FUNCTIONS, OF REFERENCES'
+     #, /,T10,'          ----------     ---------------     ----------'
+     #,     /,T25,I1,T38,I4,T57,I4)
+      IF (NREFS.EQ.0) NREFS=1
+C
+C     ----- 4TH OPTION OF 1 TO IGNORE INTERACTING SPACE -----
+C
+      NTYPE=1
+      BFNUM=NTYPE+NTYPES
+      NUMSYM=BFNUM+NBF*NTYPES
+      BFSYM=NUMSYM+NTYPES*NSYM
+CIBM  BFKEY=BFSYM+NBF
+      BFCODE=BFSYM+NBF
+      TOP=BFCODE+NREFS*NBF
+      IF (TOP.LE.CORTOP) GO TO 5
+      WRITE (OUT,4)
+      WRITE (ERROUT,4)
+    4 FORMAT (//,' NOT ENOUGH CORE SPACE TO EVEN READ IN ORBITAL ',/
+     #,          ' INFORMATION -- SOMETHING IS VERY WRONG',//)
+      CALL EXIT
+    5 CONTINUE
+      CALL SCAN(Z(NTYPE),Z(BFNUM),Z(NUMSYM),Z(BFSYM),Z(BFCODE))
+      ORBTBF=TOP
+      IOUT=ORBTBF+NORBS
+      ORBSYM=IOUT+NBF
+      TOP=ORBSYM+NORBS
+      IF (TOP.LE.CORTOP) GO TO 7
+      WRITE (OUT,6)
+      WRITE (ERROUT,6)
+    6 FORMAT (//,' NOT ENOUGH CORE SPACE TO REORDER ORBITALS -- ',/
+     #,          '    SOMETHING IS VERY WRONG',//)
+      CALL EXIT
+    7 CONTINUE
+      CALL REORDR(Z(NTYPE),Z(BFNUM),Z(NUMSYM),Z(BFSYM)
+     #,           Z(BFCODE),Z(ORBTBF),Z(IOUT),Z(ORBSYM))
+C
+C     ----- SET FERMI-LEVEL IF DESIRED -----
+C
+      IF (OPTION(8).NE.0) LEVFRM=OPTION(8)
+      IF (OPTION(8).NE.0) ORBFRM=LEVFRM-1
+C
+C
+C
+      NSPC=0
+      IF (SPEC.GT.0) NSPC=4**SPEC
+      NLEVS=NORBS+1
+      NLEVOC=NLEVS-LEVFRM+1
+      LEVPT=TOP
+      LEVNR=LEVPT+NLEVS
+      NELECS=LEVNR+NLEVS
+      SPC=NELECS+NREFS
+      TOP=SPC+NSPC
+      NROWSP=(CORTOP-TOP)/(8+NREFS)
+      NROW4P=NROWSP*4
+      A=TOP
+      BP=A+NROWSP
+      SP=BP+NROWSP
+      ARCP=SP+NROWSP
+      NLWKSP=ARCP+NROW4P
+      X=NLWKSP+NROWSP
+      IF (TOP.LE.CORTOP) GO TO 9
+      WRITE (OUT,8)
+      WRITE (ERROUT,8)
+    8 FORMAT (//,' NOT ENOUGH CORE TO TRY TO MAKE DRT -- SOMETHING',/
+     #,          ' IS QUITE WRONG',//)
+      CALL EXIT
+    9 CONTINUE
+      IF(SPEC.GT.0) CALL GETSPE(Z(SPC))
+      SPCFLG=0
+      IF(NSPC.EQ.0) THEN
+      NSPC=1
+      SPCFLG=1
+      END IF
+      CALL PALDUS(Z(BFSYM),Z(BFCODE),Z(ORBTBF)
+     #,           Z(A),Z(BP),Z(SP),Z(LEVPT),Z(LEVNR),Z(ARCP)
+     #,           Z(NLWKSP),Z(X),Z(NELECS),Z(SPC))
+      IF(NSPC.EQ.1.AND.SPCFLG.EQ.1) NSPC=0
+      B=A+NROWS
+      S=B+NROWS
+      ARC=S+NROWS
+      NLWKS=ARC+NROWS4
+      TOP=NLWKS+NROWS
+      CALL SQUEEZ(Z(BP),Z(SP),Z(ARCP),Z(NLWKSP),Z(B),Z(S),Z(ARC)
+     #,           Z(NLWKS))
+      WGHT=TOP
+      WTAB=WGHT+NROWS4
+      WTW=WTAB+ORBFRM
+      WTX=WTW+NSYM*ORBFRM
+      WTY=WTX+NSYM*ORBFRM
+      TOP=WTY+ORBFRM
+      IF (TOP.LE.CORTOP) GO TO 11
+      WRITE (OUT,10) TOP,CORTOP
+      WRITE (ERROUT,10) TOP,CORTOP
+   10 FORMAT (//,' NOT ENOUGH CORE TO RUN WEIGHT, NEED',I7,' AND HAVE'
+     #,           I7,' WORDS OF CORE AVAILABLE',//)
+      CALL EXIT
+   11 CONTINUE
+      CALL WEIGHT(Z(A),Z(B),Z(S),Z(ARC),Z(LEVNR),Z(LEVPT),Z(NLWKS)
+     #,           Z(WTAB),Z(WTW),Z(WTX),Z(WTY),Z(WGHT))
+      SYMORB=NSYM*NORBS
+      NUMIJ=NORBS*(NORBS+1)/2
+      NIJVIR=ORBFRM*(ORBFRM+1)/2
+      KADD=TOP
+      LADD=KADD+SYMORB
+      IJADD=LADD+SYMORB
+      IJGRP=IJADD+NUMIJ
+      ININT=IJGRP+NUMIJ
+      INEXT=ININT+NORBS
+      JMNNXT=INEXT+NORBS
+      JMXNXT=JMNNXT+NORBS
+      IJXX=JMXNXT+NORBS
+C     IJXX=NINGRP+NORBS
+      KLXX=IJXX+NUMIJ
+      NKLXX=KLXX+NIJVIR
+      IJWW=NKLXX+NSYM*ORBFRM
+      KLWW=IJWW+NUMIJ
+      NKLWW=KLWW+NIJVIR
+      NINGRP=NKLWW+NSYM*ORBFRM
+      TOP=NINGRP
+      IF (TOP.LE.CORTOP) GO TO 15
+      WRITE (OUT,14) TOP,CORTOP
+      WRITE (ERROUT,14) TOP,CORTOP
+   14 FORMAT (//,' NOT ENOUGH CORE TO COMPLETE CALCULATION -- NEED',I7
+     #,          ' AND HAVE',I7,' WORDS OF CORE',//)
+      CALL EXIT
+   15 CONTINUE
+      DO 16 I=KADD,TOP
+         Z(I)=0
+   16 CONTINUE
+      CALL INTGRL(Z(BFSYM),Z(ORBTBF),Z(KADD),Z(LADD),Z(IJADD),Z(IJGRP)
+     #,           Z(ININT),Z(INEXT),Z(JMNNXT),Z(JMXNXT),Z(NINGRP)
+     #,           Z(IJXX),Z(KLXX),Z(NKLXX),Z(IJWW),Z(KLWW),Z(NKLWW))
+      CSAV=NINGRP+NGROUP
+      ROWSV=CSAV+NLEVS
+      WTSAV=ROWSV+NLEVS
+      REFWT=WTSAV+NLEVS
+      TOP=REFWT+NREFS
+      MXREF=CORTOP-REFWT+1
+      IF (TOP.LE.CORTOP) GO TO 20
+      WRITE (OUT,19) TOP,CORTOP
+      WRITE (ERROUT,19) TOP,CORTOP
+   19 FORMAT (//,' NOT QUITE ENOUGH CORE -- NEED',I7,' AND HAVE'
+     #,           I7,' WORDS OF CORE',//)
+      CALL EXIT
+   20 CONTINUE
+      CALL REF(Z(ARC),Z(WGHT),Z(LEVNR),Z(LEVPT),Z(ORBTBF),Z(BFCODE),
+     # Z(CSAV),Z(ROWSV),Z(WTSAV),Z(REFWT),MXREF)
+C
+C
+      TOP=REFWT+NVREF
+C
+      CALL PRIN(Z(A),Z(B),Z(S),Z(ARC),Z(NLWKS),Z(WGHT),Z(WTAB),Z(WTW)
+     #,          Z(WTX),Z(WTY),Z(LEVNR),Z(LEVPT),Z(KADD),Z(LADD)
+     #,          Z(ININT),Z(IJGRP),Z(IJADD),Z(ORBTBF),Z(BFCODE)
+     #,          Z(BFSYM))
+      CALL RENUMB(Z(LEVPT),Z(LEVNR),Z(ARC))
+C
+C
+C
+      CALL PUTDRT(Z(BFSYM),Z(BFCODE),Z(ORBTBF),Z(IOUT),Z(LEVPT),Z(LEVNR)
+     #,           Z(A),Z(B),Z(S),Z(ARC),Z(NLWKS),Z(WGHT),Z(WTAB),Z(WTW)
+     #,           Z(WTX),Z(WTY),Z(KADD),Z(LADD),Z(IJADD),Z(IJGRP)
+     #,           Z(ININT),Z(INEXT),Z(JMNNXT),Z(JMXNXT),Z(NINGRP)
+     #,           Z(ORBSYM),Z(IJXX),Z(KLXX),Z(NKLXX),Z(IJWW),Z(KLWW)
+     #,           Z(NKLWW),Z(REFWT))
+CIBM  CALL CPUTIM(RSECS)
+CIBM  MINS=RSECS/60
+CIBM  RSECS=RSECS-60*MINS
+CIBM  WRITE (OUT,18) MINS,RSECS
+CI 18 FORMAT (/,T31,'RUN TIME',I2,':',F6.3)
+      WRITE (OUT,17) TOP,CORTOP
+   17 FORMAT(/,15X,5('>'),' USED',I8,' OF',
+     1  I8,' WORDS OF CORE ',5('<'))
+C     CALL EXIT
+      RETURN
+      END
+      SUBROUTINE SCAN(NTYPE,BFNUM,NUMSYM,BFSYM,BFCODE)
+C
+C***********************************************************************
+C     READS IN THE ORBITAL CODES USING FOUR FUNCTION SUBROUTINES--     *
+C     GETCNT, GETKEY, GETCOD AND GETSYM AND FILLS THE ARRAYS NTYPE     *
+C     WITH NO. ORBITALS OF A TYPE,NUMSYM WITH NO. OF SYMMETRY AND TYPE,*
+C     BFNUM WITH SCF NO. OF ORBITAL OF TYPE AND NO. WITHIN TYPE FOR USE*
+C     IN REORDR TO REORDER THE ORBITALS. SINCE THE INPUT SUBROUTINES   *
+C     IGNORE BLANKS, THE INPUT IS FREE FORMAT AND CODES MAY BE SPLIT   *
+C     OVER LINES, ETC. THE LAST PORTION OF THIS ROUTINE READS IN MULTI-*
+C     REFERENCE ORBITALS.                                              *
+C***********************************************************************
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+      CHARACTER*1 MULTRF,VALENC,CLEF,JUNK1,BFKEY,GETKEY
+      CHARACTER*3 CODES,WORDS
+      CHARACTER*4 LABEL
+C
+      COMMON /CBFKEY/ BFKEY(1000)
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /CODE/   FZC, FZV, COR, VIR, DOC, UOC, ALP, BET, SPE
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+C
+      DIMENSION NTYPE(NTYPES),BFNUM(NTYPES,NBF),NUMSYM(NTYPES,NSYM)
+      DIMENSION BFSYM(NBF),BFCODE(NREFS,NBF)
+C
+      WRITE (OUT,11)
+   11 FORMAT (//,T28,'**** ORBITAL INFORMATION ****',//
+     #,      T21,'BASIS FCTS',T33,'#',T35,'KEY',T42,'TYPE OF ORBITAL'
+     #,      T59,'SYM',/,T21,'----------',T33,'-',T35,'---',T42
+     #,      '---------------',T59,'---')
+      BF=0
+      NORBS=0
+      CALL GETLIN
+C
+    2 IF (BF.GE.NBF) GO TO 4
+      REPCNT=GETCNT()
+      CLEF=GETKEY()
+      CODE=GETCOD()
+      SYM=GETSYM()
+      WRITE(OUT,1)BF+1,BF+REPCNT,REPCNT,CLEF,(WORDS(I,CODE),I=1,6),SYM+1
+    1 FORMAT (T22,I3,'-',I3,I4,2X,A1,T43,6A3,T61,I1)
+      DO 3 JUNK=1,REPCNT
+         BF=BF+1
+         IF (CODE.NE.FZC.AND.CODE.NE.FZV) NORBS=NORBS+1
+         TYPE=OCCUPD
+         IF (CODE.EQ.SPE) TYPE=SPESHL
+         IF (CODE.EQ.SPE) SSPESH=IEOR(SSPESH,SYM)
+         IF (CODE.EQ.UOC) TYPE=VIRTUL
+         IF (CODE.EQ.FZC.OR.CODE.EQ.FZV) TYPE=FROZEN
+         IF (CODE.EQ.COR) TYPE=RESCOR
+         IF (CODE.EQ.VIR) TYPE=RESVIR
+         IF (CODE.EQ.ALP.OR.CODE.EQ.BET) TYPE=OPENSH
+         IF (CLEF.EQ.VALENC.AND.CODE.NE.UOC) TYPE=VALOCC
+         IF (CLEF.EQ.VALENC.AND.CODE.EQ.UOC) TYPE=VALVIR
+         IF (CLEF.EQ.MULTRF) TYPE=MULTI
+         NTYPE(TYPE)=NTYPE(TYPE)+1
+         BFNUM(TYPE,NTYPE(TYPE))=BF
+         NUMSYM(TYPE,SYM)=NUMSYM(TYPE,SYM)+1
+         BFSYM(BF)=SYM
+         BFKEY(BF)=CLEF
+         BFCODE(1,BF)=CODE
+    3 CONTINUE
+      GO TO 2
+C
+    4 CONTINUE
+C
+C     ----- CHECK FOR MULTI REFERENCE OF VALENCE-SPACE CIS -----
+C                  TO DISABLE THE INTERACTING SPACE
+      IF (NTYPE(MULTI).NE.0) OPTION(4)=1
+C
+      SPEC=NTYPE(SPESHL)
+C
+      IF (NREFS.LT.2) RETURN
+C
+      DO 10 REF=2,NREFS
+         WRITE (OUT,12) REF
+   12    FORMAT (//,T30,'REFERENCE #',I3,//,T25,'BASIS FCT',T35,'TYPE OF
+     * ',       'ORBITAL',T54,'SYM',/,T25,'---------',T35,'--------'
+     #   ,       '-------',T54,'---')
+         DO 9 BF=1,NBF
+            IF (BFKEY(BF).EQ.MULTRF) GO TO 5
+            BFCODE(REF,BF)=BFCODE(1,BF)
+            GO TO 8
+    5       CONTINUE
+            JUNK1=GETKEY()
+            BFCODE(REF,BF)=GETCOD()
+CVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+C ORIGINAL  IF (BFSYM(BF).EQ.GETSYM()) GO TO 7
+            QETSYM=GETSYM()
+            IF (BFSYM(BF).EQ.QETSYM) GO TO 7
+C^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            WRITE (OUT,6) REF,BF
+            WRITE (ERROUT,6) REF,BF
+    6       FORMAT (//,' SYMMETRY ERROR IN REFERENCE',I4,', BASIS FNCT',
+     *      I4,//)
+            CALL EXIT
+    7       CONTINUE
+            WRITE (OUT,13) BF,(WORDS(I,BFCODE(REF,BF)),I=1,6),BFSYM(BF)+
+     *      1
+   13       FORMAT (T25,I5,5X,6A3,2X,I1)
+    8       CONTINUE
+    9    CONTINUE
+   10 CONTINUE
+      RETURN
+      END
+      SUBROUTINE REORDR(NTYPE,BFNUM,NUMSYM,BFSYM,BFCODE,ORBTBF
+     #,                 IOUT,ORBSYM)
+C
+C***********************************************************************
+C     THIS SUBROUTINE DETERMINES THE ORDER OF THE ORBITALS IN THE CI   *
+C     PORTION OF THE CALCULATION. THE ORDER IS SET IN THE BLOCK DATA   *
+C     DRTCOD -- 1 APPEARS AT THE BOTTOM OF TE GRAPH, HIGHEST NUMBER    *
+C     AT THE TOP. IOUT(N) GIVES CI NUMBER OF NTH SCF ORBITAL, WITH     *
+C     A -1 FOR FROZEN CORES AND 0 FOR FROZEN VIRTUAL. ORBTBF(N) GIVES  *
+C     THE SCF NUMBER FOR THE NTH CI ORBITAL.                           *
+C***********************************************************************
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+      CHARACTER*1 MULTRF,VALENC,BFKEY
+      CHARACTER*3 CODES,WORDS
+C
+      COMMON /CBFKEY/ BFKEY(1000)
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /CODE/  FZC, FZV, COR, VIR, DOC, UOC, ALP, BET, SPE
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+C
+      DIMENSION NTYPE(NTYPES),BFNUM(NTYPES,NBF),NUMSYM(NTYPES,NSYM)
+      DIMENSION BFSYM(NBF),BFCODE(NREFS,NBF),ORBTBF(NORBS)
+      DIMENSION IOUT(NBF),ORBSYM(NORBS)
+C
+      ORB=0
+      NA=0
+      NB=0
+      NS=0
+      LEVFRM=0
+      LEVOCC=-999999
+      LEVOPN=999999
+      LEVMUL=999999
+      LEVVAL=999999
+C
+      DO 7 TYPE=1,NTYPES
+         NTP=NTYPE(TYPE)
+         IF (NTP.LE.0) GO TO 6
+         IF (TYPE.EQ.SPESHL.AND.LEVOPN.EQ.999999) LEVOPN=ORB+1
+         IF (TYPE.EQ.OPENSH) LEVOPN=ORB+1
+         IF (TYPE.EQ.MULTI ) LEVMUL=ORB+1
+         IF (TYPE.EQ.VALOCC) LEVOCC=ORB+1
+         IF (TYPE.EQ.VALVIR) LEVVAL=ORB+2
+         DO 5 OLDSYM=1,NSYM
+            IF ((TYPE.EQ.MULTI).AND.OLDSYM.NE.1) GO TO 5
+            SYM=NSYM-OLDSYM
+            IF (TYPE.EQ.VIRTUL) SYM=OLDSYM-1
+            DO 4 JUNK=1,NTP
+               NUM=NTP-JUNK+1
+               BF=BFNUM(TYPE,NUM)
+               IF (TYPE.EQ.MULTI) SYM=BFSYM(BF)
+               IF (SYM.NE.BFSYM(BF)) GO TO 3
+               CODE=BFCODE(1,BF)
+               IF (TYPE.NE.FROZEN) GO TO 1
+               IF (CODE.EQ.FZC) IOUT(BF)=-1
+               IF (CODE.EQ.FZV) IOUT(BF)=0
+               GO TO 2
+    1          ORB=ORB+1
+               IOUT(BF)=ORB
+               ORBSYM(ORB)=SYM+1
+               NA=NA+DELA(CODE)
+               NB=NB+DELB(CODE)
+               IF (DELELE(CODE).EQ.1) NS=IEOR(NS,SYM)
+               ORBTBF(ORB)=BF
+    2          CONTINUE
+    3          CONTINUE
+    4       CONTINUE
+    5    CONTINUE
+    6    CONTINUE
+         IF (TYPE.EQ.VIRTUL) LEVFRM=ORB+1
+    7 CONTINUE
+C
+      IF (LEVOCC.EQ.-999999) LEVOCC=LEVFRM
+      ORBFRM=LEVFRM-1
+C
+      RETURN
+      END
+      SUBROUTINE GETSPE(SPC)
+C
+C***********************************************************************
+C     READ IN A CODE TELLING WHAT TYPE OF SPECIAL ORBITALS TO HANDLE,  *
+C     OR READ IN THE MATRIX ITSELF UNDER THE 'MAT' OPTION.             *
+C***********************************************************************
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+      CHARACTER*1 MULTRF,VALENC
+      CHARACTER*3 GVBW,OSSW,SPCODE,CODES,WORDS
+C
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+C
+      DIMENSION SPC(NSPC),GVB(16),GVBW(6),OSS(16),OSSW(6)
+C
+      DATA GVB/ 0,0,0,0, 0,1,1,1, 0,1,1,1, 0,1,1,2 /
+      DATA OSS/ 0,0,0,1, 0,1,0,1, 0,0,1,1, 1,1,1,2 /
+      DATA GVBW/'GVB',' OR','BIT','AL ','   ','   '/
+      DATA OSSW/'OPE','N S','HEL','L S','ING','LET'/
+C
+      READ (INPUT,1,END=99) SPCODE
+    1 FORMAT (A3)
+      IF (SPCODE.NE.'GVB') GO TO 6
+      IF (SPEC.EQ.2) GO TO 3
+      WRITE (OUT,2) SPEC
+      WRITE (ERROUT,2) SPEC
+    2 FORMAT (//,' CALLING FOR GVB REFERENCE WITH',I3,' SPECIAL '
+     #,          'ORBITALS: IMPOSSIBLE',//)
+      CALL EXIT
+    3 CONTINUE
+      DO 4 I=1,16
+         SPC(I)=GVB(I)
+    4 CONTINUE
+      DO 5 I=1,6
+         WORDS(I,9)=GVBW(I)
+    5 CONTINUE
+      NESPEC=2
+      NA=NA+1
+      WRITE (OUT,16)
+   16 FORMAT (//,T30,'** GVB TWO-REFERENCE CI **')
+      RETURN
+C
+    6 CONTINUE
+      IF (SPCODE.NE.'OSS') GO TO 11
+      IF (SPEC.EQ.2) GO TO 8
+      WRITE (OUT,7) SPEC
+      WRITE (ERROUT,7) SPEC
+    7 FORMAT (//,' CALLING FOR AN OPEN-SHELL SINGLET WITH',I3,' SPECIAL'
+     #,          ' ORBITALS: IMPOSSIBLE',//)
+      CALL EXIT
+    8 CONTINUE
+      DO 9 I=1,16
+         SPC(I)=OSS(I)
+    9 CONTINUE
+      DO 10 I=1,6
+         WORDS(I,9)=OSSW(I)
+   10 CONTINUE
+      NESPEC=2
+      NA=NA+1
+      NS=IEOR(NS,SSPESH)
+      WRITE (OUT,17)
+   17 FORMAT (//,T30,'** OPEN SHELL SINGLET REFERENCE **')
+      RETURN
+C
+   11 CONTINUE
+      IF (SPCODE.NE.'MAT') GO TO 90
+      READ (INPUT,12,END=99) NESPEC,B,S
+   12 FORMAT (3I5)
+      READ (INPUT,13,END=99) (SPC(I),I=1,NSPC)
+   13 FORMAT (4(4I1,1X))
+      WRITE (OUT,14) NESPEC,B,S,(SPC(I),I=1,NSPC)
+   14 FORMAT (//,T25,'** USING INPUT MATRIX FOR SPECIAL ORBITALS **'
+     #,       //,T30,'NUMBER OF ELECTRONS:',I2
+     #,        /,T30,'     SPIN TIMES TWO:',I2
+     #,        /,T30,'           SYMMETRY:',I2
+     #,       //,(T30,4(4I1,1X)))
+      NA=NA+(NESPEC-B)/2
+      NB=NB+B
+      NS=IEOR(NS,S-1)
+      RETURN
+C
+   90 CONTINUE
+      WRITE (ERROUT,91) SPCODE
+   91 FORMAT (//,' NO CODE AVAILABLE YET FOR SPECIAL CODE OF ',A3,//)
+      CALL EXIT
+   99 CONTINUE
+      WRITE (OUT,100)
+      WRITE (ERROUT,100)
+  100 FORMAT (//,' COULD NOT READ IN ALL INFORMATION FOR',I3,' SPECIAL '
+     #,          'ORBITALS',/,' PLEASE CHECK YOUR INPUT DECK.',//)
+      CALL EXIT
+C
+      END
+      SUBROUTINE PALDUS(BFSYM,BFCODE,ORBTBF,A,B,S
+     #,                 LEVPT,LEVNR,ARC,NLWKS,X,NELECS,SPC)
+C
+C***********************************************************************
+C     THIS SUBROUTINE GENERATES THE DISTINCT ROW TABLE BY SEARCHING    *
+C     FROM THE TOP OF THE GRAPH DOWN POSSIBLE PATHS. NOTE THAT THERE   *
+C     IS A PROGRAM LOOP OVER ORBITALS RUNNING FROM STATEMENT LABELED   *
+C     '4'. THE IDEA IS FOR EACH LEVEL, SEARCH ACROSS ALL POSSIBLE      *
+C     A AND B COMBINATIONS (ATEST AND BTEST) THEN ACROSS ALL POINTS    *
+C     ON THE ROW ABOVE (ROW) TESTING WHETHER A PARTICULAR ARC (CASE)   *
+C     GETS DOWN TO THE POINTS GIVEN BY ATEST,BTEST. THE COMPLICATION   *
+C     LIES IN COMPUTING THE EXCITATION LEVEL WHEN ELECTRONS ARE        *
+C     EXCITED INTO OCCUPIED OR MULTI-REFERENCE ORBITALS. THIS IS       *
+C     ACCOMPLISHED USING THE X ARRAY WHICH CONTAINS THE NUMBER OF      *
+C     ELECTRONS EXCITED INTO ORBITALS ABOVE THE PRESENT POINT FOR      *
+C     ANY WALK LEADING TO THE PARTICULAR POINT IN QUESTION. THEREFORE, *
+C     POINTS MAY BE THE SAME IN ALL RESPECTS EXCEPT FOR X VALUE AND    *
+C     FINALLY, AT THE FERMI LEVEL THE X VALUE DETERMINES IF THE WALK   *
+C     IS POSSIBLE OR NOT. FOR SIMPLE CASES SUCH AS HIGH SPIN OPEN      *
+C     SHELLS THE INTERACTING SPACE IS IMPLIMENTED BY COUNTING SPIN-    *
+C     FLIPS AS EXCITATIONS INTO ORBITALS.                              *
+C                                                                      *
+C     THE VARIABLES AMAX, AMIN, BMAX, AND BMIN LIMIT THE PORTION       *
+C     OF THE SEARCH TO ONLY THOSE POINTS THAT CAN BE REACHED FROM      *
+C     THE PRESENT ROW. SPECIAL ORBITALS ARE HANDLED BY INPUT           *
+C     EXPLICITLY THE X VALUES FOR ALL POSSIBLE PARTIAL WALKS IN THE    *
+C     SPECIAL ORBITALS. ORIGINALLY THE EXCITATION LEVEL IS SET         *
+C     TO THE SUM OF THE GENERAL VALUE AND THE VALUE IN THE VALENCE     *
+C     (%) SPACE. UPON LEAVING THE VALENCE SPACE IT IS RESET TO THE     *
+C     GENERAL VALUE, THUS GIVING SAY ALL SINGLES AND DOUBLES           *
+C     FROM REFERENCES OF ALL SINGLES AND DOUBLES IN THE VALENCE        *
+C     SPACE.                                                           *
+C                                                                      *
+C     MAXB KEEPS TRACK OF THE LARGEST B VALUE ENCOUNTERED. THIS        *
+C     CAN THEN BE USED IN THE CI PROGRAM TO COMPUTE SUFFICIENT         *
+C     COEFFICIENTS FOR SEGMENT VALUES. IF THIS IS DONE, THERE IS       *
+C     NO LIMIT TO THE VALUE OF THE SPIN POSSIBLE. FINALLY THE LAST     *
+C     PORTION OF THE ROUTINE ELIMINATES ALL POINTS AND ARCS FROM       *
+C     WALKS THAT DONT MAKE IT FROM HEAD TO TAIL.                       *
+C***********************************************************************
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+      LOGICAL SPINI,SYMI
+      CHARACTER*1 MULTRF,VALENC,KEY,BFKEY
+      CHARACTER*3 CODES,WORDS
+      CHARACTER*4 LABEL
+C
+      COMMON /CBFKEY/ BFKEY(1000)
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /CODE/  FZC, FZV, COR, VIR, DOC, UOC, ALP, BET, SPE
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+C
+      DIMENSION BFSYM(NBF),BFCODE(NREFS,NBF),ORBTBF(NORBS)
+      DIMENSION A(NROWSP),B(NROWSP),S(NROWSP),NLWKS(NROWSP)
+      DIMENSION LEVPT(NLEVS),LEVNR(NLEVS),ARC(NROW4P)
+      DIMENSION X(NREFS,NROWSP),NELECS(NREFS),SPC(NSPC)
+C
+      DATA SPCNT /0/
+C
+C
+      SPINI=IAND(OPTION(4),1).EQ.0
+      SYMI =IAND(OPTION(4),2).NE.0
+C
+      MAXB=-999999
+      IF (OPTION(2).EQ.0) OPTION(2)=2
+      OPTION(3)=OPTION(2)+OPTION(3)
+      EXCITA=OPTION(3)
+      DO 1 REF=1,NREFS
+         NELECS(REF)=2*NA+NB
+         X(REF,1)=0
+    1 CONTINUE
+      LEVM1=NLEVS
+      LEVPT(LEVM1)=0
+      LEVNR(LEVM1)=1
+      A(1)=NA
+      B(1)=NB
+      S(1)=NS
+      X(1,1)=0
+      RS1=NS
+C
+C     ----- HERE BEGINS THE LOOP OVER ORBITALS (LEVELS) -----
+C
+    4 IF (LEVM1.LE.1) GO TO 25
+      LEV=LEVM1
+      LEVM1=LEV-1
+      IF (LEVM1.LE.LEVOCC) EXCITA=OPTION(3)
+      IF (LEVM1.LT.LEVVAL) EXCITA=OPTION(2)
+      NROWM1=0
+      BF=ORBTBF(LEVM1)
+      KEY=BFKEY(BF)
+      CODE=BFCODE(1,BF)
+      NROWLV=LEVNR(LEV)
+      PONTLV=LEVPT(LEV)
+      PONTM1=PONTLV+NROWLV
+      LEVPT(LEVM1)=PONTM1
+      IF (CODE.NE.SPE) GO TO 5
+      IF (SPCNT.EQ.0) NELECS(1)=NELECS(1)-NESPEC
+      SPCNT=SPCNT+1
+      GO TO 11
+    5 CONTINUE
+      IF (DELELE(BFCODE(1,BF)).EQ.1) RS1=IEOR(RS1,BFSYM(BF))
+      DO 2 REF=1,NREFS
+         NELECS(REF)=NELECS(REF)-DELELE(BFCODE(REF,BF))
+    2 CONTINUE
+   11 CONTINUE
+C
+      AMAX=0
+      AMIN=999999
+      BMAX=0
+      BMIN=999999
+      DO 3 ROW=PONTLV+1,PONTLV+NROWLV
+         IF (A(ROW).GT.AMAX) AMAX=A(ROW)
+         IF (A(ROW).LT.AMIN) AMIN=A(ROW)
+         IF (B(ROW).GT.BMAX) BMAX=B(ROW)
+         IF (B(ROW).LT.BMIN) BMIN=B(ROW)
+    3 CONTINUE
+      IF (AMIN.GT.0) AMIN=AMIN-1
+      IF (BMIN.GT.0) BMIN=BMIN-1
+      IF (BMAX.GT.MAXB) MAXB=BMAX
+      BMAX=BMAX+1
+C
+      DO 23 AJUNK=1,AMAX-AMIN+1
+         ATEST=AMAX-AJUNK+1
+         DO 22 BJUNK=1,BMAX-BMIN+1
+            BTEST=BMAX-BJUNK+1
+            DO 21 ROW=PONTLV+1,PONTLV+NROWLV
+               DO 20 CASE=1,4
+                  IF (CODE.EQ.COR.AND.CASE.NE.4) GO TO 19
+                  IF (CODE.EQ.VIR.AND.CASE.NE.1) GO TO 19
+                  IA=A(ROW)
+                  IB=B(ROW)
+                  IS=S(ROW)
+                  IC=LEVM1-IA-IB
+                  GO TO (6,7,8,9),CASE
+C
+                  WRITE (OUT,18) CASE
+                  WRITE (ERROUT,18) CASE
+   18             FORMAT (//,' IMPOSSIBLE CASE VALUE IN PALDUS:',I5)
+                  CALL EXIT
+C
+    6             IC=IC-1
+                  DELE=0
+                  GO TO 10
+C
+    7             IB=IB-1
+                  IS=IEOR(IS,BFSYM(BF))
+                  DELE=1
+                  GO TO 10
+C
+    8             IA=IA-1
+                  IB=IB+1
+                  IC=IC-1
+                  IS=IEOR(IS,BFSYM(BF))
+                  DELE=1
+                  IF (CODE.EQ.ALP.AND.SPINI) DELE=2
+                  GO TO 10
+C
+    9             CONTINUE
+                  IA=IA-1
+                  DELE=2
+C
+   10             CONTINUE
+                  IF (IA.LT.0.OR.IB.LT.0.OR.IC.LT.0) GO TO 19
+                  IF (IA.NE.ATEST.OR.IB.NE.BTEST) GO TO 19
+                  IF (2*IA+IB.GT.EXCITA.AND.LEVM1.LE.LEVFRM) GO TO 19
+                  POSSBL=0
+                  DO 60 REF=1,NREFS
+                     IF ((2*IA+IB.LE.NELECS(REF)+EXCITA).AND
+     #               .   (2*IA+IB.GE.NELECS(REF)-EXCITA)) POSSBL=1
+   60             CONTINUE
+                  IF (POSSBL.EQ.0.) GO TO 19
+C
+                  DO 13 ROWM1=PONTM1+1,PONTM1+NROWM1
+                     IF (IA.NE.A(ROWM1).OR.IB.NE.B(ROWM1).OR.IS.NE.S(
+     *               ROWM1)) GO TO 13
+                     IF (LEVM1.LT.LEVFRM) GO TO 17
+                     DIFF=0
+                     POSSBL=0
+                     IF (LEVVAL-LEVFRM.EQ.1) POSSBL=1
+                     IF (CODE.NE.SPE) GO TO 62
+                     IF (SPCNT.EQ.SPEC) GO TO 61
+                     POSSBL=1
+                     IX=4*(X(1,ROW)+CASE-1)
+                     IF (IX.NE.X(1,ROWM1)) DIFF=1
+                     GO TO 63
+   61                CONTINUE
+                     REF=1
+                     IX=SPC(X(1,ROW)+CASE)
+                     FRMX=0
+                     IF (LEVM1.EQ.LEVFRM) FRMX=IX
+                     IF ((2*IA+IB.LE.NELECS(REF)+EXCITA-IX).AND
+     #               .   (2*IA+IB.GE.NELECS(REF)-EXCITA+FRMX)) POSSBL=1
+                     IF (LEVM1.EQ.LEVFRM) IX=0
+                     IF (IX.NE.X(1,ROWM1)) DIFF=1
+                     GO TO 63
+   62                CONTINUE
+                     DO 40 REF=1,NREFS
+                        IX=X(REF,ROW)
+                        IF (DELE.GT.DELELE(BFCODE(REF,BF)).AND.KEY.NE.
+     *                  VALENC)IX=IX+DELE-DELELE(BFCODE(REF,BF))
+                        IF (LEV.NE.LEVVAL) GO TO 70
+                        IXSV=NELECS(REF)-(2*IA+IB)
+                        IX=IX+IXSV
+                        IF (IX.LT.0) THEN
+                           IF (SPINI) IX=(IX+IB)/2
+                        ELSE
+                           IF (SPINI.AND.IB.GT.IX) IX=IX+(IB-IX)/2
+                        END IF
+                        IF (IX.LT.0) IX=0
+                        IF (SYMI.AND.IX.EQ.0.AND.IS.NE.RS1.AND.IXSV.EQ.0
+     *                  ) IX=1
+                        IF (2*IA+IB.LE.EXCITA-IX) IX=0
+   70                   CONTINUE
+                        FRMX=0
+                        IF (LEVM1.EQ.LEVFRM) FRMX=IX
+                        IF ((2*IA+IB.LE.NELECS(REF)+EXCITA-IX).AND
+     #                  .   (2*IA+IB.GE.NELECS(REF)-EXCITA+FRMX))
+     *                   POSSBL=1
+                        IF (LEVM1.EQ.LEVFRM) IX=0
+   40                IF (IX.NE.X(REF,ROWM1)) DIFF=1
+   63                CONTINUE
+                     IF (POSSBL.EQ.0) GO TO 19
+                     IF (DIFF.EQ.0) GO TO 17
+   13             CONTINUE
+C
+C     ----- CHECK THAT THIS IS INDEED A POSSIBLE NEW POINT,     -----
+C           ESPECIALLY, IF GOT HERE BECAUSE A, B OR S DIFFERENT
+C
+                  POSSBL=0
+                  IF (LEVVAL-LEVFRM.EQ.1) POSSBL=1
+                  IF (CODE.NE.SPE) GO TO 162
+                  IF (SPCNT.EQ.SPEC) GO TO 161
+                  POSSBL=1
+                  GO TO 163
+  161             CONTINUE
+                  REF=1
+                  IX=SPC(X(1,ROW)+CASE)
+                  FRMX=0
+                  IF (LEVM1.EQ.LEVFRM) FRMX=IX
+                  IF ((2*IA+IB.LE.NELECS(REF)+EXCITA-IX).AND
+     #            .   (2*IA+IB.GE.NELECS(REF)-EXCITA+FRMX)) POSSBL=1
+                  GO TO 163
+  162             CONTINUE
+                  DO 140 REF=1,NREFS
+                  IX=X(REF,ROW)
+                  IF (DELE.GT.DELELE(BFCODE(REF,BF)).AND.KEY.NE.VALENC)
+     #            IX=IX+DELE-DELELE(BFCODE(REF,BF))
+                  IF (LEV.NE.LEVVAL) GO TO 170
+                  IXSV=NELECS(REF)-(2*IA+IB)
+                  IX=IX+IXSV
+                  IF (IX.LT.0) THEN
+                     IF (SPINI) IX=(IX+IB)/2
+                  ELSE
+                     IF (SPINI.AND.IB.GT.IX) IX=IX+(IB-IX)/2
+                  END IF
+                  IF (IX.LT.0) IX=0
+                  IF (SYMI.AND.IX.EQ.0.AND.IS.NE.RS1.AND.IXSV.EQ.0) IX=1
+                  IF (2*IA+IB.LE.EXCITA-IX) IX=0
+  170             CONTINUE
+                  FRMX=0
+                  IF (LEVM1.EQ.LEVFRM) FRMX=IX
+                  IF ((2*IA+IB.LE.NELECS(REF)+EXCITA-IX).AND
+     #            .   (2*IA+IB.GE.NELECS(REF)-EXCITA+FRMX)) POSSBL=1
+  140             CONTINUE
+  163             CONTINUE
+                  IF (POSSBL.EQ.0) GO TO 19
+C
+                  NROWM1=NROWM1+1
+                  ROWM1=PONTM1+NROWM1
+                  IF (ROWM1.LT.NROWSP) GO TO 16
+                  WRITE (OUT,15) NROWSP,LEVM1
+                  WRITE (ERROUT,15) NROWSP,LEVM1
+   15             FORMAT (//,' NOT ENOUGH SPACE TO MAKE DRT, HAVE ONLY R
+     *OOM FOR',           I6,' ROWS AND ARE EXCEEDING THAT AT LEVEL',I4)
+                  CALL EXIT
+   16             A(ROWM1)=IA
+                  B(ROWM1)=IB
+                  S(ROWM1)=IS
+C
+                  IF (LEVM1.LE.LEVFRM) GO TO 50
+                  IF (LEV.NE.LEVVAL) GO TO 42
+                  DO 77 REF=1,NREFS
+                  IXSV=NELECS(REF)-(2*IA+IB)
+                  IX=IXSV
+                  IF (IX.LT.0) THEN
+                     IF (SPINI) IX=(IX+IB)/2
+                  ELSE
+                     IF (SPINI.AND.IB.GT.IX) IX=IX+(IB-IX)/2
+                  END IF
+                  IF (IX.LT.0) IX=0
+                  IF (SYMI.AND.IX.EQ.0.AND.IS.NE.RS1.AND.IXSV.EQ.0) IX=1
+                  IF (2*IA+IB.LE.EXCITA-IX) IX=0
+                  X(REF,ROWM1)=X(REF,ROW)+IX
+   77             CONTINUE
+                  GO TO 17
+C
+   42             CONTINUE
+                  IF (CODE.NE.SPE) GO TO 44
+                  IF (SPCNT.EQ.SPEC) GO TO 43
+                  X(1,ROWM1)=4*(X(1,ROW)+CASE-1)
+                  GO TO 17
+   43             CONTINUE
+                  X(1,ROWM1)=SPC(X(1,ROW)+CASE)
+                  GO TO 17
+   44             CONTINUE
+                  DO 41 REF=1,NREFS
+                     IX=X(REF,ROW)
+                     IF (DELE.GT.DELELE(BFCODE(REF,BF)).AND.KEY.NE.
+     *               VALENC)IX=IX+DELE-DELELE(BFCODE(REF,BF))
+                     IF (2*IA+IB.LE.EXCITA-IX) IX=0
+                     X(REF,ROWM1)=IX
+   41             CONTINUE
+                  GO TO 17
+   50             CONTINUE
+                  DO 51 REF=1,NREFS
+                     X(REF,ROWM1)=0
+   51             CONTINUE
+   17             CONTINUE
+                  ARC((ROW-1)*4+CASE)=ROWM1-PONTM1
+   19             CONTINUE
+   20          CONTINUE
+   21       CONTINUE
+   22    CONTINUE
+   23 CONTINUE
+      LEVNR(LEVM1)=NROWM1
+      GO TO 4
+   25 CONTINUE
+C
+C     ----- SET WEIGHT OF BOTTOM OF SHAVITT GRAPH TO ONE, -----
+C                  ELIMINATE ALL OTHER BOTTOMS
+C
+      NROOT=0
+      DO 27 ROOT=LEVPT(1)+1,LEVPT(1)+LEVNR(1)
+      IF (A(ROOT).NE.0.OR.B(ROOT).NE.0.OR.S(ROOT).NE.0) GO TO 26
+      NROOT=NROOT+1
+      NLWKS(ROOT)=1
+   26 CONTINUE
+   27 CONTINUE
+C
+      IF (NROOT.EQ.1) GO TO 29
+      WRITE (OUT,28) NROOT
+      WRITE (ERROUT,28) NROOT
+   28 FORMAT (//,' INVALID NUMBER OF BOTTOMS TO GRAPH:',I4,//)
+      CALL EXIT
+   29 CONTINUE
+C
+C     ----- GENERATE THE WEIGHTS (NLWKS) OF ALL ROWS -----
+C
+      IF (LEV.LT.2) GO TO 91
+      DO 32 LEV=2,NLEVS
+         LEVM1=LEV-1
+         PONTM1=LEVPT(LEVM1)
+         DO 31 ROW=LEVPT(LEV)+1,LEVPT(LEV)+LEVNR(LEV)
+            NLWK=0
+            DO 30 CASE=1,4
+               ARCPT=(ROW-1)*4+CASE
+               IF (ARC(ARCPT).GT.0) NLWK=NLWK+NLWKS(ARC(ARCPT)+PONTM1)
+   30       CONTINUE
+            NLWKS(ROW)=NLWK
+   31    CONTINUE
+   32 CONTINUE
+C
+      NWKS=NLWKS(1)
+      IF (.NOT.SPINI) GO TO 93
+      WRITE (OUT,92) NWKS
+   92 FORMAT (//,T25,'***** NUMBER OF INTERACTING WALKS *****',/,T25,'*'
+     #,      T63,'*',/,T25,'*',T35,I12,T63,'*',/,T25,'*',T63,'*',/
+     #,          T25,'***************************************')
+      GO TO 95
+   93 CONTINUE
+      WRITE (OUT,94) NWKS
+   94 FORMAT (//,T25,'******** TOTAL NUMBER OF WALKS ********',/T25,'*'
+     #,       T63,'*',/,T25,'*',T35,I12,T63,'*',/,T25,'*',T63,'*',/
+     #,          T25,'***************************************')
+   95 CONTINUE
+C
+C     ----- REMOVE ALL ROWS WITH ZERO WEIGHTS -----
+C
+      PONT=1
+      DO 37 JUNK=1,NLEVS-1
+         LEV=NLEVS-JUNK
+         NROWLV=LEVNR(LEV)
+         PONTLV=LEVPT(LEV)
+         LEVPT(LEV)=PONT
+         DO 36 ROW=PONTLV+1,PONTLV+NROWLV
+         IF (NLWKS(ROW).EQ.0) GO TO 35
+         PONT=PONT+1
+         A(PONT)=A(ROW)
+         B(PONT)=B(ROW)
+         S(PONT)=S(ROW)
+         NLWKS(PONT)=NLWKS(ROW)
+         DO 34 CASE=1,4
+            ARC((PONT-1)*4+CASE)=ARC((ROW-1)*4+CASE)
+   34    CONTINUE
+         DO 55 ROWP1=LEVPT(LEV+1)+1,LEVPT(LEV+1)+LEVNR(LEV+1)
+         DO 54 CASE=(ROWP1-1)*4+1,(ROWP1-1)*4+4
+            IF (ARC(CASE).EQ.ROW-PONTLV) ARC(CASE)=PONT-LEVPT(LEV)
+   54    CONTINUE
+   55    CONTINUE
+         GO TO 36
+   35    CONTINUE
+         DO 53 ROWP1=LEVPT(LEV+1)+1,LEVPT(LEV+1)+LEVNR(LEV+1)
+            DO 52 CASE=(ROWP1-1)*4+1,(ROWP1-1)*4+4
+               IF (ARC(CASE).EQ.ROW-PONTLV) ARC(CASE)=0
+   52       CONTINUE
+   53    CONTINUE
+   36    CONTINUE
+         LEVNR(LEV)=PONT-LEVPT(LEV)
+   37 CONTINUE
+C
+   91 CONTINUE
+      NWKS=NLWKS(1)
+      NROWS=PONT
+      NROWS4=NROWS*4
+      NROWOC=0
+      DO 38 LEV=LEVFRM,NLEVS
+         NROWOC=NROWOC+LEVNR(LEV)
+   38 CONTINUE
+      NROW4O=NROWOC*4
+      RETURN
+      END
+      SUBROUTINE SQUEEZ(BP,SP,ARCP,NLWKSP,B,S,ARC,NLWKS)
+C
+C**********************************************************************
+C     PACK DOWN THE DRT ARRAYS NOW THAT INVALID ARCS AND POINTS
+C     HAVE BEEN ELIMINATE.
+C**********************************************************************
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+C
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+C
+      DIMENSION BP(NROWSP),SP(NROWSP),ARCP(NROW4P),NLWKSP(NROWSP)
+      DIMENSION B(NROWS),S(NROWS),ARC(NROWS4),NLWKS(NROWS)
+C
+      DO 1 I=1,NROWS
+         B(I)=BP(I)
+    1 CONTINUE
+      DO 2 I=1,NROWS
+         S(I)=SP(I)
+    2 CONTINUE
+      DO 3 I=1,NROWS4
+         ARC(I)=ARCP(I)
+    3 CONTINUE
+      DO 4 I=1,NROWS
+         NLWKS(I)=NLWKSP(I)
+    4 CONTINUE
+      RETURN
+      END
+      SUBROUTINE WEIGHT(A,B,S,ARC,LEVNR,LEVPT,NLWKS,WTAB,WTW,WTX,WTY
+     #,                 WGHT)
+C
+C***********************************************************************
+C   COMPUTE THE ARC-WEIGHT ARRAY, STARTING FROM THE BOTTOM OF THE      *
+C   GRAPH AND WORKING UP. THE ALGORITHM IS SIMPLE -- THE WEIGHT OF AN  *
+C   ARC IS THE SUM OF THE WEIGHT OF THE FIRST ARC TO ITS LEFT FROM THE *
+C   SAME--SAME--UPPER POINT AND THE WEIGHT (NUMBER OF LOWER WALKS) OF  *
+C   THE POINT THAT NEXT ARC TO THE LEFT ENDS AT AS A LOWER POINT. THUS *
+C   ALL VERTICAL ARCS (CASE=1) HAVE A WEIGHT OF ZERO. THEN THE WEIGHTS *
+C   OF ARCS IN THE EXTERNAL SPACE ARE TRANSFERRED TO EXTERNAL-WEIGHT-  *
+C   ARRAYS FOR USE IN THE EXTERNAL PORTION OF THE CALCULATION. THESE   *
+C   ARRAYS ARE:                                                        *
+C       WTAB(N)    WT OF DOUBLY OCCUPIED ARC FROM W POINT AT LEVEL N   *
+C                  (CASE=4)                                            *
+C       WTW(N,SYM) WT OF BETA WALK (CASE=3) FROM W POINT OF SYMMETRY   *
+C                  SYM AT LEVEL N OF GRAPH                             *
+C       WTX(N,SYM) WT OF ALPHA WALK (CASE=2) FROM X POINT OF SYMMETRY  *
+C                  SYM AT LEVEL N .                                    *
+C       WTY(N)     WT OF ALPHA WALK (CASE=2) FROM Y POINT AT LEVEL N   *
+C***********************************************************************
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+C
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+C
+      DIMENSION A(NROWS),B(NROWS),S(NROWS),NLWKS(NROWS)
+      DIMENSION ARC(NROWS4),LEVPT(NROWS),LEVNR(NROWS)
+      DIMENSION WTAB(ORBFRM),WTW(ORBFRM,NSYM),WTX(ORBFRM,NSYM)
+      DIMENSION WTY(ORBFRM),WGHT(NROWS4)
+C
+C
+C     ----- GENERATE THE ARC-WEIGHT ARRAY -----
+C
+      DO 32 LEV=2,NLEVS
+         LEVM1=LEV-1
+         PONTM1=LEVPT(LEVM1)
+         DO 31 ROW=LEVPT(LEV)+1,LEVPT(LEV)+LEVNR(LEV)
+            WT=0
+            DO 30 CASE=1,4
+               ROWM1=ARC((ROW-1)*4+CASE)
+               IF (ROWM1.GT.0) GO TO 28
+               GO TO 29
+   28          CONTINUE
+               WGHT((ROW-1)*4+CASE)=WT
+               WT=WT+NLWKS(PONTM1+ROWM1)
+   29          CONTINUE
+   30       CONTINUE
+   31    CONTINUE
+   32 CONTINUE
+C
+C     ----- GENERATE EXTERNAL-SPACE WEIGHT ARRAYS -----
+C
+      DO 72 LEV=1,ORBFRM
+         WTAB(LEV)=-999999
+         WTY(LEV)=-999999
+         DO 72 SYM=1,NSYM
+            WTW(LEV,SYM)=-999999
+            WTX(LEV,SYM)=-999999
+   72 CONTINUE
+C
+      IF (LEV.LT.2) GO TO 18
+      DO 17 LEV=2,LEVFRM
+         LEVM1=LEV-1
+         PONTM1=LEVPT(LEVM1)
+         DO 16 ROW=LEVPT(LEV)+1,LEVPT(LEV)+LEVNR(LEV)
+         IA=A(ROW)
+         IB=B(ROW)
+Clj Invalid Fortran 77 statement:
+Clj      IF (2*IA+IB.GT.2) GO TO 14
+         IF (2*IA+IB.GT.2) GO TO 16
+         IS=S(ROW)+1
+         DO 15 CASE=1,4
+            ROWM1=ARC((ROW-1)*4+CASE)
+            IF (ROWM1.GT.0) GO TO 13
+            GO TO 14
+   13       CONTINUE
+            IF (IA.EQ.1.AND.CASE.EQ.4) WTAB(LEVM1)=WGHT((ROW-1)*4+CASE)
+            IF (IA.EQ.1.AND.CASE.EQ.3) WTW(LEVM1,IS)=WGHT((ROW-1)*4+CASE
+     *      )
+            IF (IB.EQ.2.AND.CASE.EQ.2) WTX(LEVM1,IS)=WGHT((ROW-1)*4+CASE
+     *      )
+            IF (IB.EQ.1.AND.CASE.EQ.2) WTY(LEVM1)=WGHT((ROW-1)*4+CASE)
+   14       CONTINUE
+   15    CONTINUE
+   16    CONTINUE
+   17 CONTINUE
+C
+   18 CONTINUE
+      RETURN
+      END
+      SUBROUTINE INTGRL(BFSYM,ORBTBF,KADD,LADD,IJADD,IJGRP,ININT
+     #,                 INEXT,JMNNXT,JMXNXT,NINGRP,IJXX,KLXX,NKLXX
+     #,                 IJWW,KLWW,NKLWW)
+C
+C***********************************************************************
+C                                                                      *
+C PWS 19 JULY 1982                                                     *
+C     MODIFIED 19 JULY 1982 TO FORM 3 AND 4-EXTERNAL ADDRESSING        *
+C     SCHEME AND TO GENERATE IJ-BLOCKS RATHER THAN ONLY I-BLOCKS       *
+C                                                                      *
+C     COUNT AND COMPUTE ADDRESSES FOR THE INTEGRALS INCLUDING SYMMETRY.*
+C     THE ADDRESS OF AN INTEGRAL WITH INDICES I>J>K>L (OR EQUAL) IS    *
+C     GIVEN BY THE FOLLOWING EXPRESSION:                               *
+C                                                                      *
+C IJADD(IJ)+KADD(K+SYM(I)SYM(L)*NORBS)+LADD(L+SYM(I)SYM(L)SYM(K)*NORBS)*
+C                                                                      *
+C     WHERE IJ=I*(I-1)/2+J AND NORBS IS NUMBER OF ORBITALS IN CI. NOTE *
+C     ALSO THAT SYMMETRIES NEED DIRECT PRODUCTS. THE INTEGRALS ARE     *
+C     STORED WITH THE FOLLOWING OFFSET FROM THE ADDRESS ABOVE:         *
+C                                                                      *
+C       TYPE            1            2          3                      *
+C         1          (IK,JL)      (IJ,KL)    (IL,JK)                   *
+C         2          (IJ,JL)      (IL,JJ)                              *
+C         3          (IK,IL)      (II,KL)                              *
+C         4          (IL,JL)      (IJ,LL)                              *
+C         5          (II,IL)      (IL,LL)    <I/H/L>                   *
+C         6          (IL,IL)      (II,LL)                              *
+C         7          (II,II)      <I/H/I>                              *
+C                                                                      *
+C     THE ADDRESS OF 3- AND 4-EXTERNAL MATRIX ELEMENTS IS GIVEN BY     *
+C                                                                      *
+C             WY ENTRY                   XY ENTRY                      *
+C        IJWW(IA)+KLWW(BC)    OR    IJXX(IA)+KLXX(BC)       (3X)       *
+C                             OR                                       *
+C        IJWW(AB)+KLWW(CD)    OR    IJXX(AB)+KLXX(CD)       (4X)       *
+C             WW ENTRY                   XX ENTRY                      *
+C                                                                      *
+C     THIS SUBROUTINE ALSO DETERMINES THE INTEGRAL BLOCK SIZE (NMAX).  *
+C     IJGRP(IJ) GIVES BLOCK CONTAINING ALL INTEGRALS WITH I AND J      *
+C     INDICES.                                                         *
+C***********************************************************************
+C
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+C
+      CHARACTER*4 LABEL
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+      COMMON /BLOKSZ/ BLKSIZ,ABSMAX,MAXSIZ
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+C
+      DIMENSION BFSYM(NBF),ORBTBF(NORBS),KADD(SYMORB),LADD(SYMORB)
+      DIMENSION IJADD(NUMIJ),IJGRP(NUMIJ),ININT(NORBS)
+      DIMENSION INEXT(NORBS),JMNNXT(NORBS),JMXNXT(NORBS),NINGRP(1)
+      DIMENSION IJXX(NUMIJ),KLXX(NUMIJ),IJWW(NUMIJ)
+      DIMENSION KLWW(NUMIJ),NKLWW(NSYM,ORBFRM),NKLXX(NSYM,ORBFRM)
+C
+      DO 101 I=1,NUMIJ
+         IJXX(I)=0
+         IJWW(I)=0
+  101 CONTINUE
+C
+C     ----- COUNT INTEGRALS AND FORM KADD AND LADD ARRAYS -----
+C
+      IF (OPTION(5).GT.0) BLKSIZ=OPTION(5)*100
+      IF (OPTION(5).GT.0) ABSMAX=BLKSIZ
+      NUMINT=0
+      JADMAX=0
+      IJAD=0
+      DO 9 I=1,NORBS
+         ISYM=BFSYM(ORBTBF(I))
+         JAD=0
+         IJ=I*(I-1)/2
+         DO 8 J=1,I
+            IJ=IJ+1
+            IJSYM=IEOR(ISYM,BFSYM(ORBTBF(J)))
+            KAD=0
+            DO 7 K=1,J
+               IJKAD=K+IJSYM*NORBS
+               IF (KADD(IJKAD).EQ.0.OR.KADD(IJKAD).EQ.KAD) GO TO 2
+               WRITE (OUT,1)
+               WRITE (ERROUT,1)
+    1          FORMAT (//,' SYMMETRY PROBLEMS WITH K IN INTGRL',//)
+               CALL EXIT
+    2          CONTINUE
+               KADD(IJKAD)=KAD
+               IJKSYM=IEOR(IJSYM,BFSYM(ORBTBF(K)))
+               LAD=0
+               DO 6 L=1,K
+                  IJKLAD=L+IJKSYM*NORBS
+                  IF (LADD(IJKLAD).EQ.0.OR.LADD(IJKLAD).EQ.LAD) GO TO 4
+                  WRITE (OUT,3)
+                  WRITE (ERROUT,3)
+    3             FORMAT (//,' SYMMETRY PROBLEMS WITH L IN INTGRL',//)
+                  CALL EXIT
+    4             CONTINUE
+                  LADD(IJKLAD)=LAD
+                  IF (IJKSYM.NE.BFSYM(ORBTBF(L))) GO TO 5
+                  IF (L.EQ.J.AND.L.LT.I) GO TO 5
+                  LAD=LAD+3
+C     IF (K.EQ.L) LAD=LAD-1
+    5             CONTINUE
+    6          CONTINUE
+               KAD=KAD+LAD
+    7       CONTINUE
+            JAD=JAD+KAD
+            IJADD(IJ)=KAD
+    8    CONTINUE
+         NUMINT=NUMINT+JAD
+         ININT(I)=JAD
+         IF (JAD.GT.JADMAX) JADMAX=JAD
+    9 CONTINUE
+C
+C     ----- WORK OUT KL ADDRESSING FOR 3- AND 4- EXTERNAL INTEGRALS ----
+C
+      DO 34 ISYM=1,NSYM
+         NUM=0
+         DO 33 I=2,ORBFRM
+            IS=IEOR(BFSYM(ORBTBF(I)),(ISYM-1))
+            IA=I*(I-1)/2
+            DO 32 J=1,I-1
+               IF (BFSYM(ORBTBF(J)).NE.IS) GO TO 31
+               NUM=NUM+1
+               KLXX(IA+J)=NUM
+   31          CONTINUE
+   32       CONTINUE
+            NKLXX(ISYM,I)=NUM
+   33    CONTINUE
+C     NKLXX(ISYM)=NUM
+   34 CONTINUE
+C
+      DO 38 ISYM=1,NSYM
+         NUM=0
+         DO 37 I=1,ORBFRM
+            IS=IEOR((ISYM-1),BFSYM(ORBTBF(I)))
+            IA=I*(I-1)/2
+            DO 36 J=1,I
+               IF (BFSYM(ORBTBF(J)).NE.IS) GO TO 35
+               NUM=NUM+1
+               KLWW(IA+J)=NUM
+   35          CONTINUE
+   36       CONTINUE
+            NKLWW(ISYM,I)=NUM
+   37    CONTINUE
+C     NKLWW(ISYM)=NUM
+   38 CONTINUE
+C
+C     ----- NUMBER OF 3- AND 4-EXTERNAL ELEMENTS IN IJ BLOCKS -----
+C
+      DO 44 JUNK=ORBFRM+1,NORBS
+         I=NORBS-JUNK+ORBFRM+1
+         IA=I*(I-1)/2
+         IS=BFSYM(ORBTBF(I))
+         NUM=0
+         DO 42 J=1,ORBFRM
+            IJS=IEOR(IS,BFSYM(ORBTBF(J)))
+            IJWW(IA+J)=NKLWW(IJS+1,ORBFRM)
+            NUM=NUM+NKLWW(IJS+1,ORBFRM)
+   42    CONTINUE
+         DO 43 J=1,ORBFRM
+            IJS=IEOR(IS,BFSYM(ORBTBF(J)))
+            IJXX(IA+J)=NKLXX(IJS+1,ORBFRM)
+            NUM=NUM+NKLXX(IJS+1,ORBFRM)
+   43    CONTINUE
+         ININT(I)=ININT(I)+NUM
+         NUMINT=NUMINT+NUM
+   44 CONTINUE
+C
+      DO 41 JUNK=1,ORBFRM
+         I=ORBFRM-JUNK+1
+         NUM=0
+         IA=I*(I-1)/2
+         IS=BFSYM(ORBTBF(I))
+         DO 39 J=1,I-1
+            IJS=IEOR(IS,BFSYM(ORBTBF(J)))
+            IJXX(IA+J)=NKLXX(IJS+1,ORBFRM)
+            NUM=NUM+NKLXX(IJS+1,ORBFRM)
+   39    CONTINUE
+C
+         DO 40 J=1,I
+            IJS=IEOR(IS,BFSYM(ORBTBF(J)))
+            IJWW(IA+J)=NKLWW(IJS+1,ORBFRM)
+            NUM=NUM+NKLWW(IJS+1,ORBFRM)
+   40    CONTINUE
+         ININT(I)=ININT(I)+NUM
+         NUMINT=NUMINT+NUM
+   41 CONTINUE
+C
+C     ----- WORK OUT A CONVENIENT OUTPUT BLOCK SIZE FOR INTEGRALS -----
+C
+      JADMAX=0
+      DO 45 I=1,NORBS
+         IF (ININT(I).GT.JADMAX) JADMAX=ININT(I)
+   45 CONTINUE
+      NMAX=BLKSIZ
+      IF (MAXSIZ-2*NWKS.LT.BLKSIZ) NMAX=MAXSIZ-2*NWKS
+      IF (NMAX.LT.JADMAX) NMAX=BLKSIZ
+      IF (NMAX.GT.JADMAX) GO TO 11
+      WRITE (OUT,10) JADMAX
+   10 FORMAT (//,' CANNOT FIT I-BLOCK OF INTEGRALS IN REQUESTED BLOCK'
+     #,          ' SIZE',/,' NEED',I7,' INTEGRALS PER BLOCK, SO WILL'
+     #,          ' TRY TO HOLD LARGEST I-BLOCK',//)
+      NMAX=JADMAX
+   11 CONTINUE
+      IF (NMAX.LE.ABSMAX) GO TO 13
+      WRITE (OUT,12) NMAX
+   12 FORMAT (//,' CANNOT HANDLE I-BLOCK OF INTEGRALS OF SIZE',I8
+     #,        /,' SO WILL SPLIT I-BLOCKS',//)
+      NMAX=ABSMAX
+C***********************************************************************
+      WRITE(*,*) '  BLKSIZ = ',BLKSIZ
+C***********************************************************************
+   13 CONTINUE
+      IF (NMAX.GT.NUMINT) NMAX=NUMINT
+C
+C     ----- GENERATE THE IJADD AND IJGRP ARRAYS -----
+C
+      GROUP=0
+      LEFT=0
+      SUM=0
+      DO 59 I=NORBS,1,-1
+         IA=I*(I-1)/2
+         IF (ININT(I).LE.LEFT) GO TO 50
+         IF (GROUP.GT.0) NINGRP(GROUP)=SUM
+         GROUP=GROUP+1
+         LEFT=NMAX
+         SUM=0
+   50    CONTINUE
+         IJMAX=IA+I
+         DO 55 J=I,1,-1
+            IJ=IA+J
+            NIJ=IJADD(IJ)+IJWW(IJ)+IJXX(IJ)
+            IF (NIJ.GT.NMAX) GO TO 910
+            IF (NIJ.LE.LEFT) GO TO 54
+            IJMIN=IJ+1
+            DO 51 IJQ=IJMAX,IJMIN,-1
+               T=IJADD(IJQ)
+               IJADD(IJQ)=SUM
+               SUM=SUM+T
+   51       CONTINUE
+            DO 52 IJQ=IJMAX,IJMIN,-1
+               T=IJWW(IJQ)
+               IJWW(IJQ)=SUM
+               SUM=SUM+T
+   52       CONTINUE
+            DO 53 IJQ=IJMAX,IJMIN,-1
+               T=IJXX(IJQ)
+               IJXX(IJQ)=SUM
+               SUM=SUM+T
+   53       CONTINUE
+C
+            IJMAX=IJ
+            NINGRP(GROUP)=SUM
+            GROUP=GROUP+1
+            SUM=0
+            LEFT=NMAX
+   54       CONTINUE
+            LEFT=LEFT-NIJ
+            IJGRP(IJ)=GROUP
+   55    CONTINUE
+C
+         IJMIN=IJ
+         DO 56 IJQ=IJMAX,IJMIN,-1
+            T=IJADD(IJQ)
+            IJADD(IJQ)=SUM
+            SUM=SUM+T
+   56    CONTINUE
+         DO 57 IJQ=IJMAX,IJMIN,-1
+            T=IJWW(IJQ)
+            IJWW(IJQ)=SUM
+            SUM=SUM+T
+   57    CONTINUE
+         DO 58 IJQ=IJMAX,IJMIN,-1
+            T=IJXX(IJQ)
+            IJXX(IJQ)=SUM
+            SUM=SUM+T
+   58    CONTINUE
+C
+   59 CONTINUE
+      NGROUP=GROUP
+      WRITE (OUT,21) NUMINT,NGROUP,NMAX
+   21 FORMAT (///,T4,'THERE ARE',I9,' INTEGRALS TO BE STORED IN',I3
+     #,      ' GROUPS OF',I7,' EACH')
+C
+C     ----- GENERATE INEXT AND JNEXT ARRAYS -----
+C
+      DO 20 ORB=1,NORBS
+         NEXT=NORBS-ORB+1
+         INEXT(NEXT)=ORB
+         JMNNXT(NEXT)=1
+         JMXNXT(NEXT)=ORB
+   20 CONTINUE
+      RETURN
+C
+  910 CONTINUE
+      WRITE (OUT,911) NMAX,NIJ
+      WRITE (ERROUT,911) NMAX,NIJ
+  911 FORMAT (//,' CANNOT FIT IJ-BLOCK OF INTEGRALS. NMAX=',I7
+     #,        / '                        SIZE OF IJ-BLOCK',I7,//)
+      CALL EXIT
+      END
+      SUBROUTINE REF(ARC,WGHT,LEVNR,LEVPT,ORBTBF,BFCODE,
+     #CSAV,ROWSV,WTSAV,REFWT,MXREF)
+C
+C
+C
+      IMPLICIT INTEGER (A-Z)
+      LOGICAL INTRAC
+      CHARACTER*1 MULTRF,VALENC,BFKEY
+      CHARACTER*3 CODES,WORDS
+      CHARACTER*4 LABEL
+C
+      COMMON /CBFKEY/ BFKEY(1000)
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+      COMMON /CASES/  CASEV(9)
+C
+      DIMENSION ORBTBF(NORBS),BFCODE(NREFS,NBF)
+      DIMENSION ARC(4,NROWS)
+      DIMENSION LEVNR(NLEVS),LEVPT(NLEVS)
+      DIMENSION WGHT(4,NROWS)
+      DIMENSION ROWSV(NLEVS),CSAV(NLEVS),WTSAV(NLEVS),REFWT(MXREF)
+C
+      IF (LEVVAL.LE.10000) GO TO 110
+      DO 100 REFER=1,NREFS
+         WT=1
+         ROW=1
+         DO 50 ORB=NORBS,1,-1
+            LEV=ORB+1
+            CASE=CASEV(BFCODE(REFER,ORBTBF(ORB)))
+            WT=WT+WGHT(CASE,LEVPT(LEV)+ROW)
+            ROW=ARC(CASE,LEVPT(LEV)+ROW)
+   50    CONTINUE
+C
+         REFWT(REFER)=WT
+         WRITE (OUT,51) REFER,WT
+   51    FORMAT ('  REFERENCE #',I4,' IS WALK',I8)
+  100 CONTINUE
+      NVREF=NREFS
+C
+      RETURN
+C
+  110 CONTINUE
+C
+      ROW=1
+      DO 150 ORB=NORBS,LEVVAL-1,-1
+         LEV=ORB+1
+         ROW=ARC(CASEV(BFCODE(1,ORBTBF(ORB))),LEVPT(ORB+1)+ROW)
+  150 CONTINUE
+C
+      WRITE (OUT,151) ORB+1,ROW
+  151 FORMAT (' LEVVAL PT',3I5)
+C
+      BOTTOM=LEV-1
+      ROWM1=ROW
+      ROWSV(BOTTOM)=ROWM1
+      NVREF=0
+C
+      WT=1
+      DO 155 I=LEVVAL-2,1,-1
+         CASE=CASEV(BFCODE(1,ORBTBF(I)))
+         WT=WT+WGHT(CASE,LEVPT(I+1)+ROW)
+         ROW=ARC(CASE,LEVPT(I+1)+ROW)
+  155 CONTINUE
+C
+      MINC=1
+  159 CONTINUE
+      MIN=LEVPT(LEV)+1
+      MAX=LEVPT(LEV)+LEVNR(LEV)
+  160 CONTINUE
+      DO 165 ROW=MIN,MAX
+      DO 164 CS=MINC,4
+         IF (ARC(CS,ROW).EQ.ROWM1) GO TO 170
+  164 CONTINUE
+      MINC=1
+  165 CONTINUE
+  166 CONTINUE
+      LEV=LEV-1
+      WT=WTSAV(LEV)
+      IF (LEV.LE.BOTTOM) RETURN
+      ROWM1=ROWSV(LEV-1)
+      MIN=LEVPT(LEV)+ROWSV(LEV)
+      MAX=LEVPT(LEV)+LEVNR(LEV)
+      MINC=CSAV(LEV)+1
+      GO TO 160
+C
+  170 CONTINUE
+      CSAV(LEV)=CS
+      ROWSV(LEV)=ROW-LEVPT(LEV)
+      WTSAV(LEV)=WT
+      WT=WT+WGHT(CS,ROW)
+      IF (LEV.GE.NLEVS) GO TO 200
+      ROWM1=ROW-LEVPT(LEV)
+      LEV=LEV+1
+      GO TO 159
+C
+  200 CONTINUE
+      NVREF=NVREF+1
+      REFWT(NVREF)=WT
+      WRITE (OUT,201) NVREF,WT
+  201 FORMAT (' VALENCE REFERENCE #',I5,' IS WALK ',I8)
+      GO TO 166
+C
+      END
+      SUBROUTINE PRIN(A,B,S,ARC,NLWKS,WGHT,WTAB,WTW,WTX,WTY,LEVNR,LEVPT
+     #,                KADD,LADD,ININT,IJGRP,IJADD,ORBTBF,BFCODE,BFSYM)
+CIBM #,                BFSYM)
+C
+C     OPTION(1) CONTROLS PRINTING IN THE FOLLOWING FASHION--SINGLE BITS
+C               SET CONTROL EACH PRINT SECTION AS FOLLOWS
+C
+C     BIT  PRINTED OUTPUT
+C      1    DISTINCT ROW TABLE, INCLUDING WEIGHTS AND CHAINING INDICES
+C      2    EXTERNAL WEIGHT ARRAYS
+C      4    INTEGRAL ADDRESSING INFORMATION
+C
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+      LOGICAL INTRAC
+      CHARACTER*1 MULTRF,VALENC,BFKEY
+      CHARACTER*3 CODES,WORDS
+      CHARACTER*4 LABEL
+C
+      COMMON /CBFKEY/ BFKEY(1000)
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+C
+      DIMENSION ORBTBF(NORBS),BFCODE(NREFS,NBF),BFSYM(NBF)
+      DIMENSION A(NROWS),B(NROWS),S(NROWS),ARC(NROWS4),NLWKS(NROWS)
+      DIMENSION LEVNR(NLEVS),LEVPT(NLEVS)
+      DIMENSION WTAB(ORBFRM),WTW(ORBFRM,NSYM),WTX(ORBFRM,NSYM)
+      DIMENSION WTY(ORBFRM),KADD(SYMORB),LADD(SYMORB),ININT(NORBS)
+      DIMENSION IJGRP(NUMIJ),IJADD(NUMIJ),WGHT(NROWS4)
+C
+      WRITE (OUT,92) NORBS,NBF
+   92 FORMAT (/,T23,I3,' OF',I3,' ORBITALS ALLOWED IN CI')
+      IF (IAND(OPTION(1),1).EQ.0) GO TO 7
+      WRITE (OUT,19)
+   19 FORMAT (///,T30,'*** DISTINCT ROW TABLE ***',/)
+      DO 6 JUNK=1,NLEVS
+         LEV=NLEVS-JUNK+1
+         ORB=LEV
+         IF (LEV.EQ.NLEVS) GO TO 89
+         BF=ORBTBF(ORB)
+CCRBR  ADDED BY RBR
+         BFSYM1 = BFSYM(BF) + 1
+         WRITE (OUT,20) ORB,BF,BFSYM1,(WORDS(I,BFCODE(1,BF)),I=1,6)
+   20    FORMAT (/,' ORBITAL',I4,' BASIS FUNCTION',I4,' SYMMETRY'
+     #   ,       I2,4X,6A3,/)
+   89    CONTINUE
+         IF (LEV.GE.LEVFRM) GO TO 1
+         WRITE (OUT,21)
+   21    FORMAT
+     #   (' ROW  A  B S    NLWK  A1  A2  A3  A4 W1      W2      W3     W
+     *4')
+         GO TO 2
+    1    CONTINUE
+         WRITE (OUT,22)
+   22    FORMAT
+     #   (' -----------------------INTERNAL SPACE-----------------------
+     *-'/,' ROW  A  B S    NLWK  A1  A2  A3  A4 W1      W2      W3     W
+     *4')
+    2    CONTINUE
+         DO 5 ROW=1,LEVNR(LEV)
+            I=ROW+LEVPT(LEV)
+            J=(I-1)*4
+            IF (LEV.GE.LEVFRM) GO TO 3
+            WRITE (OUT,23) ROW,A(I),B(I),S(I),NLWKS(I),ARC(J+1)
+     #      ,              ARC(J+2),ARC(J+3),ARC(J+4),WGHT(J+1),WGHT(J+2
+     *      ),              WGHT(J+3),WGHT(J+4)
+   23       FORMAT (1X,I3,2I3,I2,I8,4I4,I3,3I8)
+            GO TO 4
+    3       CONTINUE
+            WRITE (OUT,23) ROW,A(I),B(I),S(I),NLWKS(I),ARC(J+1)
+     #      ,              ARC(J+2),ARC(J+3),ARC(J+4)
+     #      ,              WGHT(J+1),WGHT(J+2),WGHT(J+3),WGHT(J+4)
+    4       CONTINUE
+    5    CONTINUE
+    6 CONTINUE
+C
+C
+    7 CONTINUE
+      IF (IAND(OPTION(1),2).EQ.0) GO TO 10
+      WRITE (OUT,26)
+   26 FORMAT (///,'   EXTERNAL WEIGHT ARRAYS',/)
+      DO 9 LEV=1,ORBFRM
+         WRITE (OUT,27) WTAB(LEV),WTY(LEV),(WTW(LEV,SQ),SQ=1,NSYM)
+     #   ,              (WTX(LEV,SQ),SQ=1,NSYM)
+   27    FORMAT (1X,18I5)
+    9 CONTINUE
+C
+C
+   10 CONTINUE
+      IF (IAND(OPTION(1),4).EQ.0) GO TO 13
+      WRITE (OUT,33)
+   33 FORMAT (///,'  INTEGRALS ADDRESSING SCHEME',//,'   I    GROUP '
+     #,       ' NINTS  IJADD',/)
+      DO 11 JUNK=1,NORBS
+         I=NORBS-JUNK+1
+         WRITE (OUT,28) I,IJGRP(I*(I+1)/2),ININT(I),IJADD(I*(I-1)/2+1)
+   28    FORMAT (4I7)
+   11 CONTINUE
+      WRITE (OUT,29)
+   29 FORMAT  (///,' KADD AND LADD')
+      DO 12 I=1,NORBS
+         WRITE (OUT,30) I,(KADD(J),LADD(J),J=I,SYMORB,NORBS)
+   30    FORMAT (I5,8(2I6,3X))
+   12 CONTINUE
+C
+C
+   13 CONTINUE
+      RETURN
+      END
+      SUBROUTINE RENUMB(LEVPT,LEVNR,ARC)
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT
+C
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+C
+      DIMENSION LEVPT(NLEVS),LEVNR(NLEVS),ARC(NROWS4)
+C
+C
+C     ----- CHANGE ARC ARRAY TO INCORPORATE LEVPT OFFSETS -----
+C           SO DONT HAVE TO ADD LEVPT(LEVM1) ALL THE TIME
+C
+      DO 3 LEV=2,NLEVS
+         PONTM1=LEVPT(LEV-1)
+         DO 2 ROW=LEVPT(LEV)+1,LEVPT(LEV)+LEVNR(LEV)
+            DO 1 CASE=(ROW-1)*4+1,(ROW-1)*4+4
+               IF (ARC(CASE).GT.0) ARC(CASE)=ARC(CASE)+PONTM1
+    1       CONTINUE
+    2    CONTINUE
+    3 CONTINUE
+      RETURN
+      END
+      SUBROUTINE PUTDRT(BFSYM,BFCODE,ORBTBF,IOUT,LEVPT,LEVNR,A,B,S,ARC
+     #,                 NLWKS,WGHT,WTAB,WTW,WTX,WTY,KADD,LADD,IJADD
+     #,                 IJGRP,ININT,INEXT,JMNNXT,JMXNXT,NINGRP,ORBSYM
+     #,                 IJXX,KLXX,NKLXX,IJWW,KLWW,NKLWW,REFWT)
+C
+      IMPLICIT INTEGER (A-Z)
+      INTEGER NUMINT,FCBDRT(16),IVER(1)
+      DOUBLE PRECISION VERSIN
+      CHARACTER*4 LABEL
+C
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /DIMENS/ NBF,NSYM,NORBS,NROWSP,NROW4P,NROWS,NROWS4
+     #,               NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+     #,               ORBFRM,SYMORB,NUMIJ,NGROUP,NUMINT,NMAX,NSPC,NVREF
+     #,               NIJVIR
+      COMMON /OPTION/ OPTION(16),IDENT(26),LABEL(26)
+      COMMON /VERSIN/ VERSIN
+C
+      DIMENSION BFSYM(NBF),BFCODE(NREFS,NBF),ORBTBF(NORBS),IOUT(NBF)
+      DIMENSION LEVPT(NLEVS),LEVNR(NLEVS),A(NROWS),B(NROWS),S(NROWS)
+      DIMENSION ARC(NROWS4),NLWKS(NROWS),WGHT(NROWS4),WTAB(ORBFRM)
+      DIMENSION WTW(ORBFRM,NSYM),WTX(ORBFRM,NSYM),WTY(ORBFRM)
+      DIMENSION KADD(SYMORB),LADD(SYMORB)
+      DIMENSION IJADD(NUMIJ),IJGRP(NUMIJ),ININT(NORBS),INEXT(NORBS)
+      DIMENSION JMNNXT(NORBS),JMXNXT(NORBS),NINGRP(NGROUP),ORBSYM(NORBS)
+      DIMENSION IJXX(NUMIJ ),KLXX(NIJVIR),NKLXX(NSYM,ORBFRM)
+      DIMENSION IJWW(NUMIJ ),KLWW(NIJVIR),NKLWW(NSYM,ORBFRM)
+      DIMENSION REFWT(NVREF)
+C
+      EQUIVALENCE (VERSIN,IVER)
+C
+C     REWIND DRTTAP
+C     WRITE (DRTTAP) VERSIN
+C     WRITE (DRTTAP) LABEL
+C     INTNUM=NUMINT
+C     WRITE (DRTTAP) NBF,NSYM,NORBS,NROWS,NROWS4
+C    #,              NLEVS,NREFS,NROWOC,NROW4O,NWKS,NWKSOC,NLEVOC
+C    #,              ORBFRM,SYMORB,NUMIJ,NGROUP,INTNUM,NMAX,MAXB
+C    #,              NIJVIR,NVREF
+C     WRITE (DRTTAP) KADD
+C     WRITE (DRTTAP) LADD
+C     WRITE (DRTTAP) IJADD
+C     WRITE (DRTTAP) IJGRP
+C     WRITE (DRTTAP) ININT
+C     WRITE (DRTTAP) INEXT
+C     WRITE (DRTTAP) JMNNXT
+C     WRITE (DRTTAP) JMXNXT
+C     WRITE (DRTTAP) NINGRP
+C     WRITE (DRTTAP) IOUT
+C     WRITE (DRTTAP) ORBSYM
+C     WRITE (DRTTAP) BFSYM
+C     WRITE (DRTTAP) BFCODE
+C     WRITE (DRTTAP) ORBTBF
+C     WRITE (DRTTAP) LEVPT
+C     WRITE (DRTTAP) LEVNR
+C     WRITE (DRTTAP) A
+C     WRITE (DRTTAP) B
+C     WRITE (DRTTAP) S
+C     WRITE (DRTTAP) ARC
+C     WRITE (DRTTAP) NLWKS
+C     WRITE (DRTTAP) WGHT
+C     WRITE (DRTTAP) WTAB
+C     WRITE (DRTTAP) WTW
+C     WRITE (DRTTAP) WTX
+C     WRITE (DRTTAP) WTY
+C     WRITE (DRTTAP) IJXX
+C     WRITE (DRTTAP) KLXX
+C     WRITE (DRTTAP) NKLXX
+C     WRITE (DRTTAP) IJWW
+C     WRITE (DRTTAP) KLWW
+C     WRITE (DRTTAP) NKLWW
+C     WRITE (DRTTAP) REFWT
+C     ENDFILE DRTTAP
+      CALL RFILE(DRTTAP)
+      CALL WWRITW(DRTTAP,IVER,INTOWP(1),1,END)
+      CALL WWRITW(DRTTAP,LABEL,26,END,END)
+      CALL WWRITW(DRTTAP,NBF,1,END,END)
+      CALL WWRITW(DRTTAP,NSYM,1,END,END)
+      CALL WWRITW(DRTTAP,NORBS,1,END,END)
+      CALL WWRITW(DRTTAP,NROWS,1,END,END)
+      CALL WWRITW(DRTTAP,NROWS4,1,END,END)
+      CALL WWRITW(DRTTAP,NLEVS,1,END,END)
+      CALL WWRITW(DRTTAP,NREFS,1,END,END)
+      CALL WWRITW(DRTTAP,NROWOC,1,END,END)
+      CALL WWRITW(DRTTAP,NROW4O,1,END,END)
+      CALL WWRITW(DRTTAP,NWKS,1,END,END)
+      CALL WWRITW(DRTTAP,NWKSOC,1,END,END)
+      CALL WWRITW(DRTTAP,NLEVOC,1,END,END)
+      CALL WWRITW(DRTTAP,ORBFRM,1,END,END)
+      CALL WWRITW(DRTTAP,SYMORB,1,END,END)
+      CALL WWRITW(DRTTAP,NUMIJ,1,END,END)
+      CALL WWRITW(DRTTAP,NGROUP,1,END,END)
+      CALL WWRITW(DRTTAP,NUMINT,1,END,END)
+      CALL WWRITW(DRTTAP,NMAX,1,END,END)
+      CALL WWRITW(DRTTAP,MAXB,1,END,END)
+      CALL WWRITW(DRTTAP,NIJVIR,1,END,END)
+      CALL WWRITW(DRTTAP,NVREF,1,END,END)
+      CALL WWRITW(DRTTAP,KADD,SYMORB,END,END)
+      CALL WWRITW(DRTTAP,LADD,SYMORB,END,END)
+      CALL WWRITW(DRTTAP,IJADD,NUMIJ,END,END)
+      CALL WWRITW(DRTTAP,IJGRP,NUMIJ,END,END)
+      CALL WWRITW(DRTTAP,ININT,NORBS,END,END)
+      CALL WWRITW(DRTTAP,INEXT,NORBS,END,END)
+      CALL WWRITW(DRTTAP,JMNNXT,NORBS,END,END)
+      CALL WWRITW(DRTTAP,JMXNXT,NORBS,END,END)
+      CALL WWRITW(DRTTAP,NINGRP,NGROUP,END,END)
+      CALL WWRITW(DRTTAP,IOUT,NBF,END,END)
+      CALL WWRITW(DRTTAP,ORBSYM,NORBS,END,END)
+      CALL WWRITW(DRTTAP,BFSYM,NBF,END,END)
+      CALL WWRITW(DRTTAP,BFCODE,NREFS*NBF,END,END)
+      CALL WWRITW(DRTTAP,ORBTBF,NORBS,END,END)
+      CALL WWRITW(DRTTAP,LEVPT,NLEVS,END,END)
+      CALL WWRITW(DRTTAP,LEVNR,NLEVS,END,END)
+      CALL WWRITW(DRTTAP,A,NROWS,END,END)
+      CALL WWRITW(DRTTAP,B,NROWS,END,END)
+      CALL WWRITW(DRTTAP,S,NROWS,END,END)
+      CALL WWRITW(DRTTAP,ARC,NROWS4,END,END)
+      CALL WWRITW(DRTTAP,NLWKS,NROWS,END,END)
+      CALL WWRITW(DRTTAP,WGHT,NROWS4,END,END)
+      CALL WWRITW(DRTTAP,WTAB,ORBFRM,END,END)
+      CALL WWRITW(DRTTAP,WTW,ORBFRM*NSYM,END,END)
+      CALL WWRITW(DRTTAP,WTX,ORBFRM*NSYM,END,END)
+      CALL WWRITW(DRTTAP,WTY,ORBFRM,END,END)
+      CALL WWRITW(DRTTAP,IJXX,NUMIJ,END,END)
+      CALL WWRITW(DRTTAP,KLXX,NIJVIR,END,END)
+      CALL WWRITW(DRTTAP,NKLXX,NSYM*ORBFRM,END,END)
+      CALL WWRITW(DRTTAP,IJWW,NUMIJ,END,END)
+      CALL WWRITW(DRTTAP,KLWW,NIJVIR,END,END)
+      CALL WWRITW(DRTTAP,NKLWW,NSYM*ORBFRM,END,END)
+      CALL WWRITW(DRTTAP,REFWT,NVREF,END,END)
+CTJL
+      JCODE = 3
+      CALL RCLOSE(DRTTAP,JCODE)
+C
+C
+C
+C
+C
+      IDB9=0
+      IF (IDB9 .EQ. 0) GOTO 9
+      WRITE (OUT,*) ' KADD '
+      WRITE (OUT,710) KADD
+      WRITE (OUT,*) ' LADD '
+      WRITE (OUT,710) LADD
+      WRITE (OUT,*) ' IJADD'
+      WRITE (OUT,710) IJADD
+      WRITE (OUT,*) ' IJGRP'
+      WRITE (OUT,710) IJGRP
+      WRITE (OUT,*) ' ININT'
+      WRITE (OUT,710) ININT
+      WRITE (OUT,*) ' INEXT'
+      WRITE (OUT,710) INEXT
+      WRITE (OUT,*) ' JMNNXT'
+      WRITE (OUT,710) JMNNXT
+      WRITE (OUT,*) ' JMXNXT'
+      WRITE (OUT,710) JMXNXT
+      WRITE (OUT,*) ' NINGRP'
+      WRITE (OUT,710) NINGRP
+      WRITE (OUT,*) ' ORBSYM'
+      WRITE (OUT,710) ORBSYM
+      WRITE (OUT,*) ' LEVPT'
+      WRITE (OUT,710) LEVPT
+      WRITE (OUT,*) ' AVAL '
+      WRITE (OUT,710) A
+      WRITE (OUT,*) ' BVAL '
+      WRITE (OUT,710) B
+      WRITE (OUT,*) ' ROWSYM'
+      WRITE (OUT,710) S
+      WRITE (OUT,*) ' ARC  '
+      WRITE (OUT,710) ARC
+      WRITE (OUT,*) ' NLWKS'
+      WRITE (OUT,710) NLWKS
+      WRITE (OUT,*) ' WEIGHT'
+      WRITE (OUT,710) WGHT
+      WRITE (OUT,*) ' WAB  '
+      WRITE (OUT,710) WTAB
+      WRITE (OUT,*) ' WTW  '
+      WRITE (OUT,720) WTW
+      WRITE (OUT,*) ' WTX  '
+      WRITE (OUT,720) WTX
+      WRITE (OUT,*) ' WTY  '
+      WRITE (OUT,720) WTY
+      WRITE (OUT,*) ' IJXX '
+      WRITE (OUT,710) IJXX
+      WRITE (OUT,*) ' KLXX '
+      WRITE (OUT,710) KLXX
+      WRITE (OUT,*) ' NKLXX'
+      WRITE (OUT,710) NKLXX
+      WRITE (OUT,*) ' IJWW '
+      WRITE (OUT,710) IJWW
+      WRITE (OUT,*) ' KLWW '
+      WRITE (OUT,710) KLWW
+      WRITE (OUT,*) ' NKLWW'
+      WRITE (OUT,710) NKLWW
+C
+C
+C
+  710 FORMAT (20I5)
+  720 FORMAT (10I10)
+ 9    CONTINUE
+      RETURN
+      END
+      CHARACTER*1 FUNCTION GETKEY()
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 BLANK,DIGIT,MULTRF,VALENC,JUNK,NEXTC
+      CHARACTER*3 CODES,WORDS
+C
+      COMMON /CONST/  BLANK, DIGIT(10)
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+C
+      JUNK=NEXTC(GETKEY)
+      IF (GETKEY.EQ.MULTRF.OR.GETKEY.EQ.VALENC) RETURN
+      GETKEY=BLANK
+      CALL BKSPAC
+      RETURN
+      END
+      INTEGER FUNCTION GETCNT()
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 BLANK,DIGIT,JUNK,CHAR,NEXTC
+C
+      COMMON /CONST/  BLANK, DIGIT(10)
+C
+      GETCNT=0
+    1 JUNK=NEXTC(CHAR)
+      DO 2 N=1,10
+         IF (CHAR.EQ.DIGIT(N)) GO TO 3
+    2 CONTINUE
+      CALL BKSPAC
+      IF (GETCNT.EQ.0) GETCNT=1
+      RETURN
+C
+    3 GETCNT=GETCNT*10 + (N-1)
+      GO TO 1
+      END
+      INTEGER FUNCTION GETCOD()
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 MULTRF,VALENC,BLANK,DIGIT,JUNK,NEXTC
+      CHARACTER*1 CHAR1,CHAR2,CHAR3
+      CHARACTER*3 CODES,WORDS,CODE
+      CHARACTER*4 TEM1,TEM2,TEM3,TCODE
+      EQUIVALENCE (TEM1,ITEM1),(TEM2,ITEM2),(TEM3,ITEM3)
+      EQUIVALENCE (TCODE,ICODE)
+C
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /CONST/  BLANK, DIGIT(10)
+C
+      JUNK=NEXTC(CHAR1)
+      JUNK=NEXTC(CHAR2)
+      JUNK=NEXTC(CHAR3)
+      TEM1='    '
+      TEM2='    '
+      TEM3='    '
+      TEM1=CHAR1
+      TEM2=CHAR2
+      TEM3=CHAR3
+      ITEM1=ISHFT(ISHFT(ITEM1,-24),24)
+      ITEM2=ISHFT(ISHFT(ITEM2,-24),16)
+      ITEM3=ISHFT(ISHFT(ITEM3,-24),8)
+      ICODE=IOR(IOR(IOR(ITEM1,ITEM2),ITEM3),IAND(32,255))
+      CODE=TCODE
+C
+      DO 2 I=1,NCODES
+         IF (CODE.EQ.CODES(I)) GO TO 4
+    2 CONTINUE
+      WRITE (OUT,3) CODE
+      WRITE (ERROUT,3) CODE
+    3 FORMAT (//,' PROBLEMS WITH AN ORBITAL CODE:',1X,A3)
+      CALL EXIT(100)
+    4 GETCOD=I
+      RETURN
+      END
+      INTEGER FUNCTION GETSYM()
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 BLANK,DIGIT,CHAR,JUNK,NEXTC
+C
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /CONST/  BLANK, DIGIT(10)
+C
+      JUNK=NEXTC(CHAR)
+      DO 1 N=1,10
+         IF (CHAR.EQ.DIGIT(N)) GO TO 3
+    1 CONTINUE
+      WRITE (OUT,2) CHAR
+      WRITE (ERROUT,2) CHAR
+    2 FORMAT (//,' FUNNY SYMMETRY TYPE:',1X,A1)
+      CALL EXIT
+    3 GETSYM=N-1-1
+      RETURN
+      END
+      SUBROUTINE GETLIN
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 IMAGE
+C
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+      COMMON /BUFFER/ POS, IMAGE(80)
+C
+      POS=0
+      READ (INPUT,1,END=2) IMAGE
+    1 FORMAT (80A1)
+      RETURN
+    2 WRITE (OUT,3) INPUT
+      WRITE (ERROUT,3) INPUT
+    3 FORMAT (//,' ENCOUNTERED AN END TO TAPE',I2,' WHILE SCANNING '
+     #,          'FOR ORBITAL CODES')
+      CALL EXIT
+      END
+      CHARACTER*1 FUNCTION NEXTC(CHAR)
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 CHAR,GETC
+C
+      CALL SKIPBL
+      NEXTC=GETC(CHAR)
+      RETURN
+      END
+      SUBROUTINE SKIPBL
+C
+      IMPLICIT INTEGER (A-Z)
+C
+      COMMON /CONST/  BLANK, DIGIT(10)
+      CHARACTER*1 BLANK,DIGIT,CHAR,GETC
+C
+    1 IF (GETC(CHAR).EQ.BLANK) GO TO 1
+      CALL BKSPAC
+      RETURN
+      END
+      SUBROUTINE BKSPAC
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 IMAGE
+C
+      COMMON /BUFFER/ POS, IMAGE(80)
+C
+      POS=POS-1
+      IF (POS.GE.0) RETURN
+      BACKSPACE INPUT
+      BACKSPACE INPUT
+      CALL GETLIN
+      POS=79
+      RETURN
+      END
+      CHARACTER*1 FUNCTION GETC(CHAR)
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*1 IMAGE,CHAR
+C
+      COMMON /BUFFER/ POS, IMAGE(80)
+C
+      IF (POS.GE.80) CALL GETLIN
+      POS=POS+1
+      CHAR=IMAGE(POS)
+      GETC=CHAR
+      RETURN
+      END
+      BLOCK DATA CONSTD
+C
+      IMPLICIT CHARACTER*1 (A-Z)
+      CHARACTER*1 BLANK,DIGIT
+C
+      COMMON /CONST/  BLANK, DIGIT(10)
+C
+      DATA BLANK /' '/
+      DATA DIGIT /'0','1','2','3','4','5','6','7','8','9'/
+      END
+      BLOCK DATA DRTCDD
+C
+      IMPLICIT INTEGER (A-Z)
+      CHARACTER*3 CODES,WORDS
+      CHARACTER*1 MULTRF,VALENC
+C
+      COMMON /DRTCOD/ NCODES,DELA(9),DELB(9),DELELE(9)
+     #,               NTYPES,VIRTUL,OCCUPD,VALOCC,RESCOR,RESVIR,FROZEN
+     #,               VALVIR,OPENSH,MULTI,SPESHL,MULTRF,VALENC
+     #,               WORDS(6,9),CODES(9)
+      COMMON /CODE/  FZC, FZV, COR, VIR, DOC, UOC, ALP, BET, SPE
+      COMMON /CASES/  CASEV(9)
+C
+      DATA NCODES /9/
+      DATA CODES /'FZC','FZV','COR','VIR','DOC','UOC','ALP','BET','SPE'/
+      DATA DELA  /  0  ,  0  ,  1  ,  0  ,  1  ,  0  ,  0  ,  1  ,  0  /
+      DATA DELB  /  0  ,  0  ,  0  ,  0  ,  0  ,  0  ,  1  , -1  ,  0  /
+      DATA DELELE/  0  ,  0  ,  2  ,  0  ,  2  ,  0  ,  1  ,  1  ,  0  /
+      DATA CASEV /99999,99999,  4  ,  1  ,  4  ,  1  ,  2  ,  3  ,9999 /
+      DATA NTYPES /10/
+      DATA VIRTUL /1/, OCCUPD/4/, VALOCC/6/, RESCOR/3/, RESVIR/2/
+     #,    FROZEN/10/, OPENSH/8/, MULTI /7/, VALVIR/5/, SPESHL/9/
+      DATA MULTRF /'/'/
+      DATA VALENC /'%'/
+      DATA WORDS  /'FRO','ZEN',' CO','RE ','   ','   '
+     #,            'FRO','ZEN',' VI','RTU','AL ','   '
+     #,            'RES','TRI','CTE','D C','ORE','   '
+     #,            'RES','TRI','CTE','D V','IRT','UAL'
+     #,            'DOU','BLY',' OC','CUP','IED','   '
+     #,            'UNO','CCU','PIE','D  ','   ','   '
+     #,            'ALP','HA ','OCC','UPI','ED ','   '
+     #,            'BET','A O','CCU','PIE','D  ','   '
+     #,            'SPE','CIA','L O','RBI','TAL','   '/
+      DATA FZC/1/, FZV/2/, COR/3/, VIR/4/, DOC/5/, UOC/6/, ALP/7/
+     #,    BET/8/, SPE/9/
+      END
+      BLOCK DATA TAPESD
+C
+      IMPLICIT INTEGER (A-Z)
+C
+      COMMON /TAPES/  OUT,ERROUT,INPUT,DRTTAP
+C
+      DATA ERROUT /3/
+      DATA OUT    /6/
+      DATA INPUT  /5/
+      DATA DRTTAP /58/
+      END
+      BLOCK DATA DRTIND
+C
+      IMPLICIT INTEGER (A-Z)
+C
+      COMMON /DRTINF/ NA,NB,NS,NESPEC,MAXB,LEVFRM,LEVVAL,LEVOPN,LEVMUL
+     #,               LEVOCC,SPEC,SSPESH,VAL
+C
+      DATA MAXB /16/
+      END
+      BLOCK DATA BLOKSD
+C
+      IMPLICIT INTEGER (A-Z)
+C
+      COMMON /BLOKSZ/ BLKSIZ,ABSMAX,MAXSIZ
+C
+C     DATA BLKSIZ /30000/         ! DEFAULT INTEGRAL BLOCK SIZE
+C     DATA ABSMAX /30000/         ! LARGEST POSSIBLE BLOCK SIZE
+C     DATA MAXSIZ /150000/        ! SPACE FOR INTEGRALS AND TWO VECTORS
+      DATA BLKSIZ /30000/
+      DATA ABSMAX /100000/
+      DATA MAXSIZ /150000/
+      END

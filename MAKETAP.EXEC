@@ -1,0 +1,5 @@
+/* */
+arg filename
+fi infile disk filename
+fi outfile tap1 '(recfm fb lrecl 80 block 4000 9track den 1600 leave'
+movefile infile outfile

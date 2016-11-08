@@ -1,0 +1,70 @@
+/* SUBSTITUTE PROFILE EXEC                                 */
+/* obsoleted by ucb -> uga transition:                     */
+/* profstd                                                 */
+/* start uga additions                                     */
+/* dtripf nopan                                            */
+/* end uga additions                                       */
+ 
+   "term chardel off"
+ 
+  MAKEBUF
+ 
+'IDENTIFY (STACK';
+PULL USERID . . . . . . . .
+IF USERID  ^= 'FRITZ'
+   THEN DO
+ 
+link mainthfs 49e 49e rr; ac 49e l
+/***** link fortran  193 393 rr; ac 393 f *****/
+/***** exec uglink fortran test ; release b ; ac 120 f ***/
+exec uglink fortran      ; release b ; ac 120 g
+"link  fritz    191 191f rr" ; "access 191f e"
+release v ; ac 327 w
+ 
+"SET PF1 RETRIEVE"
+"SET PF2 IMMED Q DISK"
+"SET PF3 FILEL * * "
+"SET PF4 IMMED Q NAMES"
+"SET PF5 PFLIST"
+"SET PF6 FORTVS "
+"SET PF7 IMMED FILEL * * "
+"SET PF8 IMMED STATUS"
+"SET PF9 ASSEMBLE "
+/* REMOVE NON-FUNCTIONING COMMANDS TO THIS AREA
+"link  maint    247 247 rr" ; "access 247 n"
+"link  maint    246 246 rr" ; "access 246 o"
+"link  maint    319 319 rr" ; "access 319 p"
+"link  maint    59e 59e rr" ; "access 59e r"
+"link  mainthfs 49e 49e rr" ; "access 49e q"
+"link  maint    246 246 rr" ; "access 246 q"
+"REL 192" ; "ac 193 e"
+term hilight on
+"exec ccqcprof"
+ */
+ 
+      DROPBUF
+      EXIT
+   END
+   ELSE
+      SAY "***  User = FRITZ  *** "
+ 
+/* profstd */
+/* dtripf nopan               * establish necessary links */
+ 
+term hilight on  ; term chardel off
+"set remote on "
+ 
+link trash    191 1a1 rr; ac 1a1 e
+link mainthfs 49e 49e rr; ac 49e l
+link maint    327 327 rr; ac 327 w
+ 
+/***** link fortran  193 393 rr; ac 393 f *****/
+/***** exec uglink fortran test ; release b ; ac 120 f ***/
+exec uglink fortran      ; release b ; ac 120 f
+ 
+ac 192 d  ; ac 195 v
+ 
+"exec profpfky"
+ 
+      DROPBUF
+exit

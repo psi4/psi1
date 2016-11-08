@@ -1,0 +1,271 @@
+                                                                                                                                    
+                                                                                                                                    
+   COUPLED PERTURBED HARTREE-FOCK PROGRAM FOR CLOSED SHELL SCF IN AO BASIS (VERSION OF 2/01/89)                                     
+                                                                                                                                    
+      1    1   13   25   37   49                                                                                                    
+      2    2   14   26   38   50                                                                                                    
+      3    3   15   27   39   51                                                                                                    
+      4    4   16   28   40   52                                                                                                    
+      5    5   17   29   41   53                                                                                                    
+      6    6   18   30   42   54                                                                                                    
+      7    7   19   31   43   55                                                                                                    
+      8    8   20   32   44   56                                                                                                    
+      9    9   21   33   45   57                                                                                                    
+     10   10   22   34   46   58                                                                                                    
+     11   11   23   35   47   59                                                                                                    
+     12   12   24   36   48   60                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%                                                                                                      
+   %%%NOW YOU ARE IN CORSIZ%%%                                                                                                      
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%                                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR DERMAT                                                                                                       
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        812      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR TEST ROUTINES                                                                                                
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       8822      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        666      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR FAMAT                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        840      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR BAMAT                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =      11104      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR BFMAT                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        630      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR CPHF                                                                                                         
+                                                                                                                                    
+   NIND  =     45    N3NXX =     12    NADD =     12                                                                                
+   MAXVC =    240    ICMAX =  94024                                                                                                 
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR UCMAT                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =      11839      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR UXMAT                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       3241      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR SCF2A                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       2959      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR SCF2B                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =      12268      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR DIPMOA                                                                                                       
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       1036      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR DIPMOB                                                                                                       
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       1743      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   MEMORY REQUIRED FOR POLAR                                                                                                        
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       1036      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ::::::::::::::::::::::::::::::::::                                                                                               
+   :::REQUIRED MEMORY FOR THIS RUN:::                                                                                               
+   ::::::::::::::::::::::::::::::::::                                                                                               
+   NADD  =         12      MAXVC  =        240                                                                                      
+   IGMAX =      94024      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                                                                                 
+   %%%NOW YOU ARE LEAVING CORSIZ%%%                                                                                                 
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                                                                                                 
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN DERMAT                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        812      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN TEST ROUTINES                                                                                                     
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       8822      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        666      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN FAMAT                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        840      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN BAMAT                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =      11104      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN BFMAT                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =        630      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN CPHF                                                                                                              
+                                                                                                                                    
+   NIND =     45    MAXVC =    240    ICMAX =  94024                                                                                
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ITERATION NO. =     1                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+   NITER  =     1      NVEC   =     9      NADDV  =     9                                                                           
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ITERATION NO. =     2                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+   NITER  =     2      NVEC   =     9      NADDV  =     9                                                                           
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ITERATION NO. =     3                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+   NITER  =     3      NVEC   =     9      NADDV  =     9                                                                           
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ITERATION NO. =     4                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+   NITER  =     4      NVEC   =     9      NADDV  =     3                                                                           
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ITERATION NO. =     5                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+   NITER  =     5      NVEC   =     3      NADDV  =     0                                                                           
+                                                                                                                                    
+                                                                                                                                    
+   END OF ITERATION    NVTOT  =    39                                                                                               
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN UCMAT                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =      11839      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN UXMAT                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       3241      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN SCF2A                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       2959      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN DIPMOA                                                                                                            
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       1036      MAXCOR =     450000                                                                                      
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   NOW YOU ARE IN POLAR                                                                                                             
+                                                                                                                                    
+                                                                                                                                    
+                                                                                                                                    
+   ICMAX =       1036      MAXCOR =     450000                                                                                      
+                                                                                                                                    

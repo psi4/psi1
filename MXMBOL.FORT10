@@ -1,0 +1,7 @@
+      subroutine mxmbol(a,ia,ja, b,ib,jb, c,ic,jc, nrow, nlnk, ncol)
+      implicit real*8 (a-h, o-z)
+      dimension a(1), b(1), c(1)
+      write(6,*) 'mxmbol: called but not completed.'
+      call mabort
+      return
+      end

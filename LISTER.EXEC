@@ -1,0 +1,4 @@
+/* */
+arg filename
+l filename '(alloc fifo'
+execio 1 diskw TAPE MAP A '(fifo '

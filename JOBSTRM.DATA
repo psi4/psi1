@@ -1,0 +1,67 @@
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+intscf:                                                                         
+  ints                                                                          
+  scf                                                                           
+                                                                                
+scfgrad:                                                                        
+  ints                                                                          
+  scf                                                                           
+  deriv                                                                         
+                                                                                
+scf2nd:                                                                         
+  ints                                                                          
+  scf                                                                           
+  master                                                                        
+  deriv                                                                         
+  dipder                                                                        
+  if (super) make37                                                             
+  if (mo and cl and not super) cpclmo                                           
+  if (mo and gr and not super) cpgrmo                                           
+  if (mo and tc and not super) cptcmo                                           
+  if (ao and cl and not super) cpclao                                           
+  if (ao and gr and not super) cpgrao                                           
+  if (ao and tc and not super) cptcao                                           
+  if (ao and cl and super) cpclaos                                              
+  if (ao and gr and super) cpgraos                                              
+  if (ao and tc and super) error                                                
+  if (mo and super) error                                                       
+  if (raman and cl) ramanc                                                      
+  if (raman and gr) ramang                                                      
+  if (raman and tc) error                                                       
+  if (born) born                                                                
+  normco                                                                        
+  proper                                                                        
+  bondex                                                                        
+  if (intcos or gnext) intcos                                                   
+  if (gnext) gnext                                                              
+  if (orbder) orbder                                                            
+                                                                                
+ci:                                                                             
+  ints                                                                          
+  scftfk                                                                        
+  drt                                                                           
+  trans                                                                         
+  cisort                                                                        
+  gugaci                                                                        
+  onepdm                                                                        
+                                                                                
+cigrad:                                                                         
+  ints                                                                          
+  scftfk                                                                        
+  master                                                                        
+  drt                                                                           
+  trans                                                                         
+  cisort                                                                        
+  gugaci                                                                        
+  onepdm                                                                        
+  twopdm                                                                        
+  lagtr                                                                         
+  ciprop                                                                        
+  dertfk                                                                        
+  grcphf                                                                        
+                                                                                
+                                                                                
+                                                                                

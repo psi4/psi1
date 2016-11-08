@@ -1,0 +1,1950 @@
+C BMATIN6     FINAL MODIFIED VERSION OF PULAY'S BMATIN PROGRAM
+C***********************************************************************
+C   NOTICE OF PROGRAM MODIFICATION                                     *
+C***********************************************************************
+c Moved to PSI distribution disk on 020389 - clj.
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  DECEMBER 12, 1988                                          *
+C  REASON:  CORRECT PROBLEM IN DISPLACEMENTS FOR TORSIONS.             *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  SEPT 9, 1988                                               *
+C  REASON:  CHANGE SCALING OF DISPLACEMENT TO HALVE 5 TIMES. DISP=TRUE *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  JUNE 13,1988                                               *
+C  REASON:  PUT IN INVERSE BOND LENGTH AS A COORDINATE  -  INVR        *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  JUNE 3,1988                                                *
+C  REASON:  CHANGE SO THAT DUMMY ATOMS CAN BE USED FOR LINEAR BEND     *
+C           DISPLACEMENTS.  THE PROGRAM ZOOMS THE DUMMY ATOMS TO A     *
+C           DISTANCE OF 1 BILLION SO THAT LIN1 AND LIN2 ARE EQUIVALENT *
+C           FOR LINEAR MOLECULES.                                      *
+C           ALSO SCALE DISPLACEMENT ONCE IN GEOMETRY OPTIMIZATIONS     *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  APRIL 25, 1988                                             *
+C  REASON:  CHANGE SOME OF THE DEFAULTS. NO LONGER HAVE OLDF, OLDH,    *
+C           AND EXFI.  THE PROGRAM WILL READ THEM AND NOT CRASH.       *
+C           NOUP AND NOEX MUST BE SPECIFIED TO SUPRESS HESSIAN UPDATE  *
+C           AND READING IN FROM INP2, WHICH ARE NOW DEFAULT.           *
+C           MURT MUST BE USED TO NOT HAVE POWELL OR BFGS UPDATES       *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  APRIL 23, 1988                                             *
+C  REASON:  CHANGE MACHB TO USE INTERNAL COORDINATES SPECIFICATION     *
+C           THE SAME AS IN INTDER. (BEND,OUT,LIN1,LIN2)                *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  FEBRUARY 26, 1988                                          *
+C  REASON:  PUT PARTS BRIAN YATES CHANGED IN HIS VERSION,              *
+C           KEEPING JON BAKER'S OPTEFC NEARLY THE SAME AS IN           *
+C           GAUSSIAN82, AND USING AN INTERFACE CALLED EFC.             *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  FEBRUARY 8, 1988                                           *
+C  REASON:  PUT COMMENTS IN PROGRAM FIFTH, RENUMBER                    *
+C           INDICATING WHERE CHANGES IN THE NEAR FUTURE WILL BE MADE   *
+C***********************************************************************
+C      BY:  TPH                                                        *
+C    DATE:  OCTOBER 26, 1987                                           *
+C  REASON:  PUT IN EIGENVECTOR FOLLOWING ROUTINE OF JON BAKER,         *
+C           POWELL UPDATE OF THE HESSIAN, AND DIIS FOR GEOMETRY OPT.   *
+C           BESSLER PREVIOUSLY PUT IN BFGS AND DAVIDON-FLETCHER-POWELL *
+C           UPDATES.  FILE INP4 HAS INTERNAL FORCES PREVIOUS STEPS.    *
+C           FILE INP3 HAS THE EIGENVECTOR FROM PREVIOUS STEP IN OPTEFC.*
+C***********************************************************************
+C***********************************************************************
+C   FUTURE NEEDS FOR BMAT: TAKE CARE OF DISCONTINUITY IN ANGULAR       *
+C           COORDINATES (FOR NOW CHANGING ANGLE DEFINITIONS MAY HELP), *
+C           FIX GDIIS,   PRINT RMS GRADIENT,                           *
+C           AUTOMATIC ROTATION SO THAT ONE COORDINATE IS AT ORIGIN     *
+C           OR SYMMETRY PLANE PRESERVED ETC.,                          *
+C           CALCULATION OF # OF TOTALLY SYMMETRIC MODES FOR WARNINGS   *
+C           STEP LENGTH CONTROL FOR REGULAR BMAT                       *
+C***********************************************************************
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      CHARACTER AI*80,WKEY1*4,WKEY2*4
+      INTEGER INP,IOUT,INP2,IPUN,IGMUP
+      COMMON /IOP/ IOP(50)
+      COMMON /GANZ/ NA,LOPT(26)
+      PARAMETER(INP=30,IOUT=31,INP2=32,IPUN=33,IGMUP=5)
+      PARAMETER(WKEY1='BMAT',WKEY2='STOP')
+C....................................................................
+C     THIS IS WRITTEN SO THAT SEVERAL BMAT SECTIONS IN THE BMAT     .
+C     INPUT FILE CAN BE RUN, SHOULD THE NEED ARISE                  .
+C....................................................................
+      CALL NOUNFL
+   10 READ (INP,50) AI
+      IF (AI(1:4).NE.WKEY1) GO TO 40
+      WRITE(IOUT,60)
+      WRITE(IOUT,70) AI
+      DO 20 I=1,50
+         IOP(I)=0
+   20 CONTINUE
+      DO 30 I=1,26
+         LOPT(I)=0
+   30 CONTINUE
+      CALL FIFTH (INP,IOUT,INP2,IPUN,IGMUP)
+      GO TO 10
+   40 CONTINUE
+   50 FORMAT (A80)
+   60 FORMAT (9(8H********))
+   70 FORMAT (//,1X,A80)
+      END
+C     //////////////////////////////////////////////////////////
+      SUBROUTINE FIFTH(INP,IOUT,INP2,IPUN,IGMUP)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER INP,IOUT,INP2,IPUN,IGMUP
+      INTEGER P,Q,NR
+      CHARACTER WO*4,WK(26)*4,W1*2
+      INTEGER INDI(4,50),INDT(4)
+      LOGICAL WRIT,IFSTRE(50),SFIRST,DISP
+      REAL*8 NV,N2V,N3V
+      DIMENSION CCIN(4,50),CIN(4),CCC(75),ETA(4),ENERGY(4)
+      DIMENSION CI(9),AE(3),DUMX(10),DUMY(10),DUMZ(10)
+      DIMENSION SYMB(25)
+      DIMENSION LFLAG(4)
+      DIMENSION QQQ(69),FII(69)
+      DIMENSION WW(2)
+      DIMENSION L(69),M(69), KI(75), IA(25)
+      DIMENSION IFIX(20),IBOHR(40)
+      COMMON/MODOUT/VMODE(50)
+      COMMON /ENER/ TITLE(16)
+      COMMON /GANZ/ NA,LOPT(26)
+      COMMON /IO/ IIN,IIOUT,IINP2,IIPUN,IIGMUP
+      COMMON /IOP/ IOP(50)
+      COMMON/DISCON/SSS(100),SFIRST
+      COMMON /BMAT/ BL(1),C(4761),F(75),FI(69),CC(75)
+     &,XA(25),YA(25),ZA(25)
+     &,XM(75),XY(75),QQ1(75),QQ(69),B(75,69)
+     &,NV(75),HE(69,69),HN(69,69)
+     &,N2V(69),DV(69),N3V(69),GRC(69),GEC(69),A(4761),QD(69,69)
+     &,FD(69,69)
+      EQUIVALENCE (B(1,1),WW(1))
+      PARAMETER(ZERO=0.0D0,HALF=0.5D0,ONE=1.0D0,TWO=2.0D0)
+      PARAMETER(THREE=3.0D0,FOUR=4.0D0,FIVE=5.0D0,TEN=10.0D0)
+      PARAMETER(ANG=1.889726664D0,GDYN=8.2388575D0)
+      PARAMETER(FSUMT=1.0D-7,CRTTOL=1.0D-12,MXITER=40)
+      PARAMETER(RADC=57.29577951308D0)
+      DATA (WK(I),I=1,6)/'CARD','FMAT','DISP','OLDF','PUNC','PRIN'/
+      DATA (WK(I),I=7,12)/'ANGS','FIXC','FINT','FLT1','EXFI','BOHR'/
+      DATA (WK(I),I=13,18)/'FLT2','GDYN','OLDH','DEGR','DFLP','BFGS'/
+      DATA (WK(I),I=19,23)/'POWL','EIGF','DIIS','MODE','DUMB'/
+      DATA (WK(I),I=24,26)/'NOUP','NOEX','MURT'/
+      DATA XNIST/2HN=/
+      REWIND INP2
+      SFIRST=.TRUE.
+      DISP=.TRUE.
+      IIN=INP
+      IIOUT=IOUT
+      IINP2=INP2
+      IIPUN=IPUN
+      IIGMUP=IGMUP
+      IOP(5)=1
+      IX=INP
+      ISCALE=0
+      NDUM=0
+      NMAX=25
+      NCMAX=3*NMAX
+      NQMAX=NCMAX-6
+      LFLAG(1)=0
+      NFIX=0
+C
+C     DIMENSION OF THE B MATRIX MUST CONFORM TO B(NCMAX,NQMAX)
+C.................................................................
+C     READ IN INPUT OPTIONS                                      .
+C.................................................................
+   10 READ(INP,2000) WO,NR
+      DO 20 I=1,26
+         IF (WK(I).EQ.WO) GO TO 30
+   20 CONTINUE
+      BACKSPACE INP
+      GO TO 40
+   30 LOPT(I)=1
+      IF(I.EQ.1) NA=NR
+      IF (I.EQ.3) LOPT(3)=NR
+      IF (I.EQ.3.AND.LOPT(3).EQ.0) LOPT(3)=1
+      IF(I.EQ.8) THEN
+           NFIX=NFIX+1
+           IFIX(NFIX)=NR
+      END IF
+      IF(I.EQ.10) THEN
+           BACKSPACE INP
+           READ(INP,2020) WO,ETA(1),ETA(2),ETA(3),ETA(4)
+           WRITE(IOUT,2025) WO,ETA(1),ETA(2),ETA(3),ETA(4)
+           GO TO 10
+      END IF
+      IF(I.EQ.13) THEN
+           BACKSPACE INP
+           READ(INP,2030) WO,(ETA(K),ENERGY(K),K=1,3)
+           WRITE(IOUT,2035) WO,(ETA(K),ENERGY(K),K=1,3)
+           LOPT(10)=1
+           GO TO 10
+      END IF
+      IF(I.EQ.20) THEN
+           BACKSPACE INP
+           READ(INP,2040) WO,IOP(5),IOP(7),IOP(8),IOP(13),IOP(16),
+     &                    IOP(17),IOP(19),IOP(33),IOP(34)
+           WRITE(IOUT,2045) WO,IOP(5),IOP(7),IOP(8),IOP(13),IOP(16),
+     &                    IOP(17),IOP(19),IOP(33),IOP(34)
+           GO TO 10
+      END IF
+      IF(I.EQ.22) THEN
+           BACKSPACE INP
+           READ(INP,2050) WO,MODE1,MODE2
+           WRITE(IOUT,2055) WO,MODE1,MODE2
+           GO TO 10
+      END IF
+      IF(I.EQ.23) THEN
+           BACKSPACE INP
+           NDUM=NDUM+1
+           READ(INP,2060) WO,DUMX(NDUM),DUMY(NDUM),DUMZ(NDUM)
+           WRITE(IOUT,2065) WO,DUMX(NDUM),DUMY(NDUM),DUMZ(NDUM)
+           GO TO 10
+      END IF
+      WRITE(IOUT,2010) WO,NR
+      GO TO 10
+C..................................................................
+C     CHECK THE NUMBER OF ITERATIONS                              .
+C..................................................................
+   40 CONTINUE
+      READ(INP2,2070) NGEO,NUMIT
+C..................................................................
+C     SET THE DEFAULTS HERE                                       .
+C..................................................................
+      IF(LOPT(3).GT.0.OR.LOPT(10).GT.0.OR.LOPT(13).GT.0) DISP=.FALSE.
+      IF(LOPT(10).GT.0) THEN
+         LOPT(15)=1
+         IF(LOPT(24).NE.0) LOPT(15)=0
+      ELSE
+         LOPT(4)=1
+         IF(LOPT(24).NE.0) LOPT(4)=0
+      ENDIF
+      IF(LOPT(25).GT.0) THEN
+         LOPT(11)=0
+      ELSE
+         LOPT(11)=1
+      ENDIF
+      IF(LOPT(17).EQ.0.AND.LOPT(18).EQ.0.AND.LOPT(19).EQ.0.AND.
+     &   LOPT(26).EQ.0) THEN
+         IF(IOP(5).EQ.1) LOPT(18)=1
+         IF(IOP(5).EQ.0) LOPT(19)=1
+      ENDIF
+C     WRITE(IOUT,1234) (LOPT(I),I=1,26)
+C1234 FORMAT(26I3)
+C..................................................................
+C     TURN OFF HESSIAN UPDATING IN OPTEFC UNLESS BFGS WITH        .
+C     POSITIVE DEFINITENESS IS GUARANTEED.                        .
+C..................................................................
+      IF(LOPT(18).EQ.1 .AND. IOP(13).EQ.2) THEN
+         LOPT(24) = 1
+      ELSE
+         IOP(13) = -1
+      ENDIF
+      IF(LOPT(11).EQ.0.OR.NUMIT.LT.1) GO TO 60
+C..................................................................
+C     CHECK THE NUMBER OF ATOMS IN INP2 IS EQUAL NA (EXFI OPTION) .
+C..................................................................
+      DO 50 I=1,NA
+      READ(INP2,2080) W1
+      IF(W1.NE.'N=') THEN
+         WRITE(IOUT,2090) W1
+         RETURN
+      END IF
+   50 CONTINUE
+   60 CONTINUE
+C..................................................................
+C     CHECK THAT NA IS NOT LARGER THAN NMAX                       .
+C..................................................................
+      IF (NA.GT.0.AND.NA.LE.NMAX) GO TO 70
+      WRITE (IOUT,2100)  NA
+      RETURN
+   70 CONTINUE
+CTPH  N=NA
+      IF (LOPT(1).NE.1) THEN
+         WRITE(IOUT,2105)
+         STOP
+      ENDIF
+C..................................................................
+C     READ GEOMETRY IN FROM BMAT FILE                             .
+C..................................................................
+      WRITE( IOUT,2110)
+      DO 90 I=1,NA
+         I3=3*I
+         READ(INP,2120) SYMB(I),IA(I),XA(I),YA(I),ZA(I),XM(I3)
+C..................................................................
+C     DEFAULT MASS IS ONE                                         .
+C..................................................................
+      IF  (XM(I3).EQ.ZERO) XM(I3)=ONE
+      IF (LOPT(7).EQ.1) GO TO 80
+C..................................................................
+C     CONVERT BOHR TO ANGSTROMS                                   .
+C..................................................................
+      XA(I)=XA(I)/ANG
+      YA(I)=YA(I)/ANG
+      ZA(I)=ZA(I)/ANG
+   80 CONTINUE
+C..................................................................
+C     CONVERT ANGSTROMS TO BOHR FOR PRINTING                      .
+C..................................................................
+      XXWA=XA(I)*ANG
+      YYWA=YA(I)*ANG
+      ZZWA=ZA(I)*ANG
+      WRITE(IOUT,2130) I,IA(I),XXWA,YYWA,ZZWA,XM(I3)
+C..................................................................
+C     PUT INVERSE MASS IN XM                                      .
+C..................................................................
+      XM(I3)=ONE/XM(I3)
+      XM(I3-1)=XM(I3)
+      XM(I3-2)=XM(I3)
+   90 CONTINUE
+C..................................................................
+      NEK=3*NA
+      IF (LOPT(3).GT.0) GO TO 130
+      IF (LOPT(9).GT.0) GO TO 190
+C..................................................................
+C     READ FORCES IN FROM BMAT FILE                               .
+C..................................................................
+      READ (INP,2140) (F(I),I=1,NEK)
+      IF(LOPT(14).EQ.1) GO TO 110
+C..................................................................
+C     CONVERT GRADIENTS IN ATOMIC UNITS TO FORCES IN MDYN         .
+C..................................................................
+      DO 100 I=1,NEK
+         F(I)=-F(I)*GDYN
+  100 CONTINUE
+  110 CONTINUE
+      WRITE(IOUT,2150)
+      WRITE(IOUT,2160) (F(I),I=1,NEK)
+C..................................................................
+C     CHECK THAT FORCES ADD TO ZERO                               .
+C..................................................................
+      XFQX=F(1)
+      DO 120 I=2,NEK
+  120 XFQX=XFQX+F(I)
+      IF(DABS(XFQX).GT.FSUMT) WRITE (IOUT,2170) XFQX
+      IF(LOPT(3).LE.0) GO TO 190
+C..................................................................
+C     READ IN DISPLACEMENTS                                       .
+C..................................................................
+  130 CONTINUE
+      NDI=LOPT(3)
+      DO 140 I=1,NDI
+  140    READ (INP,2180) (INDI(J,I),CCIN(J,I),J=1,4)
+      IF(LOPT(12).NE.1) GO TO 190
+C..................................................................
+C     CHANGE DISPLACEMENTS TO BOHR INSTEAD OF ANGSTROMS           .
+C..................................................................
+      NBOHR=0
+      IQ=0
+      KB=0
+  150 KB=KB+1
+      READ(INP,2190) WO,W1
+      IF(WO(1:1).NE.'K'.AND.WO.NE.'    ') GO TO 160
+      IF(WO(1:1).EQ.'K')THEN
+           IQ=IQ+1
+           IF(W1.EQ.'ST')THEN
+           NBOHR=NBOHR+1
+           IBOHR(NBOHR)=IQ
+           END IF
+      END IF
+      GO TO 150
+  160 DO 170  I=1,KB
+  170 BACKSPACE INP
+      DO 180  K=1,NBOHR
+      DO 180  I=1,NDI
+      DO 180  J=1,4
+         IF(INDI(J,I).EQ.IBOHR(K))THEN
+         CCIN(J,I)=CCIN(J,I)/ANG
+         ELSE IF (LOPT(16).EQ.1) THEN
+         CCIN(J,I)=CCIN(J,I)/RADC
+         END IF
+  180 CONTINUE
+C....................................................................
+C     PUT DUMMY ATOM COORDINATES IN XA,YA,ZA (NOT COMPLETELY TESTED).
+C....................................................................
+  190 CONTINUE
+      NADT=NA
+      IF (LOPT(3) .NE. 0) THEN
+         NADT=NADT+NDUM
+         BILION = 1000000000.0D0
+         IF(NADT.GT.NMAX) STOP 'NA+NDUM GREATER THAN NMAX'
+         DO 200 I=1,NDUM
+            DUNORM = DSQRT(DUMX(I)**2 + DUMY(I)**2 + DUMZ(I)**2)
+            XA(NA+I)=DUMX(I)*BILION/DUNORM
+            YA(NA+I)=DUMY(I)*BILION/DUNORM
+            ZA(NA+I)=DUMZ(I)*BILION/DUNORM
+            NEK = NEK+3
+  200    CONTINUE
+      ENDIF
+      WRIT=.FALSE.
+      IF (LOPT(6).EQ.1) WRIT=.TRUE.
+C....................................................................
+C     CHECK THE TYPE OF INTERNAL COORDINATE FOR OPTEFC CONVERSION   .
+C     OF ANGSTROMS TO BOHRS                                         .
+C....................................................................
+      IQ=0
+      KB=0
+  205 KB=KB+1
+      READ(INP,2190) WO,W1
+      IF(WO(1:1).NE.'K' .AND. WO.NE.'    ') GO TO 206
+      IF(WO(1:1).EQ.'K') THEN
+         IQ=IQ+1
+         IFSTRE(IQ) = W1.EQ.'ST'
+      ENDIF
+      GO TO 205
+  206 CONTINUE
+      DO 207 I=1,KB
+         BACKSPACE INP
+  207 CONTINUE
+C....................................................................
+C     MAKE B MATRIX                                                 .
+C....................................................................
+      CALL MACHB (NEK,B,NCMAX,NQMAX,XA,YA,ZA,QQ,NADT,IX,IOUT,NQ,WRIT,
+     1.FALSE.,NCARD)
+      IF(LOPT(5).EQ.0) GO TO 220
+C....................................................................
+C     PUNCH B MATRIX                                                .
+C....................................................................
+      WRITE(IPUN,2200)
+      WRITE (IPUN,2210)
+      DO 210 I=1,NQ
+          WRITE (IPUN,2220) I
+          WRITE (IPUN,2230) (B(J,I),J=1,NEK)
+  210 CONTINUE
+  220 CONTINUE
+C....................................................................
+C     INVERT B*M*B+  (SEE PULAY'S ARTICLE IN VOL 4, P 166)          .
+C....................................................................
+      I1=0
+      DO 240 I=1,NQ
+      DO 240 J=1,NQ
+      I1=I1+1
+      S=ZERO
+      DO 230 K=1,NEK
+  230 S=S+B(K,I)*B(K,J)*XM(K)
+  240 C(I1)=S
+      TOL=1.0D-8
+      CALL OSINV1 (C,NQ,D,TOL,L,M)
+C....................................................................
+      WRITE (IOUT,2240) D
+      IF (LOPT(3).GT.0) GO TO 1150
+C....................................................................
+C     FORM B*M*F                                                    .
+C....................................................................
+      WRITE( IOUT,2250)
+      DO 260 I=1,NQ
+         T=ZERO
+         DO 250 J=1,NEK
+  250      T=T+B(J,I)*F(J)*XM(J)
+  260 CC(I)=T
+C....................................................................
+C     FORM (B*M*B+)-1 * B*M*F = INTERNAL FORCES                     .
+C....................................................................
+      IJ=0
+      DO 300 I=1,NQ
+         T=ZERO
+      IF(LOPT(9).GT.0) GO TO 280
+         DO 270 J=1,NQ
+            IJ=IJ+1
+  270    T=T+C(IJ)*CC(J)
+         FI(I)=T
+  280 IF(LOPT(9).LE.0) GO TO 290
+C....................................................................
+C     READ IN INTERNAL FORCES INSTEAD                               .
+C....................................................................
+      READ(INP,2140) FI(I)
+      NCARD=NCARD+1
+  290 CONTINUE
+C....................................................................
+C     WRITE OUT COORDINATE NUMBER, INTERNAL COORDINATE AND FORCE    .
+C....................................................................
+      WRITE (IOUT,2260) I,QQ(I),FI(I)
+      QQQ(I)=QQ(I)
+      FII(I)=FI(I)
+  300 CONTINUE
+C....................................................................
+C     PUNCH INTERNAL FORCES                                         .
+C....................................................................
+      WRITE(IPUN,2270) (FI(I),I=1,NQ)
+      IF(LOPT(10).GE.1.AND.LOPT(13).LT.1) WRITE(IOUT,2280)
+      IF(LOPT(13).GE.1) WRITE(IOUT,2290)
+      IF (LOPT(2).LT.1) GO TO 1530
+C....................................................................
+C     READ INTERNAL FORCE CONSTANT MATRIX FROM BMAT FILE OR INP2    .
+C....................................................................
+      IF(LOPT(10).GE.1) THEN
+           WRITE(IOUT,2300)
+      ELSE
+           WRITE(IOUT,2310)
+      END IF
+      IF(LOPT(11).GT.0.AND.NUMIT.GT.0) IX=INP2
+      DO 320 I=1,NQ
+      READ(IX,2270)(F(J),J=1,I)
+         WRITE (IOUT,2320) (F(J),J=1,I)
+      IF (LOPT(11).GT.0.AND.NUMIT.GT.0) GO TO 310
+C....................................................................
+C     NCARD KEEPS TRACK OF HOW MANY CARDS IT TAKES IN BMAT FILE     .
+C     TO READ IN THE FORCE CONSTANT MATRIX, FOR LATER USE           .
+C....................................................................
+      NCARD=NCARD+1+(I-1)/8
+  310 CONTINUE
+C....................................................................
+C     PUT FORCE CONSTANT IN SQUARE MATRIX C, TAKE THE INVERSE       .
+C....................................................................
+      DO 320 J=1,I
+      IJ=(I-1)*NQ+J
+      JI=(J-1)*NQ+I
+      C(JI)=F(J)
+      C(IJ)=C(JI)
+  320 CONTINUE
+      IX=INP
+      CALL OSINV1 (C,NQ,D,1.0D-8,L,M)
+      IF(NUMIT.LT.1) GO TO 870
+C....................................................................
+C     READ IN OLD INTERNAL COORDINATES, FORCES, AND DISPLACEMENTS   .
+C     FROM INP2 OR INP                                              .
+CTPH  INP2 SHOULD HAVE THIS WHETHER EXFI IS USED OR NOT             .
+C....................................................................
+      IF(LOPT(11).GT.0) IX=INP2
+      DO 340 I=1,NQ
+         READ(IX,2340) CC(I),F(I),GEC(I)
+         IF(LOPT(11).GT.0.AND.NUMIT.GT.0) GO TO 330
+         NCARD=NCARD+1
+  330 CONTINUE
+  340 CONTINUE
+      MODE= 0
+      IF(NUMIT.GT.0.AND.LOPT(11).GT.0) READ(INP2,2620) MODE
+      IX=INP
+      IF (LOPT(4).LT.1.AND.LOPT(15).LT.1) GO TO 870
+C....................................................................
+C     UPDATE THE HESSIAN UNLESS IT IS THE FIRST OPTIMIZATION CYCLE  .
+C     ALL UPDATES ARE THE POWELL UPDATE THE INVERSE HESSIAN         .
+C....................................................................
+      WRITE(IOUT,2330)
+CTPH  IF(LOPT(11).GT.0) IX=INP2
+      DO 345 I=1,NQ
+         WRITE (IOUT,2260) I,CC(I),F(I)
+  345 CONTINUE
+CTPH  IX=INP
+C..................................................................
+      IF(LOPT(15).GE.1) GO TO 820
+      IF(LOPT(17) .EQ. 1) GOTO 420
+      IF(LOPT(18) .EQ. 1) GOTO 520
+      IF(LOPT(19) .EQ. 1) GOTO 620
+C....................................................................
+C     MURTAGH-SARGENT UPDATE                                        .
+C....................................................................
+      WRITE(IOUT,2350)
+      DO 350 I=1,NQ
+      GRC(I)=-FI(I)+F(I)
+  350 CONTINUE
+C 350 GEC(I)=QQ(I)-CC(I)
+      IJ=0
+      DO 360 I=1,NQ
+      DO 360 J=1,NQ
+      IJ=IJ+1
+  360 HE(I,J)=C(IJ)
+      DO 370 I=1,NQ
+      NV(I)=0.D0
+      DO 370 J=1,NQ
+  370 NV(I)=NV(I)+HE(I,J)*GRC(J)
+      DO 380 I=1,NQ
+  380 NV(I)=GEC(I)-NV(I)
+      DN=0.D0
+      DO 390 I=1,NQ
+  390 DN=DN+NV(I)*GRC(I)
+      DO 400 I=1,NQ
+      DO 400 J=1,NQ
+  400 HE(I,J)=HE(I,J)+NV(I)*NV(J)/DN
+      IJ=0
+      DO 410 I=1,NQ
+      DO 410 J=1,NQ
+      IJ=IJ+1
+  410 C(IJ)=HE(J,I)
+      GOTO 820
+  420 CONTINUE
+C....................................................................
+C     DAVIDON-FLETCHER-POWELL (DFP) UPDATE                          .
+C....................................................................
+      WRITE(IOUT,2360)
+      DO 430 I=1,NQ
+      GRC(I)=-FI(I)+F(I)
+  430 CONTINUE
+C 430 GEC(I)=QQ(I)-CC(I)
+      IJ=0
+      DO 440 I=1,NQ
+      DO 440 J=1,NQ
+      IJ=IJ+1
+  440 HE(I,J)=C(IJ)
+      DN=0.D0
+      DO 450 I=1,NQ
+  450 DN=DN+GEC(I)*GRC(I)
+      DO 460 I=1,NQ
+      DO 460 J=1,NQ
+  460 HN(I,J)=GEC(I)*GEC(J)/DN
+      DO 470 I=1,NQ
+      DV(I)=0.D0
+      DO 470 J=1,NQ
+  470 DV(I)=DV(I)+HE(I,J)*GRC(J)
+      DN=0.D0
+      DO 480 I=1,NQ
+  480 DN=DN+GRC(I)*DV(I)
+      DO 490 I=1,NQ
+      N2V(I)=0.D0
+      DO 490 J=1,NQ
+  490 N2V(I)=N2V(I)+GRC(I)*HE(I,J)
+      DO 500 I=1,NQ
+      DO 500 J=1,NQ
+  500 HE(I,J)=HE(I,J)+HN(I,J)-DV(I)*N2V(J)/DN
+      IJ=0
+      DO 510 I=1,NQ
+      DO 510 J=1,NQ
+      IJ=IJ+1
+  510 C(IJ)=HE(I,J)
+      GOTO 820
+  520 CONTINUE
+C....................................................................
+C     BFGS UPDATE                                                   .
+C....................................................................
+      WRITE(IOUT,2370)
+      DO 530 I=1,NQ
+      GRC(I)=-FI(I)+F(I)
+  530 CONTINUE
+C 530 GEC(I)=QQ(I)-CC(I)
+      IJ=0
+      DO 540 I=1,NQ
+      DO 540 J=1,NQ
+      IJ=IJ+1
+  540 HE(I,J)=C(IJ)
+      DN=0.D0
+      DO 550 I=1,NQ
+  550 DN=DN+GEC(I)*GRC(I)
+      DO 560 I=1,NQ
+      NV(I)=0.D0
+      DO 560 J=1,NQ
+  560 NV(I)=NV(I)+GRC(J)*HE(I,J)
+      SU=0.D0
+      DO 570 I=1,NQ
+  570 SU=SU+NV(I)*GRC(I)
+      SU=1.D0+SU/DN
+      DO 580 I=1,NQ
+      DO 580 J=1,NQ
+  580 HN(I,J)=HN(I,J)+SU/DN*GEC(I)*GEC(J)
+      DO 590 I=1,NQ
+      N2V(I)=0.D0
+      DO 590 J=1,NQ
+  590 N2V(I)=N2V(I)+GRC(J)*HE(I,J)
+      DO 600 I=1,NQ
+      DO 600 J=1,NQ
+  600 HE(I,J)=HE(I,J)+HN(I,J)-GEC(I)*N2V(J)/DN-NV(I)*GEC(J)/DN
+      IJ=0
+      DO 610 I=1,NQ
+      DO 610 J=1,NQ
+      IJ=IJ+1
+  610 C(IJ)=HE(I,J)
+      GO TO 820
+  620 CONTINUE
+C......................................................................
+C     POWELL UPDATE (SYMMETRIC BROYDEN)                               .
+C     INVERT C TO REGAIN THE HESSIAN, UPDATE, THEN RESTORE THE INVERSE.
+C......................................................................
+      CALL OSINV1 (C,NQ,D,1.0D-8,L,M)
+      WRITE(IOUT,2380)
+      IJ=0
+      DO 630 I=1,NQ
+      DO 630 J=1,NQ
+      IJ=IJ+1
+  630 HE(I,J)=C(IJ)
+CTPH  DO 640 I=1,NQ
+CTPH    GEC(I)=QQ(I)-CC(I)
+C 640 CONTINUE
+      DO 660 I=1,NQ
+      N2V(I)=0.0D0
+         DO 650 J=1,NQ
+            N2V(I)=N2V(I)+HE(I,J)*GEC(J)
+  650    CONTINUE
+      GRC(I)=-FI(I)+F(I)-N2V(I)
+  660    CONTINUE
+      DN=0.D0
+      DO 670 I=1,NQ
+  670 DN=DN+GEC(I)*GEC(I)
+      SU=0.D0
+      DO 680 I=1,NQ
+  680 SU=SU+GEC(I)*GRC(I)
+      SU=SU/DN
+      DABSSU=DABS(SU)
+C....................................................................
+C     YOU MAY NOT WANT TO DO THE UPDATE IF THE DISPLACEMENT IS SMALL.
+C....................................................................
+CTPH  IF(DN.LT.0.000001D0) GO TO 700
+      DO 690 I=1,NQ
+      DO 690 J=1,I
+      TEMP=GEC(I)*GRC(J)+GEC(J)*GRC(I)-GEC(I)*SU*GEC(J)
+      HE(I,J)=HE(I,J)+TEMP/DN
+      HE(J,I)=HE(I,J)
+  690 CONTINUE
+  700 CONTINUE
+      IJ=0
+      DO 710 I=1,NQ
+      DO 710 J=1,NQ
+      IJ=IJ+1
+  710 C(IJ)=HE(I,J)
+      CALL OSINV1 (C,NQ,D,1.0E-8,L,M)
+C....................................................................
+C     THE OPTIMALLY CONDITIONED UPDATE SHOULD GO HERE               .
+C....................................................................
+  820 IF(LOPT(4).GE.1) GO TO 870
+C....................................................................
+C     UPDATE THE FLETCHER POWELL FORCE CONSTANTS                    .
+C....................................................................
+      IJ=0
+      DO 840  I=1,NQ
+      S=ZERO
+      DO 830  J=1,NQ
+      IJ=IJ+1
+  830 S=S-C(IJ)*F(J)
+  840 CCC(I)=S
+      S=ZERO
+      S1=ZERO
+      DO 850  I=1,NQ
+      S=S-CC(I)*F(I)
+  850 S1=S1+CCC(I)*F(I)
+      IJ=0
+      DO 860  I=1,NQ
+      DO 860  J=1,NQ
+      IJ=IJ+1
+  860 C(IJ)=C(IJ)+CC(I)*CC(J)/S+CCC(I)*CCC(J)/S1
+  870 CONTINUE
+C....................................................................
+C     CALCULATE THE NEW COORDINATES IN ONE OF THREE WAYS:           .
+C    (A) EIGENVECTOR FOLLOWING  (B) DIIS  (C) NEWTON-RAPHSON        .
+C....................................................................
+      IF(LOPT(20).GE.1) THEN
+C....................................................................
+C    (A)  EIGENVECTOR FOLLOWING, EFC IS AN INTERFACE BETWEEN        .
+C         BMATIN6 AND OPTEFC WRITTEN BY BRIAN YATES                 .
+C         THE HESSIAN IS NEEDED INSTEAD OF ITS INVERSE              .
+C....................................................................
+CTPH  MODE = 0
+         IF(LOPT(22).EQ.1 .AND. NUMIT.LT.1) THEN
+            IF(MODE1.EQ.1) MODE = MODE2
+            IF(MODE1.EQ.0) MODE = MODE2 + NQ
+         ENDIF
+         CALL OSINV1 (C,NQ,D,1.0D-8,L,M)
+         CALL EFC(NUMIT,NQ,F,QQ,FI,C,MODE,QQ1,IFSTRE,GEC)
+         CALL OSINV1 (C,NQ,D,1.0D-8,L,M)
+      ELSE
+         IF(LOPT(21).GT.0) NGEO=NGEO+1
+         IF(NGEO.GT.1.AND.LOPT(21).GT.0) THEN
+C....................................................................
+C (B) DIIS WITH THE POSSIBILITY OF UPDATING THE HESSIAN; THEREFORE  .
+C     THE ERROR VECTORS MUST BE RECALCULATED FROM THE PREVIOUS AND  .
+C     PRESENT GRADIENTS, USING THE NEW HESSIAN  E = (H)-1*G         .
+C....................................................................
+C....................................................................
+C     READ IN PAST COORDINATES AND GRADIENTS INTO QD AND FD         .
+C....................................................................
+            IF(NGEO.GE.NQ) NGEO = NQ-1
+            DO 880 J=1,NGEO-1
+               DO 880 I=1,NQ
+                  READ(INP2,2390) QD(I,J),FD(I,J)
+  880       CONTINUE
+            M1=NGEO+1
+            MM1=NQ
+            MNQ=NMAX
+            DO 890 I=1,NQ
+               FD(I,NGEO)=FI(I)
+               QD(I,NGEO)=QQ(I)
+  890       CONTINUE
+      CALL GDIIS(MM1,NQMAX,M1,NQ,QD,FD,C,A,NV,N2V,QQ,FI,DV,XLAM,IER)
+CTPH.................................................................
+C     EXTRAPOLATED COORDINATES AND FORCES IN QQ AND FI, THEN RELAX  .
+C     PRINTING OF DIIS MATRIX FOR DEBUGGING, TO BE CHANGED LATER    .
+CTPH.................................................................
+            WRITE(IOUT,2401)
+ 2401       FORMAT('INVERSE HESSIAN')
+            DO 901 I=1,NQ
+               J1=(I-1)*NQ+1
+               JN=(I-1)*NQ+I
+               WRITE(IOUT,2270) (C(J), J=J1,JN)
+  901       CONTINUE
+            WRITE(IOUT,2400)
+            DO 900 I=1,M1
+               J1=(I-1)*M1+1
+               JN=(I-1)*M1+I
+               WRITE(IOUT,2270) (A(J), J=J1,JN)
+  900       CONTINUE
+            IF (IER.EQ.0) GO TO 910
+CTPH.................................................................
+C     ERROR SECTION, TO BE CHANGED LATER TO STOP PROGRAM            .
+CTPH.................................................................
+            WRITE(IOUT,2405)
+            RETURN
+  910       CONTINUE
+C....................................................................
+C     PUT INTERNAL DISPLACEMENTS AND OLD INT. COORDINATES IN QQ1, QQ.
+C....................................................................
+CC    DO 930 I=1,NQ
+CC       QQ1(I)=QQ(I)-QD(I,NGEO)
+CC       QQ(I)=QD(I,NGEO)
+CC930 CONTINUE
+            WRITE(IOUT,2320) (QQ(I),I=1,NQ)
+            WRITE(IOUT,2320) (FI(I),I=1,NQ)
+            WRITE(IOUT,2410) (DV(I),I=1,NGEO)
+            WRITE(IOUT,2420) XLAM
+         ENDIF
+C....................................................................
+C    (C)  NEWTON RAPHSON STEP WHICH IS THE DEFAULT                  .
+C....................................................................
+         IJ=0
+         DO 950 I=1,NQ
+            S=ZERO
+            DO 940 J=1,NQ
+               IJ=IJ+1
+               S=S+C(IJ)*FI(J)
+  940       CONTINUE
+            QQ1(I)=S
+  950    CONTINUE
+      ENDIF
+C....................................................................
+C     CALCULATE FLAMBDA FOR FLETCHER PROCEDURE, PRINT NEW INTERNAL  .
+C     COORDINATES AND DISPLACEMENTS, PUT DISPLACEMENTS IN GEC FOR   .
+C     WRITING TO RESUL2 LATER                                       .
+C....................................................................
+      IF(LOPT(10).GE.1) THEN
+      WRITE(IOUT,2430)
+      ELSE
+      WRITE(IOUT,2440)
+      END IF
+      FLAMDA=0.0D0
+      DO 960 I=1,NQ
+         FLAMDA=FLAMDA+QQ1(I)*FII(I)
+         IF(NGEO.GT.1.AND.LOPT(21).GT.0) QQ1(I)=QQ(I)+QQ1(I)-QD(I,NGEO)
+         GEC(I)=QQ1(I)
+         CC(I)=GEC(I)
+  960 CONTINUE
+C....................................................................
+C     SET CERTAIN DISPLACEMENTS TO ZERO (FIXC OPTION)               .
+C....................................................................
+      IF(NFIX.GT.0) THEN
+        DO 970  I=1,NFIX
+          CC(IFIX(I))=ZERO
+          QQ1(IFIX(I))=ZERO
+          GEC(IFIX(I))=ZERO
+  970   CONTINUE
+      ENDIF
+      DO 975 I=1,NQ
+        WRITE (IOUT,2260) I,QQ1(I),QQ(I)+QQ1(I)
+  975 CONTINUE
+C....................................................................
+C     REGAIN THE HESSIAN FROM THE INVERSE                           .
+C....................................................................
+  980 CALL OSINV1 (C,NQ,D,1.0E-8,L,M)
+      IF(LOPT(4).GT.0.OR.LOPT(15).GT.0) GO TO 1010
+C....................................................................
+C     CHECK THE FORCE CONSTANTS TO SEE WHICH FORMAT TO USE, PRINT   .
+C     IN FILE INP2                                                  .
+C....................................................................
+      REWIND INP2
+      JTRI=NQ*(NQ+1)/2
+      IBIG=0
+      DO 990 J=1,JTRI
+         IF(C(J).LE.-10.0D0.OR.C(J).GE.100.0D0) IBIG=1
+  990 CONTINUE
+      IJ=1
+      DO 1000 I=1,NQ
+         IJ1=IJ+I-1
+         IF(IBIG.EQ.1) THEN
+            WRITE(INP2,2320)(C(J),J=IJ,IJ1)
+         ELSE
+            WRITE(INP2,2450)(C(J),J=IJ,IJ1)
+            WRITE(IOUT,2450)(C(J),J=IJ,IJ1)
+         ENDIF
+         IJ=IJ+NQ
+ 1000 CONTINUE
+C....................................................................
+      IF(LOPT(10).GT.0) GO TO 1040
+      IF(LOPT(4).LT.1) GO TO 1210
+C....................................................................
+C     CHECK THE FORCE CONSTANTS TO SEE WHICH FORMAT TO USE, PRINT   .
+C     IN FILE IPUN,IOUT,INP2                                        .
+C....................................................................
+ 1010 IF(NUMIT.GT.0) WRITE(IOUT,2460)
+      REWIND INP2
+      JTRI=NQ*(NQ+1)/2
+      IBIG=0
+      DO 1020 J=1,JTRI
+         IF(C(J).LE.-10.0D0.OR.C(J).GE.100.0D0) IBIG=1
+ 1020 CONTINUE
+      IJ=1
+      IF(LOPT(5).NE.0) WRITE(IPUN,2310)
+      DO 1030 I=1,NQ
+         IJ1=IJ+I-1
+         IF(IBIG.EQ.1) THEN
+       IF(NUMIT.GE.1.AND.LOPT(24).EQ.0) WRITE(IOUT,2320) (C(J),J=IJ,IJ1)
+            WRITE(INP2,2320)(C(J),J=IJ,IJ1)
+            IF (LOPT(5).GT.0) WRITE(IPUN,2320) (C(J),J=IJ,IJ1)
+         ELSE
+       IF(NUMIT.GE.1.AND.LOPT(24).EQ.0) WRITE(IOUT,2450) (C(J),J=IJ,IJ1)
+            WRITE(INP2,2450)(C(J),J=IJ,IJ1)
+            IF (LOPT(5).GT.0) WRITE(IPUN,2450) (C(J),J=IJ,IJ1)
+         ENDIF
+         IJ=IJ+NQ
+ 1030 CONTINUE
+      IF(LOPT(4).GE.1) GO TO 1210
+C....................................................................
+C     FIRST PART OF THE FLETCHER POWELL PROCEDURE (FLT1)            .
+C....................................................................
+ 1040 DO 1050  I=1,NQ
+ 1050 CCC(I)=QQ1(I)
+      IF(LOPT(13).EQ.1) GO TO 1080
+      IFLT=1
+C....................................................................
+C     CHECK TO SEE IF LAST STEP ALONG FLETCHER-POWELL VECTOR IS MADE.
+C....................................................................
+ 1060 IF(ETA(IFLT).EQ.ZERO) GO TO 1450
+      DO 1070  I=1,NQ
+      QQ(I)=QQQ(I)
+      QQ1(I)=ETA(IFLT)*CCC(I)
+ 1070 CC(I)=QQ1(I)
+      WRITE(IOUT,2470) ETA(IFLT)
+      GO TO 1210
+C....................................................................
+C     SECOND PART OF THE FLETCHER POWELL PROCEDURE (FLT2)           .
+C....................................................................
+ 1080 IJ=1
+      IF(ENERGY(3).GE.0.0D0) GO TO 1120
+      DO 1090 I=1,3
+      CI(IJ)=1
+      CI(IJ+1)=ETA(I)
+      CI(IJ+2)=ETA(I)**2
+ 1090 IJ=IJ+3
+      CALL OSINV1(CI,3,D,1.0E-8,L,M)
+      IJ=0
+      DO 1110 I=1,3
+      S=ZERO
+      DO 1100 J=1,3
+      IJ=IJ+1
+ 1100 S=S+CI(IJ)*ENERGY(J)
+ 1110 AE(I)=S
+      ETA(4)=-AE(2)/(TWO*AE(3))
+      ENERGY(4)=ETA(4)*(ETA(4)*AE(3)+AE(2)) +AE(1)
+      GO TO 1130
+ 1120 WRITE(IOUT,*) 'FLAMDA=',FLAMDA
+      FLAMDA=FLAMDA*ANG/GDYN
+      ELAMDA=(ENERGY(1)-ENERGY(2))/ETA(1)+FLAMDA
+      ETA(4)=FLAMDA*ETA(1)/(2.0D0*ELAMDA)
+      ENERGY(4)=ENERGY(2)-FLAMDA*ETA(4)/2.0D0
+ 1130 IFLT=4
+      DO 1140 I=1,NQ
+      QQ(I)=QQQ(I)
+      QQ1(I)=ETA(IFLT)*CCC(I)
+ 1140 CC(I)=QQ1(I)
+      WRITE(IOUT,2480) ENERGY(4)
+      WRITE(IOUT,2490) ETA(4)
+      GO TO 1210
+ 1150 CONTINUE
+C....................................................................
+C     WRITE OUT ORIGINAL INTERNAL COORDINATES, DISPLACEMENTS        .
+C     FOR ONE DISTORTED GEOMETRY AT A TIME (DISP OPTION)            .
+C     THE PROGRAM LOOPS BACK TO 1160 UNTIL II = # DISPLACEMENTS     .
+C....................................................................
+      WRITE(IOUT,2500)
+      WRITE(IOUT,2510) (QQ(J),J=1,NQ)
+      II=0
+ 1160 II=II+1
+         DO 1170 J=1,4
+            INDT(J)=INDI(J,II)
+ 1170       CIN(J)=CCIN(J,II)
+      WRITE(IOUT,2200)
+      WRITE(IOUT,2520) (INDT(J),CIN(J),J=1,4)
+      DO 1180 J=1,NQ
+         CC(J)=ZERO
+ 1180 CONTINUE
+      DO 1190 J=1,4
+      J1=INDT(J)
+        IF (J1.LE.0) GO TO 1190
+      CC(J1) = CIN(J)
+ 1190 CONTINUE
+      DO 1200 J=1,NQ
+ 1200   QQ1(J)=CC(J)
+      GO TO 1250
+C....................................................................
+C     MAKE B MATRIX, THEN (B*M*B+)-1  IN C                          .
+C....................................................................
+ 1210 DO 1220 I=1,NCARD
+      BACKSPACE INP
+ 1220 CONTINUE
+      CALL MACHB(NEK,B,NCMAX,NQMAX,XA,YA,ZA,QQ,NADT,IX,IOUT,NQ,.FALSE.,
+     1 .FALSE.,NCARD)
+      I1=0
+      DO 1240 I=1,NQ
+      DO 1240 J=1,NQ
+      I1=I1+1
+      S=ZERO
+      DO 1230 K=1,NEK
+ 1230 S=S+B(K,I)*B(K,J)*XM(K)
+ 1240 C(I1)=S
+      CALL OSINV1(C,NQ,D,TOL,L,M)
+ 1250 CONTINUE
+C....................................................................
+C     NOW TRANSFORM THE INTERNAL DISPLACEMENTS TO CARTESIAN         .
+C     DISPLACEMENTS BY DELTA X = (B*M*B+)-1 * B*M * (DELTA Q)       .
+C     THIS IS THE SAME TRANSFORMATION USED TO CONVERT CARTESIAN     .
+C     FORCES TO INTERNAL FORCES, AND CAN BE USED BECAUSE THE        .
+C     DERIVATIVE WITH RESPECT TO A COORDINATE AND A COORDINATE ARE  .
+C     CONTRAVARIANT                                                 .
+C....................................................................
+         ISCALE=ISCALE+1
+         IREP=0
+         I3=0
+         DO 1260 I=1,NADT
+            XY(I)=XA(I)
+         J=I+NADT
+         XY(J)=YA(I)
+         J=J+NADT
+         XY(J)=ZA(I)
+ 1260    CONTINUE
+C...........................................................
+ 1270    CONTINUE
+      IREP=IREP+1
+         IJ=0
+         DO 1290 I=1,NQ
+            S=ZERO
+         DO 1280 J=1,NQ
+               IJ=IJ+1
+               S=S+C(IJ)*QQ1(J)
+ 1280 CONTINUE
+         FI(I)=S
+ 1290 CONTINUE
+C...........................................................
+         DO 1310 I=1,NEK
+            S=ZERO
+            DO 1300 J=1,NQ
+               S=S+B(I,J)*FI(J)
+ 1300       CONTINUE
+         QQ1(I)=S*XM(I)
+ 1310    CONTINUE
+C....................................................................
+C     UPDATE THE CARTESIAN COORDINATES                              .
+C....................................................................
+         I3=0
+         DO 1320 I=1,NADT
+            I3=I3+3
+            XY(I)=XY(I)+QQ1(I3-2)
+            J=I+NADT
+            XY(J)=XY(J)+QQ1(I3-1)
+            J=J+NADT
+            XY(J)=XY(J)+QQ1(I3)
+ 1320   CONTINUE
+C....................................................................
+C     RECALCULATE THE INTERNALS AT THE NEW CARTESIAN COORDINATES    .
+C     USING THE SAME OLD B MATRIX                                   .
+C....................................................................
+         I1=NADT+1
+         I2=2*NADT+1
+         DO 1330 I=1,NCARD
+            BACKSPACE INP
+ 1330 CONTINUE
+         CALL MACHB (NEK,B,NCMAX,NQMAX,XY(1),XY(I1),XY(I2),QQ1,NADT,IX,
+     1               IOUT,NQ,.FALSE.,.TRUE.,NCARD)
+C....................................................................
+C     THE INTERNAL COORDINATES CORRESPONDING TO THE PRESENT         .
+C     CARTESIAN COORDINATES ARE NOW IN QQ1                          .
+C....................................................................
+          WRITE (IOUT,2530) IREP
+         WRITE  (IOUT,2510)  (QQ1(I),I=1,NQ)
+         QMAX=ZERO
+         DO 1340 I=1,NQ
+            QQ1(I)=QQ(I)+CC(I)-QQ1(I)
+            IF  (QMAX.LT.DABS(QQ1(I)))  QMAX=ABS(QQ1(I))
+ 1340    CONTINUE
+         IF (IREP.LT.MXITER.AND.QMAX.GT.CRTTOL) GO TO 1270
+C....................................................................
+C     IF QQ1 MATCHES THE DESIRED FINAL SET OF INTERNAL COORDINATES  .
+C     GO ON, ELSE DO ANOTHER ITERATIVE CYCLE                        .
+C....................................................................
+         IF (QMAX.GT.CRTTOL) THEN
+            WRITE(IOUT,2540) MXITER
+C....................................................................
+C     IF DISPLACEMENT FAILS, SCALE AND TRY ONCE MORE                .
+C....................................................................
+            IF(DISP.AND.ISCALE.LE.5) THEN
+               WRITE(IOUT,2545)
+               DO 1345 I=1,NQ
+                  QQ1(I)=0.5D0*CC(I)
+                  CC(I) = QQ1(I)
+ 1345          CONTINUE
+               GO TO 1250
+            ENDIF
+         ENDIF
+         WRITE(IOUT,2550)
+ 1350    CONTINUE
+C....................................................................
+C     PRINT THE DISPLACEMENTS IN CARTESIAN COORDINATES              .
+C....................................................................
+         I3=0
+         DO 1360 I=1,NA
+            I3=I3+3
+            YM=ONE/XM(I3)
+            J=I+NADT
+            J1=J+NADT
+            X=XY(I)-XA(I)
+            Y=XY(J)-YA(I)
+            Z=XY(J1)-ZA(I)
+            WRITE (IOUT,2560) I,IA(I),X,Y,Z,YM
+ 1360    CONTINUE
+C....................................................................
+C     PRINT THE NEW CARTESIAN COORDINATES                           .
+C....................................................................
+         WRITE(IOUT,2570)
+      I3=0
+      DO 1370 I=1,NA
+           J=I+NADT
+           J1=J+NADT
+           I3=I3+3
+           YM=ONE/XM(I3)
+           WRITE(IOUT,2560) I,IA(I),XY(I),XY(J),XY(J1),YM
+ 1370 CONTINUE
+C.................................................................
+      IF(LOPT(2).EQ.1) GO TO 1390
+ 1380 CONTINUE
+      IF(II.LT.NDI) GO TO 1420
+ 1390 REWIND INP2
+      IF(LOPT(3).GT.0) GO TO 1410
+C....................................................................
+C     READ FORCE CONSTANT MATRIX BACK IN FROM INP2                  .
+C....................................................................
+      JJ=1
+      DO 1400 I=1,NQ
+      IJ1=JJ + I -1
+      READ(INP2,2450)(C(J),J=JJ,IJ1)
+      JJ=JJ+NQ
+ 1400 CONTINUE
+C.................................................................
+ 1410 REWIND INP2
+ 1420 WRITE(IOUT,2580)
+C....................................................................
+C     WRITE NEW GEOMETRY IN ATOMIC UNITS TO IGMUP                   .
+C....................................................................
+      CALL LOCATE (IGMUP,'# GEOML ##',IERRWA)
+      BACKSPACE IGMUP
+      WRITE(IGMUP,'(A10)') '# GEOMUP #'
+      DO 1440 I=1,NA
+      J=I+NADT
+      J1=J+NADT
+      X=XY(I)*ANG
+      Y=XY(J)*ANG
+      Z=XY(J1)*ANG
+      WRITE(IGMUP,2590) X,Y,Z
+ 1430 WRITE(IOUT,2600) I,IA(I),X,Y,Z
+ 1440 CONTINUE
+ 1450 CONTINUE
+      WRITE(IGMUP,'(A10)')  '# GEOML ##'
+C....................................................................
+C     IF NOT THE LAST DISPLACEMENT USING DISP OPTION, DO ANOTHER    .
+C....................................................................
+      IF(II.LT.NDI) GO TO 1160
+C....................................................................
+C     IF NOT THE LAST STEP ALONG FLETCHER-POWELL VECTOR (FLT1) DO   .
+C     THE NEXT                                                      .
+C....................................................................
+      IF(LOPT(10).GE.1.AND.IFLT.LT.4) THEN
+           IFLT=IFLT+1
+           GO TO 1060
+      END IF
+      IF(LOPT(3).GT.0) GO TO 1520
+C....................................................................
+C  WRITE OUT NGEO AND NUMIT                                         .
+C....................................................................
+      REWIND INP2
+      WRITE(INP2,2070) NGEO,NUMIT+1
+C....................................................................
+C     WRITE CARTESIAN COORDINATES IN ATOMIC UNITS IN INP2           .
+C....................................................................
+      DO 1460 I=1,NA
+      J=I+NADT
+      J1=J+NADT
+      X=XY(I)*ANG
+      Y=XY(J)*ANG
+      Z=XY(J1)*ANG
+      WRITE(INP2,2610)SYMB(I),IA(I),X,Y,Z
+ 1460 CONTINUE
+C....................................................................
+C     WRITE FORCE CONSTANTS IN INTERNAL COORDINATES IN INP2, AFTER  .
+C     CHECKING TO SEE WHICH FORMAT TO USE                           .
+C....................................................................
+      JTRI=NQ*(NQ+1)/2
+      IBIG=0
+      DO 1470 J=1,JTRI
+         IF(C(J).LE.-10.0D0.OR.C(J).GE.100.0D0) IBIG=1
+ 1470 CONTINUE
+      JJ=1
+      DO 1480 I=1,NQ
+         IJ1=JJ+I-1
+         IF(IBIG.EQ.1) THEN
+            WRITE(INP2,2320)(C(J),J=JJ,IJ1)
+         ELSE
+            WRITE(INP2,2450)(C(J),J=JJ,IJ1)
+         ENDIF
+         JJ=JJ+NQ
+ 1480 CONTINUE
+C....................................................................
+C     WRITE OUT INTERNAL FORCES, COORDINATES, AND DISPLACEMENTS;    .
+C     THEN MODE1
+C....................................................................
+      DO 1490 I=1,NQ
+ 1490 WRITE(INP2,2340) QQQ(I),FII(I),CC(I)
+      WRITE(INP2,2620) MODE
+C....................................................................
+C     WRITE OUT INTERNAL COORDINATES AND FORCES FOR ALL PREVIOUS    .
+C     GEOMETRIES, STARTING WITH THE OLDEST FOR GDIIS                .
+C....................................................................
+      IF(LOPT(21).GT.0) THEN
+         IF(NUMIT.GE.1) THEN
+            JS=1
+            IF(NGEO.GE.NQ-1) JS=2
+            DO 1500 J=JS,NGEO
+               DO 1500 I=1,NQ
+                  WRITE(INP2,2390) QD(I,J),FD(I,J)
+ 1500       CONTINUE
+         ELSE
+            DO 1505 I=1,NQ
+               WRITE(INP2,2390) QQQ(I),FII(I)
+ 1505       CONTINUE
+         ENDIF
+      ENDIF
+C....................................................................
+C     WRITE OUT THE MODE NUMBER OF THE MODE MOST LIKE THE PREVIOUS  .
+C     ONE, THEN THE EIGENMODE OF THE HESSIAN ITSELF                 .
+C....................................................................
+      IF(LOPT(20).GT.0) THEN
+         DO 1510 I=1,NQ
+            WRITE(INP2,2630) VMODE(I)
+ 1510 CONTINUE
+      ENDIF
+ 1520 CONTINUE
+      REWIND INP2
+ 1530 RETURN
+C
+ 2000 FORMAT (A4,1X,I5)
+ 2010 FORMAT(1X,A4,2X,13HOPTION IS ON ,I5)
+ 2020 FORMAT(A4,6X,4F6.0)
+ 2025 FORMAT(1X,A4,2X,13HOPTION IS ON ,4F6.0)
+ 2030 FORMAT(A4,8X,3(F6.0,F16.10))
+ 2035 FORMAT(1X,A4,8X,3(F6.3,F16.10))
+ 2040 FORMAT(A4,1X,9I5)
+ 2045 FORMAT(1X,A4,2X,13HOPTION IS ON ,9I5)
+ 2050 FORMAT(A4,1X,2I5)
+ 2055 FORMAT(1X,A4,2X,13HOPTION IS ON ,2I5)
+ 2060 FORMAT(A4,12X,3F16.10)
+ 2065 FORMAT(1X,A4,1X,4H IS ,3(F16.2,2X))
+ 2070 FORMAT(2I5)
+ 2080 FORMAT(1X,A2)
+ 2090 FORMAT(1X,'EXFI READ ERROR--',A2)
+ 2100 FORMAT (1X,'TOO MANY NUCLEI, EXPECTING ',I5)
+ 2105 FORMAT (1X,'CARD OPTION MISSING, PLEASE TELL ME HOW MANY ATOMS
+     &        THERE ARE!')
+ 2110 FORMAT (20X,28HNUCLEAR COORDINATES IN BOHRS    ,/)
+ 2120 FORMAT(1X,A5,2X,I2,6X,3F16.12,F10.5)
+ 2130 FORMAT (3X,I2,3X,I2,3(F16.12,2X),F12.6)
+ 2140 FORMAT (3F16.12)
+ 2150 FORMAT (//,1X,6HFORCES,/)
+ 2160 FORMAT (1X,3F16.12)
+ 2170 FORMAT (/,1X,26HFORCES DO NOT VANISH, SUM=,F15.7,/)
+ 2180 FORMAT (4(I2,2X,F12.8,2X))
+ 2190 FORMAT (A4,22X,A2)
+ 2200 FORMAT(///)
+ 2210 FORMAT (1X,9HB MATRIX ,//)
+ 2220 FORMAT ('I=',I2)
+ 2230 FORMAT (5F16.12)
+ 2240 FORMAT(/,5X,16H DETERMINANT  = , E16.5)
+ 2250 FORMAT (/,1X,32HINTERNAL COORDINATES AND FORCES ,/)
+ 2260 FORMAT (2X,I2,4X,2F16.12)
+ 2270 FORMAT (8F10.7)
+ 2280 FORMAT(//,1X,'FLETCHER-POWELL OPTIMIZATION  PART 1',/,120('-'))
+ 2290 FORMAT(//,1X,'FLETCHER-POWELL OPTIMIZATION  PART 2',/,120('-'))
+ 2300 FORMAT (1X,'FLETCHER POWELL FORCE CONSTANTS',/)
+ 2310 FORMAT (1X,16HFORCE CONSTANTS ,/)
+ 2320 FORMAT (8F10.6)
+ 2330 FORMAT (/1X,24HOLD GEOMETRY AND FORCES ,/)
+ 2340 FORMAT(3F16.12)
+ 2350 FORMAT (1X,'MURTAGH-SARGENT HESSIAN UPDATE',/)
+ 2360 FORMAT (1X,'DAVIDON-FLETCHER-POWELL HESSIAN UPDATE',/)
+ 2370 FORMAT (1X,'BFGS HESSIAN UPDATE',/)
+ 2380 FORMAT (1X,'POWELL HESSIAN UPDATE',/)
+ 2390 FORMAT(2F16.9)
+ 2400 FORMAT(1X,'DIIS MATRIX')
+ 2405 FORMAT(/1X,'ERROR IN DIIS',/1X,'PROBABLY GRADIENTS ARE PARALLEL',
+     1 /)
+ 2410 FORMAT(/1X,'DIIS COEFFICIENTS',/1X,1(10F10.4,/))
+ 2420 FORMAT(/1X,'LAMBDA =',E12.4)
+ 2430 FORMAT(/1X,'FLETCHER POWELL DIRECTION VECTOR AND NEW INTERNAL COOR
+     1DINATES FOR ETA=1',/)
+ 2440 FORMAT(/1X,44HGEOMETRY CHANGE AND NEW INTERNAL COORDINATES,/)
+ 2450 FORMAT (8F10.7)
+ 2460 FORMAT (/,1X,31HIMPROVED FORCE CONSTANT MATRIX ,/)
+ 2470 FORMAT(80('-'),/,1X,'ETA= ',F14.10,/)
+ 2480 FORMAT(80('-'),/,1X,'PREDICTED ENERGY = ',F16.10)
+ 2490 FORMAT(1X,'ETA= ',F14.10,/)
+ 2500 FORMAT(/1X,30HORIGINAL INTERNAL COORDINATES ,/)
+ 2510 FORMAT (2X,5F16.12)
+ 2520 FORMAT(120('-'),/,' INTERNAL DISPLACEMENT',/,4(I2,2X,F12.8,4X),/)
+ 2530 FORMAT (1X,5HSTEP=,I4)
+ 2540 FORMAT(/,1X,'*****CAUTION,WITHIN',I3,'STEPS NO CONVERGENCE*****'/)
+ 2545 FORMAT(/,1X,'***** TRYING TO SCALE BACK DISPLACEMENT BY HALF **'/)
+ 2550 FORMAT (/,1X,'  CARTESIAN DISPLACEMENTS AND NEW CARTESIAN COORDINA
+     1TES IN ANGSTROMS',/)
+ 2560 FORMAT(1X,I3,4H   N,I4,3F16.12,F12.6)
+ 2570 FORMAT(//)
+ 2580 FORMAT(/' CARTESIAN COORDINATES IN A.U.'/)
+ 2590 FORMAT(3F20.10)
+ 2600 FORMAT(1X,I3,4H   N,I4,3F16.12)
+ 2610 FORMAT(1X,'N=',A4,4X,I2,3F16.12)
+ 2620 FORMAT(I5)
+ 2630 FORMAT(8F10.4)
+      END
+C     ////////////////////////////////////////////////////
+      SUBROUTINE NOM (U)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION U(3)
+      Y=SCALAR(U,U)
+      X = 1.0D0/DSQRT(Y)
+      DO 10 I=1,3
+         U(I) = U(I)*X
+   10 CONTINUE
+      RETURN
+      END
+C     /////////////////////////////////////////////////
+      FUNCTION S2(X)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      Y = 1.0D0-X*X
+      S2 = DSQRT(Y)
+      RETURN
+      END
+C     ///////////////////////////////////////
+      FUNCTION SCALAR(U,V)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION U(3) , V(3)
+      SCALAR = 0.0D0
+      DO 10 I=1,3
+          SCALAR = SCALAR + U(I)*V(I)
+   10 CONTINUE
+      RETURN
+      END
+C     ////////////////////////////////////////////////
+      SUBROUTINE NORMAL (U,V,W)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION U(3),V(3),W(3)
+C..... W WIRD EIN SENKRECHT AUF DIE EBENE (U,V) STEHENDER EINHEITSVECTOR
+      W(1)=U(2)*V(3)-U(3)*V(2)
+      W(2)=U(3)*V(1)-U(1)*V(3)
+      W(3) = U(1)*V(2)-U(2)*V(1)
+      CALL NOM  (W)
+      RETURN
+      END
+C     /////////////////////////////////////////////////
+      FUNCTION ARCOS(X)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DOUBLE PRECISION ZERO,ONE,PI,PIH,X,Y,X1,ARCOS,S
+      PARAMETER(ZERO=0.0D0,ONE=1.0D0,PI=3.14159265358979D0)
+      PARAMETER(PIH=1.57079632679490D0,XTOL=1.0D-12)
+      Y=DABS(ONE-X)
+      IF (X.GE.ONE.OR.Y.LE.XTOL) GO TO 10
+      Y=DABS(ONE+X)
+      IF(X.LE.-ONE.OR.Y.LE.XTOL) GO TO 20
+      Y=ONE-X*X
+      X1= DSQRT(Y)
+      IF(DABS(X).LT.1.0D-11) GO TO 30
+      S=DATAN(X1/X)
+      IF (X.LT.ZERO) S=S+PI
+      ARCOS=S
+      RETURN
+   10 ARCOS=ZERO
+      RETURN
+   20 ARCOS=PI
+      RETURN
+   30 ARCOS=PIH
+      RETURN
+      END
+C     ///////////////////////////////////////////////////////
+      SUBROUTINE VEKTOR (U,R,I,J,XA,YA,ZA)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION U(3), XA(1), YA(1), ZA(1)
+C
+C        BILDET DEN NORMIERTEN ENTFERNUNGSVECTOR VON KERN J NACH KERN I
+C        UND DIE ENTFERNUNG R
+C
+      U(1)=XA(I)-XA(J)
+      U(2)=YA(I)-YA(J)
+      U(3)=ZA(I)-ZA(J)
+      Y = SCALAR(U,U)
+      R = DSQRT(Y)
+      CALL NOM (U)
+      RETURN
+      END
+C     //////////////////////////////////////////////////////////////
+      SUBROUTINE OSINV1 (A,N,D,TOL,L,M)
+C
+C     PARAMETERS   A - INPUT MATRIX , DESTROYED IN COMPUTATION AND
+C                      REPLACED BY RESULTANT INVERSE
+C                  N - ORDER OF MATRIX A
+C                  D - RESULTANT DETERMINANT
+C            L AND M - WORK VECTORS OF LENGHT N
+C                TOL - IF PIVOT ELEMENT IS LESS THAN THIS PARAMETER THE
+C                      MATRIX IS TAKEN FOR SINGULAR (USUALLY 1.0E-8)
+C     A DETERMINANT OF ZERO INDICATES THAT THE MATRIX IS SINGULAR
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION A(1), M(1), L(1)
+      PARAMETER(ONE=1.0D0,ZERO=0.0D0)
+      D=ONE
+      NK=-N
+      DO 180 K=1,N
+      NK=NK+N
+      L(K)=K
+      M(K)=K
+      KK=NK+K
+      BIGA=A(KK)
+      DO 20 J=K,N
+      IZ=N*(J-1)
+      DO 20 I=K,N
+      IJ=IZ+I
+      IF (DABS(BIGA)-DABS(A(IJ))) 10,20,20
+   10 BIGA=A(IJ)
+      L(K)=I
+      M(K)=J
+   20 CONTINUE
+      J=L(K)
+      IF(J-K) 50,50,30
+   30 KI=K-N
+      DO 40 I=1,N
+      KI=KI+N
+      HOLO=-A(KI)
+      JI=KI-K+J
+      A(KI)=A(JI)
+   40 A(JI)=HOLO
+   50 I=M(K)
+      IF(I-K) 80,80,60
+   60 JP=N*(I-1)
+      DO 70 J=1,N
+      JK=NK+J
+      JI=JP+J
+      HOLO=-A(JK)
+      A(JK)=A(JI)
+   70 A(JI)=HOLO
+   80 IF(DABS(BIGA)-TOL) 90,100,100
+   90 D=ZERO
+      RETURN
+  100 DO 120 I=1,N
+      IF(I-K) 110,120,110
+  110 IK=NK+I
+      A(IK)=A(IK)/(-BIGA)
+  120 CONTINUE
+      DO 150 I=1,N
+      IK=NK+I
+      IJ=I-N
+      DO 150 J=1,N
+      IJ=IJ+N
+      IF(I-K) 130,150,130
+  130 IF(J-K) 140,150,140
+  140 KJ=IJ-I+K
+      A(IJ)=A(IK)*A(KJ)+A(IJ)
+  150 CONTINUE
+      KJ=K-N
+      DO 170 J=1,N
+      KJ=KJ+N
+      IF(J-K) 160,170,160
+  160 A(KJ)=A(KJ)/BIGA
+  170 CONTINUE
+      D=D*BIGA
+      A(KK)=ONE/BIGA
+  180 CONTINUE
+      K=N
+  190 K=K-1
+      IF(K) 260,260,200
+  200 I=L(K)
+      IF(I-K) 230,230,210
+  210 JQ=N*(K-1)
+      JR=N*(I-1)
+      DO 220 J=1,N
+      JK=JQ+J
+      HOLO=A(JK)
+      JI=JR+J
+      A(JK)=-A(JI)
+  220 A(JI)=HOLO
+  230 J=M(K)
+      IF (J-K) 190,190,240
+  240 KI=K-N
+      DO 250 I=1,N
+      KI=KI+N
+      HOLO=A(KI)
+      JI=KI+J-K
+      A(KI)=-A(JI)
+  250 A(JI)=HOLO
+      GO TO 190
+  260 RETURN
+      END
+C     ///////////////////////////////////////////////////////////////
+      SUBROUTINE MACHB (NEK,BMAT,NCMAX,NQMAX,XA,YA,ZA,QQ,N,INP,IOUT,NQ,W
+     1RI,QONLY,NCARD)
+C     ********************************
+C     TAKEN FROM PULAY'S PROGRAM TEXAS
+C     ********************************
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DOUBLE PRECISION ARCOS
+      LOGICAL WRI,QONLY,SFIRST
+C
+C     NQ IS THE NUMBER OF INTERNAL COORDINATES
+C     NEK IS 3* THE NUMBER OF ATOMS
+C     BMAT IS THE TRANSPOSE OF THE B MATRIX, DIMENSIONED AS
+C       B(NCMAX,NQMAX) IN THE CALLING PROGRAM
+C     XA,YA,AND ZA ARE THE X,Y,Z COORDINATES OF THE ATOMS IN ANGSTROMS
+C     QONLY IS TRUE IF ONLY INTERNAL COORDINATES ARE DESIRED,
+C       NOT THE B MATRIX
+C     THE INTERNAL COORDINATE TYPES CAN BE STRETCH, BEND, TORSION, OUT-
+C     OF PLANE BENDING, LINEAR1, LINEAR2, AND INVERSE BOND LENGTH
+C     THE ORDER OF THE ATOMS FOR BEND, LIN1, AND LIN2 HAVE BEEN CHANGED
+C     SO THAT THE CENTER ATOM IS IN THE SECOND POSITION INSTEAD OF 3RD
+C     THE TORSION COORDINATE RANGE IS -PI/2 TO 3PI/2
+C     THE SIMPLE INTERNAL COORDINATES ARE PRINTED NOW
+C
+      DIMENSION QQ(1)
+      DIMENSION TIPUS(7)
+      DIMENSION WORT(3)
+      DIMENSION A(4), IA(4), U(3), V(3), W(3), Z(3), X(3), UU(3), VV(3),
+     1 WW(3), ZZ(3), UV(12)
+      DIMENSION BMAT(NCMAX,NQMAX), XA(1), YA(1), ZA(1)
+      COMMON/DISCON/SSS(100),SFIRST
+      EQUIVALENCE (KA,IA(1)), (KB,IA(2)), (KC,   IA(3)), (KD,IA(4))
+      EQUIVALENCE (UV(1),UU(1)), (UV(4),VV(1)), (UV(7),WW(1)), (UV(10),Z
+     1Z(1))
+      PARAMETER(ONE=1.0D0,ZERO=0.0D0,PI=3.14159265358979D0)
+      PARAMETER(PIH=1.57079632679490D0,TPI=6.28318530717959D0)
+      DATA TIPUS/4HSTRE,4HBEND,4HOUT ,4HTORS,4HLIN1,4HLIN2,4HINVR/
+      DATA WORT/4HK   ,4H    ,4HF   /
+      RAD=180.0/PI
+      ANULL=ONE
+      NCARD=0
+      O=ONE
+      NAB=NEK
+      NAB=NAB/3.0+0.1
+      I=0
+      ISS = 0
+      C1=ZERO
+      MATF=0
+CTPH  WRITE(IOUT,330)
+      IF (WRI) WRITE(IOUT,330)
+   10 READ(INP,340) WE
+      BACKSPACE INP
+      DO 20 K=1,3
+      IF  (WE.EQ.WORT(K))  GO TO 50
+   20 CONTINUE
+   30 CONTINUE
+      C1=DSQRT(ONE/C1)/ANULL
+      QQ(I)=QQ(I)*C1
+      IF(QONLY) GO TO 320
+      DO 40 K=1,NEK
+      BMAT(K,I)=BMAT(K,I)*C1
+   40 CONTINUE
+      GO TO 310
+   50 CONTINUE
+      NCARD=NCARD+1
+      READ(INP,350) WE,C,TYP,IA
+      IF (C.EQ.0.0) C=ONE
+      IF (WE.EQ.WORT(2)) C1=C1+C**2
+      IF (WE.NE.WORT(1)) GO TO 100
+      IF(I.EQ.0) GO TO 80
+      IF(WRI) WRITE(IOUT,360)
+      C1=DSQRT(ONE/C1)/ANULL
+      IF (QONLY) GO TO 70
+      DO 60 K=1,NEK
+      BMAT(K,I)=BMAT(K,I)*C1
+   60 CONTINUE
+   70 QQ(I)=QQ(I)*C1
+   80 I=I+1
+      QQ(I)=ZERO
+      C1=C**2
+      IF (QONLY) GO TO 100
+      DO 90 J=1,NEK
+         BMAT(J,I)=ZERO
+   90 CONTINUE
+  100 IF (WE.NE.WORT(3)) GO TO 110
+      MATF=1
+      GO TO 30
+  110 CONTINUE
+C 110 DO 120 K=1,4
+C        IA(K)=A(K)+0.1
+  120 CONTINUE
+      DO 130 K=1,7
+         IF (TYP.EQ.TIPUS(K)) GO TO 140
+  130 CONTINUE
+      ERROR=7
+      WRITE (IOUT,370) I
+      GO TO 320
+  140 CONTINUE
+      IF (KA.LT.1.OR.KA.GT.NAB.OR.KB.LT.1.OR.KB.GT.NAB) GO TO 300
+      IF (K.EQ.7) GO TO 145
+      IF (K.GT.1.AND.(KC.LT.1.OR.KC.GT.NAB)) GO TO 300
+      IF (K.GT.2.AND.(KD.LT.1.OR.KD.GT.NAB)) GO TO 300
+  145 GO TO (150,160,180,210,230,250,265), K
+C
+C     ..... STRETCH
+C
+  150 CALL VEKTOR (UU,R1,KA,KB,XA,YA,ZA)
+      UU(1)=UU(1)*ANULL
+      UU(2)=UU(2)*ANULL
+      UU(3)=UU(3)*ANULL
+      VV(1)=-UU(1)
+      VV(2)=-UU(2)
+      VV(3)=-UU(3)
+      IA(3)=0
+      IA(4)=0
+      QQ(I) = QQ(I) + R1*C
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,R1
+      GO TO 270
+C
+C     .....BENDING
+C
+  160 CALL VEKTOR (U,R1,KA,KB,XA,YA,ZA)
+      CALL VEKTOR (V,R2,KC,KB,XA,YA,ZA)
+      CO=SCALAR(U,V)
+      SI=S2(CO)
+      DO 170 L=1,3
+         UU(L)=(CO*U(L)-V(L))/(SI*R1)
+      WW(L)=(CO*V(L)-U(L))/(SI*R2)
+      VV(L)=-UU(L)-WW(L)
+  170 CONTINUE
+      IA(4)=0
+      QQ(I)=QQ(I)+C*ARCOS(CO)
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,RAD*ARCOS(CO)
+CTPH  IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,ARCOS(CO)
+      GO TO 270
+C
+C     .....OUT OF PLANE
+C
+  180 CALL VEKTOR (U,R1,KA,KB,XA,YA,ZA)
+      CALL VEKTOR (V,R2,KC,KB,XA,YA,ZA)
+      CALL VEKTOR (W,R3,KD,KB,XA,YA,ZA)
+      CALL NORMAL (V,W,Z)
+      STETA=SCALAR(U,Z)
+      CTETA=S2(STETA)
+      CFI1=SCALAR(V,W)
+      SFI1=S2(CFI1)
+      CFI2=SCALAR(W,U)
+      CFI3=SCALAR(V,U)
+      DEN=CTETA*SFI1**2
+      ST2=(CFI1*CFI2-CFI3)/(R2*DEN)
+      ST3=(CFI1*CFI3-CFI2)/(R3*DEN)
+      DO 190 L=1,3
+         WW(L)=Z(L)*ST2
+      ZZ(L)=Z(L)*ST3
+  190 CONTINUE
+      CALL NORMAL(Z,U,X)
+      CALL NORMAL(U,X,Z)
+      DO 200 L=1,3
+         UU(L)=Z(L)/R1
+         VV(L)=-UU(L)-WW(L)-ZZ(L)
+  200 CONTINUE
+      CX=-C
+      IF (STETA.LT.ZERO) CX=C
+      QQ(I)=QQ(I)-CX*ARCOS(CTETA)
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,-RAD*CX*ARCOS(CTETA)/C
+CTPH  IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,-CX*ARCOS(CTETA)/C
+      GO TO 270
+C
+C     ..... TORSION
+C
+  210 CALL VEKTOR (U,R1,KA,KB,XA,YA,ZA)
+      CALL VEKTOR (V,R2,KC,KB,XA,YA,ZA)
+      CALL VEKTOR (W,R3,KC,KD,XA,YA,ZA)
+      CALL NORMAL (U,V,Z)
+      CALL NORMAL (W,V,X)
+      CO=SCALAR(U,V)
+      CO2=SCALAR(V,W)
+      SI=S2(CO)
+      SI2=S2(CO2)
+      DO 220 L=1,3
+         UU(L)=Z(L)/(R1*SI)
+         ZZ(L)=X(L)/(R3*SI2)
+         VV(L)=(R1*CO/R2-ONE)*UU(L)-R3*CO2/R2*ZZ(L)
+         WW(L)=-UU(L)-VV(L)-ZZ(L)
+  220 CONTINUE
+      CO=SCALAR(Z,X)
+      U(1)=Z(2)*X(3)-Z(3)*X(2)
+      U(2)=Z(3)*X(1)-Z(1)*X(3)
+      U(3)=Z(1)*X(2)-Z(2)*X(1)
+      CO2=SCALAR(U,V)
+      S=ARCOS(-CO)
+      IF(CO2.LT.ZERO) S=-S
+C     THE FOLLOWING THREE LINES PREVENT DISCONTINUITY DURING THE
+C     TRANSFORMATION TO THE NEW CARTESIAN COORDINATES.  SSS CONTAINS
+C     THE ORIGINAL VALUE OF THE INTERNAL TORSIONAL COORDINATE.
+C     KEEP IN MIND THAT S IS MINUS TAU.
+      ISS = ISS + 1
+      IF(SFIRST) THEN
+        SSS(ISS) = S
+        IF(S.GT.PIH) SSS(ISS)=S-TPI
+        S=SSS(ISS)
+      ENDIF
+      IF (S.GT.PIH) S=S-TPI
+  201 CONTINUE
+      IF (SSS(ISS)-S.GT.TPI) THEN
+         S=S+TPI
+         GO TO 201
+      ELSE IF (SSS(ISS)-S.LT.-TPI) THEN
+         S=S-TPI
+         GO TO 201
+      ELSE
+      ENDIF
+CTPH  WRITE(IOUT,*) 'ISS',ISS,'SSS',SSS(ISS),'S',S
+      QQ(I)=QQ(I)-C*S
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,-RAD*S
+CTPH  IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,-S
+C
+C     .... REMEMBER THAT THE RANGE OF THIS COORDINATE IS -PI/2 TO 3*PI/2
+C     .... IN ORDER TO SHIFT THE DISCONTINUITY OFF THE PLANAR POSITION
+C
+      GO TO 270
+C
+C     .....LINEAR COPLANAR BENDING
+C
+  230 CALL VEKTOR (U,R1,KA,KB,XA,YA,ZA)
+      CALL VEKTOR (V,R2,KD,KB,XA,YA,ZA)
+      CALL VEKTOR (X,R2,KC,KB,XA,YA,ZA)
+      CO=SCALAR(V,U)
+      CO2=SCALAR(X,V)
+      QQ(I)=QQ(I)+C*(PI-ARCOS(CO)-ARCOS(CO2))
+      CALL NORMAL (V,U,W)
+      CALL NORMAL (U,W,Z)
+      CALL NORMAL(X,V,W)
+      CALL NORMAL (W,X,U)
+C
+C     ..... COORDINATE POSITIVE IF ATOM A MOVES TOWARDS ATOM D
+C
+      DO 240 L=1,3
+         UU(L)=Z(L)/R1
+      WW(L)=U(L)/R2
+      VV(L)=-UU(L)-WW(L)
+  240 CONTINUE
+      IA(4)=0
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,RAD*(PI-ARCOS(CO)-ARCOS(CO2))
+CTPH  IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,PI-ARCOS(CO)-ARCOS(CO2)
+      GO TO 270
+C
+C     ..... LINEAR PERPENDICULAR BENDING
+C
+  250 CALL VEKTOR (U,R1,KA,KB,XA,YA,ZA)
+      CALL VEKTOR (V,R2,KD,KB,XA,YA,ZA)
+      CALL VEKTOR (Z,R2,KC,KB,XA,YA,ZA)
+      CALL NORMAL (V,U,W)
+      CALL NORMAL (Z,V,X)
+      DO 260 L=1,3
+         UU(L)=W(L)/R1
+      WW(L)=X(L)/R2
+         VV(L)=-UU(L)-WW(L)
+  260 CONTINUE
+      IA(4)=0
+      CO=SCALAR(U,W)
+      CO2=SCALAR(Z,W)
+      QQ(I)=QQ(I)+C*(PI-ARCOS(CO)-ARCOS(CO2))
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,RAD*(PI-ARCOS(CO)-ARCOS(CO2))
+CTPH  IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,PI-ARCOS(CO)-ARCOS(CO2)
+      GO TO 270
+C
+C     ..... INVERSE BOND LENGTH
+C
+  265 CALL VEKTOR (UU,R1,KA,KB,XA,YA,ZA)
+      RM1=ONE/R1
+      RM2=RM1*RM1
+      UU(1)=-RM2*UU(1)*ANULL
+      UU(2)=-RM2*UU(2)*ANULL
+      UU(3)=-RM2*UU(3)*ANULL
+      VV(1)=-UU(1)
+      VV(2)=-UU(2)
+      VV(3)=-UU(3)
+      IA(3)=0
+      IA(4)=0
+      QQ(I) = QQ(I) + RM1*C
+      IF (WRI) WRITE(IOUT,380) I,TYP,IA,C,RM1
+  270 IF (QONLY) GO TO 10
+      DO 290 J=1,4
+         M=IA(J)
+      IF (M.LE.0) GO TO 290
+         M=M-1
+      J1=3*(J-1)
+         DO 280 L=1,3
+            M1=3*M+L
+            L1=J1+L
+            BMAT(M1,I)=UV(L1)*C+BMAT(M1,I)
+  280    CONTINUE
+  290 CONTINUE
+      GO TO 10
+  300 ERROR=6
+      WRITE (IOUT,390) I
+  310 CONTINUE
+      SFIRST = .FALSE.
+  320 NQ=I
+  325 RETURN
+C
+  330 FORMAT(//,1X,'DEFINITION OF INTERNAL COORDINATES          VALUE (A
+     &NGS. OR DEGR.)' ,//)
+  340 FORMAT(A4)
+  350 FORMAT(A4,6X,F16.12,A4,6X,5I3)
+  360 FORMAT(1X)
+  370 FORMAT(/,1X,38HUNDEFINED INT.COORDINATE TYPE AT NO.  ,I3,/,10(4H**
+     1**))
+  380 FORMAT(1X,I3,'.',A8,4I3,F16.12,4X,F18.12)
+  390 FORMAT(/,1X,41HATOMS ERRONOUSLY DEFINED,COORDINATE NO.  ,I3,/,1X,
+     110(4H****))
+c
+c
+      END
+      SUBROUTINE GDIIS (MM1,MNQ,M1,NQ,Q,G,H,A,LL,MM,DQ,DG,C,XLAM,IER)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION Q(MNQ,MM1), G(MNQ,MM1), A(M1,M1), LL(NQ), MM(NQ),
+     1DQ(NQ), DG(NQ), C(M1), H(NQ,NQ)
+      COMMON /IO/ IN,IOUT,INP2,IPUN,IGMUP
+C
+C     CONSTRUCTS AND SOLVE DIIS EQUATIONS
+C
+C     PARAMETERS
+C     M1 = NUMBER OF POINTS +1
+C          (NQ.GE.M1 AND M1.GE.3 MUST BE HOLD)
+C     MM1= MAXIMAL VALUE OF M1
+C     NQ = NUMBER OF VARIABLES(COORDINATES)
+C          (DIMENSION OF THE Q AND G VECTORS)
+C     MNQ= MAXIMAL VALUE OF NQ
+C     Q  = VECTORS OF THE VARIABLES
+C          STORED COLUMNWISE AS ((Q(I,J),J=1,NQ),J=1,M)
+C     G  = VECTORS OF GRADIENTS (FIRST DERIVATIVES)
+C          STORED SIMILARLY TO Q
+C     H  = INVERSE OF THE HESSIAN (SECOND DERIVATIVES)
+C     A  = DIIS MATRIX
+C     DQ = VECTOR OF PREDICTED VARIABLES
+C     DG = VECTOR OF PREDICTED GRADIENTS AT DQ
+C     C  = VECTOR OF DIIS COEFFICIENTS
+C     XLAM= LAGRANGIAN MULTIPLIER
+C     IER= ERROR CODE
+C        =0 NO ERROR
+C        =1 THE DIIS MATRIX IS SINGULAR
+C           (THE GRADIENTS ARE LINEARLY DEPENDENT)
+C
+C     METHOD
+C     P.PULAY,CHEM.PHYS.LETT.,23,393(1980)
+C     P.PULAY, J. COMP. CHEM., 3 (1982) 556-560
+C     P.CSASZAR AND P. PULAY, J. MOL. STRUCTURE 114,(1984) 31-34
+C
+C
+      IER=0
+      M=M1-1
+C
+C     CONSTRUCT DIIS MATRIX
+C
+      DO 121 I=1,NQ
+         IK=I*NQ-NQ
+         WRITE(IOUT,122) I
+         WRITE(IOUT,123) (H(I,J), J=1,NQ)
+  121 CONTINUE
+  122 FORMAT('HESSIAN ROW #',I2)
+  123 FORMAT(8F10.7)
+      DO 124 I=1,M
+         WRITE(IOUT,125) I
+         WRITE(IOUT,123) (G(K,I), K=1,NQ)
+  124 CONTINUE
+  125 FORMAT('GRADIENT #',I2)
+      DO 70 I=1,M
+         DO 20 II=1,NQ
+            S=0.0D0
+            DO 10 K=1,NQ
+               IIK=(K-1)*NQ+II
+   10       S=S+H(II,K)*G(K,I)
+   20    DQ(II)=S
+         WRITE(IOUT,126) I
+         WRITE(IOUT,123) (DQ(K), K=1,NQ)
+  126    FORMAT('DQ #',I2)
+         DO 60 J=1,I
+            DO 40 II=1,NQ
+               S=0.0D0
+               DO 30 K=1,NQ
+                  IIK=(K-1)*NQ+II
+   30          S=S+H(II,K)*G(K,J)
+   40       DG(II)=S
+         WRITE(IOUT,127) J
+         WRITE(IOUT,123) (DG(K), K=1,NQ)
+  127    FORMAT('DG #',I2)
+            S=0.0D0
+            DO 50 K=1,NQ
+   50       S=S+DQ(K)*DG(K)
+            A(I,J)=S
+            A(J,I)=S
+   60    CONTINUE
+         A(I,M1)=-1.0
+         A(M1,I)=-1.0
+   70 CONTINUE
+      A(M1,M1)=0.0
+      WRITE(IOUT,860)
+  860 FORMAT(1X,'DIIS MATRIX')
+      DO 277 I=1,M1
+         WRITE(IOUT,660) (A(I,J), J=1,M1)
+  277 CONTINUE
+  660 FORMAT(8F10.5)
+C
+C     SCALE A MATRIX BEFORE INVERSION
+C
+      DO 80 I=1,M
+   80 DQ(I)=1.0/DSQRT(DABS(A(I,I)))
+      DO 90 I=1,M1
+   90 CONTINUE
+      DQ(M1)=1.0
+      SMIN=1.E10
+      DO 100 I=1,M1
+      DO 100 J=I,M1
+C
+C     DQ(J)=1.0
+C
+         A(I,J)=A(I,J)*DQ(I)*DQ(J)
+         A(J,I)=A(I,J)
+         IF (DABS(A(I,J)).LT.SMIN.AND.I.NE.J) SMIN=A(I,J)
+  100 CONTINUE
+      TOL=DABS(SMIN)*1.E-10
+      IF (TOL.EQ.0.0) TOL=1.E-8
+      CALL OSINV1(A,M1,DET,TOL,LL,MM)
+      DO 110 I=1,M
+      DO 110 J=I,M
+         A(I,J)=A(I,J)*DQ(I)*DQ(J)
+  110 A(J,I)=A(I,J)
+      IF (DET.NE.0.0) GO TO 120
+      IER=1
+      RETURN
+  120 CONTINUE
+C
+C     DIIS COEFFICIENTS AND THE LAGRANGIAN
+C
+      DO 130 I=1,M
+  130 C(I)=-A(I,M1)*DQ(I)
+      XLAM=-A(M1,M1)
+C
+C     PREDICTED VARIABLES AND GRADIENTS
+C
+      DO 150 I=1,NQ
+         SI=0.0
+         SJ=0.0
+         DO 140 J=1,M
+            SI=SI+C(J)*Q(I,J)
+  140    SJ=SJ+C(J)*G(I,J)
+         DQ(I)=SI
+         DG(I)=SJ
+  150 CONTINUE
+      DO 160 I=1,M1
+         A(I,M1)=-C(I)
+         A(M1,I)=-C(I)
+  160 CONTINUE
+      A(M1,M1)=-XLAM
+      CALL OSINV1(A,M1,DET,TOL,LL,MM)
+      RETURN
+C
+      END

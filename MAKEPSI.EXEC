@@ -1,0 +1,3 @@
+/* THIS EXEC GENERATES THE TXTLIB 'HFS'. */                                     
+TXTLIB GEN PSILIB PSIMATH PSIMD DOTS MXMB4381 MXMBOL NOUNFL                     
+EXIT RC                                                                         

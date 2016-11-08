@@ -1,0 +1,12 @@
+/* */
+ 
+'l * fortran a (alloc fifo'
+pull .
+nqueued = queued()
+nlines = 0
+do i = 1 to nqueued
+  pull . . . . . recs .
+  nlines = nlines + recs
+  end
+ 
+say 'nlines =' nlines

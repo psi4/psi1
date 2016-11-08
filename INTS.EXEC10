@@ -1,0 +1,25 @@
+/* Initialize file30. */                                                        
+job = ints                                                                      
+arg molecule debug .                                                            
+                                                                                
+if debug ^= 'DEBUG' then debug = ''                                             
+                                                                                
+say '*********' job molecule debug '****************************'               
+                                                                                
+psiinit                                                                         
+fi '*' clear                                                                    
+fi AFFPRINT disk job      AFFPRINT A                                            
+fi AFFIN    term                                                                
+fi AFFON    disk job      AFFON    A                                            
+fi  3 disk molecule CHECK   A  '('lrecl 132 block 132                           
+fi  5 disk molecule INPUT   A                                                   
+fi  6 disk molecule FILE6   A  '('lrecl 132 block 132                           
+fi 30 disk molecule UNIT30  A4                                                  
+fi 34 disk molecule UNIT34  A4 '('xtent 50 recfm f lrecl 4096 dsorg da          
+fi                                                                              
+load job   '(' clear noauto                                                     
+                                                                                
+start '*' debug                                                                 
+jobrc = rc                                                                      
+copy molecule file6 a '=' output a '('replace                                   
+exit jobrc                                                                      

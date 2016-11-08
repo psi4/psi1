@@ -1,0 +1,1780 @@
+C
+C                           ******************
+C---------------------------***** BCKCHN *****-------------------------
+C                           ******************
+C
+      SUBROUTINE BCKCHN(MCHAIN,IBKT,ITAP77,BUF,IBUF,INTBUF,MAXBKT,
+     .                  MAXVAL,RINTS,LENINT,NTRI,JOUT,ITRI)
+ 
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER IBUF(INTBUF*2),MCHAIN(MAXBKT)
+      REAL*8 BUF(INTBUF),RINTS(LENINT)
+      COMMON /PAKQ/ I1,I2,I3
+C
+      ISCTR=MCHAIN(IBKT)
+C     WRITE(*,*) '  IN BCKCH READING FROM SECTOR ',ISCTR
+ 1111 CALL RREAD(ITAP77,BUF,INTOWP(INTBUF),ISCTR)
+C     WRITE (JOUT,*) ' ISCTR=',ISCTR
+C     WRITE(*,*) ' IBUF ',IBUF(1),IBUF(2)
+C     WRITE(*,*) ' BUF ',BUF(1)
+C     WRITE (JOUT,*) ' READ TAPE 77'
+CTJL  ISCTR=IBUF(1)
+      CALL SETMBF(ISCTR,IBUF(1))
+C     WRITE (JOUT,*) ' ISCTR=',ISCTR
+      CALL SETMBF(MBUF,IBUF(2))
+C     WRITE (JOUT,*) ' MBUF=',MBUF,IBUF(2)
+C     WRITE (JOUT,*) ' MAXVAL=',MAXVAL
+CTJL  IVOFF=(MAXVAL+2)/INTOWP(1)
+      IVOFF=(MAXVAL+3)/INTOWP(1)
+C     IBOFF=ITRI*(IBKT-1)
+C     WRITE (JOUT,*) ' IVOFF=',IVOFF
+      DO 101 I=1,MBUF
+C        WRITE (JOUT,*) ' I=',I
+         CALL SETMBF(I3,IBUF(2+I))
+CTJL     I3=IBUF(I+2)
+         CALL UNPAK
+         IJ=I1
+         KL=I2
+CTJL     IND=NTRI*(IJ-1)+KL
+         IND=NTRI*(IJ-1-ITRI*(IBKT-1))+KL
+C        WRITE (JOUT,*) ' IND=',IND
+         RINTS(IND)=BUF(IVOFF+I)
+CTJL
+C     IF(IND.GE.1.OR.IND.LE.10) THEN
+C     WRITE(*,*) ' IN BCKCH:IJ,KL,VAL=',IJ,KL,RINTS(IND)
+C     END IF
+CTJL
+C        WRITE (JOUT,*) I1,I2,IND,IND-IBOFF,RINTS(IND-IBOFF)
+  101 CONTINUE
+      CALL ZERO(BUF,INTBUF)
+      IF (ISCTR.NE.0) GOTO 1111
+C
+C     WRITE (JOUT,*) ' EXITING BACKCHAIN'
+      RETURN
+      END
+C
+C                           ******************
+C---------------------------***** BKTDMP *****-------------------------
+C                           ******************
+C
+      SUBROUTINE BKTDMP(BKT,LENGTH,IDISK,ICHAN)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION BKT(LENGTH)
+      CALL RGETSA(IDISK,ICHAN)
+      CALL SWRIT(IDISK,BKT,INTOWP(LENGTH))
+      RETURN
+      END
+C                          ********************
+C -------------------------****** HTRANS ******------------------------
+C                          ********************
+C
+      SUBROUTINE HTRANS(X,XTP,X1,RINTS,TINTS,ITINTS,NDIM,LDIM,XDIM,
+     .                  EIV,NBFAO,NBF,JOUT,NTRI1,NTRI2,IFLAG,ISORT,
+     .                  ITAP78,NTRIMX,IBKT,ITRI,JBUF,NBKT,ORBSYM,FLOV,
+     .                  NIRRED,NLAMDA,NSYMHF,KLPNT,IJPNT,NTRI,PTOCC,
+     .                  IOFF1,IOFF2,NO)
+C
+C THIS SUBROUTINE PERFORMS A HALF TRANSFORMATION OF ATOMIC (SYMMETRY)
+C ORBITALS TO MOLECULAR ORBITALS.  RINTS IS THE REAL*8 ARRAY CONTAINING
+C THE INTEGRALS TO BE TRANSFORMED, TINTS IS THE REAL*8 ARRAY CONTAINING
+C THE TRANSFORMED INTS, X & XTP ARE BUFFER ARRAYS, AND NDIM & LDIM ARE
+C THE DIMENSIONS OF THE INTEGRAL ARRAYS.
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+      INTEGER XDIM,FK,FL,FMU,FNU,FI,FJ,FFJ
+      REAL*8 RINTS(NDIM),TINTS(LDIM),XTP(XDIM,XDIM),X1(XDIM,XDIM),
+     .          X(XDIM,XDIM),EIV(NBFAO,NBF)
+      INTEGER ITINTS(2*LDIM),ORBSYM(NBF),FLOV(NIRRED,2),NLAMDA(NSYMHF),
+     .        KLPNT(NTRI),IJPNT(NTRI),PTOCC(NBF),IOFF1(NTRI),
+     .        IOFF2(NTRI)
+      COMMON/PAKQ/I1,I2,I3
+      COMMON/SIGNS/IOFF(256),IPRNT
+      DATA ITEMP /255/
+    1 FORMAT ('                                                ')
+    2 FORMAT ('************************************************')
+   29 FORMAT (2I3,F20.12)
+   39 FORMAT (4I3,F20.12)
+      KOUT=8
+      R0=1.0D-15
+C     WRITE(JOUT,*)
+C     WRITE(JOUT,*) ' THE SCF EIGENVECTORS IN HTRANS '
+C     WRITE(JOUT,*)
+C     CALL MATOUT (EIV,NBFAO,NBF,NBFAO,NBF,JOUT)
+C     WRITE (JOUT,*) ' LDIM=',LDIM
+C     WRITE (JOUT,7) ISORT
+C     WRITE (JOUT,17) IFLAG
+      CALL ZERO(TINTS,LDIM)
+C     WRITE (JOUT,7) ISORT
+C     WRITE (JOUT,17) IFLAG
+    7 FORMAT (' ISORT=',I2)
+   17 FORMAT (' IFLAG=',I2)
+   18 FORMAT (' ITINTS(',I4,')=',I8,'(',I3,',',I3,')  TINTS(',I4,')=',
+     #           E20.10)
+   19 FORMAT (2I5,F20.12)
+   72 FORMAT (F20.12)
+C     WRITE (JOUT,*) ' LDIM=',LDIM
+      INTLEN=(INTOWP(LDIM)-2)/INTOWP(1)
+      MAXINT=INTOWP(INTLEN)/(1+INTOWP(1))
+C     WRITE (JOUT,*) ' MAXINT=',MAXINT
+CTJL  IVOFF=(MAXINT+2)/INTOWP(1)
+      IVOFF=(MAXINT+3)/INTOWP(1)
+      ICNTR=1
+C     WRITE (JOUT,*) ' ICNTR=',ICNTR
+      ITRUF=ITRI*(IBKT-1)+1
+      FI=IOFF1(ITRUF)
+      FJ=IOFF2(ITRUF)
+      ITRUL=ITRUF+NTRIMX-1
+      LI=IOFF1(ITRUL)
+      LJ=IOFF2(ITRUL)
+C     INBF=NBFAO
+C     IF (IFLAG.EQ.1) INBF=NBF
+      JTRI=0
+C     WRITE (JOUT,*) ' FI,LI',FI,LI
+      DO 10 I=FI,LI
+      ISYM=ORBSYM(I)
+      FFJ=1
+      LLJ=I
+      IF (I.EQ.FI) FFJ=FJ
+      IF (I.EQ.LI) LLJ=LJ
+C     WRITE (JOUT,*) ' FFJ,LLJ',FFJ,LLJ
+      DO 10 J=FFJ,LLJ
+         JTRI=JTRI+1
+C        WRITE (JOUT,*) ' I,J,JTRI',I,J,JTRI
+C        IF (JTRI.GT.NTRIMX) GOTO 500
+         JSYM=ORBSYM(J)
+         IJSYM=IEOR(ISYM,JSYM)
+         INDR=NTRI1*(JTRI-1)+1
+C        WRITE (JOUT,*) ' JTRI=',JTRI
+         CALL SQUR(RINTS(INDR),X,XDIM)
+C        WRITE (JOUT,*) ' SQUARED RINTS INTO X'
+         CALL ZERO(XTP,XDIM*XDIM)
+C        WRITE (JOUT,*) ' ZEROED XTP'
+         CALL ZERO(X1,XDIM*XDIM)
+C        WRITE (JOUT,*) ' ZEROED X1'
+C        IF (JTRI.EQ.1) THEN
+C        WRITE (JOUT,*) ' ******************  X  ****************'
+C        CALL MATOUT(X,XDIM,XDIM,XDIM,XDIM,JOUT)
+C        WRITE (JOUT,*) ' ******************  XTP  ****************'
+C        CALL MATOUT(XTP,XDIM,XDIM,XDIM,XDIM,JOUT)
+C        WRITE (JOUT,*) ' ******************  EIV  ****************'
+C        CALL MATOUT(EIV,NBFAO,NBF,NBFAO,NBF,JOUT)
+C        END IF
+C        WRITE (JOUT,*) ' NIRRED=',NIRRED
+         DO 13 KIRRED=1,NIRRED
+C           WRITE (JOUT,*) ' KIRRED=',KIRRED
+            KSYM=KIRRED-1
+            FK=FLOV(KSYM+1,1)
+C           WRITE (JOUT,*) ' FK=',FK
+            LK=FLOV(KSYM+1,2)
+C           WRITE (JOUT,*) ' LK=',LK
+            NUMK=LK-FK+1
+C           WRITE (JOUT,*) ' NUMK=',NUMK
+            NUMMU=NUMK
+            FMU=FK
+C           WRITE (JOUT,*) ' FMU=',FMU
+            LMU=LK
+C           WRITE (JOUT,*) ' LMU=',LMU
+            LSYM=IEOR(KSYM,IJSYM)
+            LIRRED=LSYM+1
+C           WRITE (JOUT,*) ' LIRRED=',LIRRED
+            FL=FLOV(LSYM+1,1)
+C           WRITE (JOUT,*) ' FL=',FL
+            LL=FLOV(LSYM+1,2)
+C           WRITE (JOUT,*) ' LL=',LL
+            NUML=LL-FL+1
+C           WRITE (JOUT,*) ' NUML=',NUML
+            NUMNU=NUML
+            FNU=FL
+C           WRITE (JOUT,*) ' FNU=',FNU
+            LNU=LL
+C           WRITE (JOUT,*) ' LNU=',LNU
+            IF (FK.EQ.0.OR.FL.EQ.0) GOTO 13
+            CALL ZERO(XTP,XDIM*XDIM)
+            CALL MXMB(EIV(FMU,FK),NBFAO,1,X(FMU,FNU),1,
+     .                XDIM,XTP(FK,FNU),1,XDIM,NUMK,NUMMU,NUMNU)
+C           WRITE (JOUT,*) ' MATRIX MULTIPLIED EIV * X'
+C        IF (JTRI.EQ.1) THEN
+C        WRITE (JOUT,*) ' ******************  XTP  ****************'
+C        CALL MATOUT(XTP,XDIM,XDIM,XDIM,XDIM,JOUT)
+C        END IF
+            CALL MXMB(XTP(FK,FNU),1,XDIM,EIV(FNU,FL),1,NBFAO,
+     .                X1(FK,FL),1,XDIM,NUMK,NUMNU,NUML)
+C           WRITE (JOUT,*) ' MATRIX MULTIPLIED XTP * EIV'
+C        IF (JTRI.EQ.1) THEN
+C        WRITE (JOUT,*) ' ******************  X1  ****************'
+C        CALL MATOUT(X1,XDIM,XDIM,XDIM,XDIM,JOUT)
+C        END IF
+   13    CONTINUE
+C        IF (JTRI.EQ.1) CALL MATOUT(X1,XDIM,XDIM,XDIM,XDIM,JOUT)
+         KL=0
+C        WRITE (JOUT,*) ' BEFORE WRITING INTS'
+         IF (ISORT.EQ.1) THEN
+         IF (IFLAG.EQ.2) THEN
+         DO 20 K=1,NBF
+            DO 30 L=1,K
+               KL=KL+1
+               INDT2=NTRI2*(KL-1)+JTRI
+               TINTS(INDT2)=X1(K,L)
+   30       CONTINUE
+   20    CONTINUE
+         ELSE
+C        WRITE (JOUT,*) 'IJ=',JTRI
+         DO 40 K=1,NBF
+            DO 50 L=1,K
+               KL=KL+1
+               IF (DABS(X1(K,L)).GT.RO) THEN
+               IF (ICNTR.GT.MAXINT) THEN
+                  CALL WRINTS(ITAP78,TINTS,LDIM,ISCTR)
+                  JBUF=JBUF+1
+                  CALL ZERO (TINTS,LDIM)
+                  ICNTR=1
+C                 WRITE (JOUT,*) ' ICNTR=',ICNTR
+               END IF
+               KCC=PTOCC(K)
+               LCC=PTOCC(L)
+               ITMPX=MAX0(KCC,LCC)
+               ITMPN=MIN0(KCC,LCC)
+               KCC=ITMPX
+               LCC=ITMPN
+               LBL=IOR(LCC,ISHFT(KCC,8))
+C              INDT1=NTRI2*(JTRI-1)+KL
+               ITINTS(1)=0
+               ITINTS(2)=ICNTR
+               ITINTS(ICNTR+2)=LBL
+               TINTS(IVOFF+ICNTR)=X1(K,L)
+               ICNTR=ICNTR+1
+C              WRITE (JOUT,*) ' ICNTR=',ICNTR
+            END IF
+   50       CONTINUE
+   40    CONTINUE
+         ITINTS(1)=-1
+         CALL WRINTS(ITAP78,TINTS,LDIM,ISCTR)
+C        CALL PRINT(TINTS(INDR),NTRI2,NBF,JOUT)
+         END IF
+         ELSE
+         IF (IFLAG.EQ.2) THEN
+C        ILOOP=1
+         DO 22 K=1,NBF
+            DO 32 L=1,K
+               KL=KL+1
+               IF (DABS(X1(K,L)).GT.R0) THEN
+               IF (ICNTR.GT.MAXINT) THEN
+                  CALL RGETSA(ITAP78,IAD)
+C                 WRITE (JOUT,1)
+C                 WRITE (JOUT,2)
+C                 WRITE (JOUT,*)' ******   TAPE78 DUMP   ******'
+C                 WRITE (JOUT,2)
+C                 WRITE (JOUT,1)
+C                 IADHLD=IAD
+C                 WRITE(JOUT,*) ' IAD=',IAD
+                  CALL WRINTS (ITAP78,TINTS,LDIM,ISECTR)
+                  JBUF=JBUF+1
+                  CALL ZERO (TINTS,LDIM)
+C                 WRITE (JOUT,1)
+C                 WRITE (JOUT,2)
+C                 WRITE (JOUT,*)' ******   TINTS DUMP   ******'
+C                 WRITE (JOUT,2)
+C                 WRITE (JOUT,1)
+C                 CALL RSETSA(ITAP78,IADHLD)
+C                 WRITE (JOUT,*) ' IADHLD=',IADHLD
+C                 CALL SREAD(ITAP78,TINTS,INTOWP(LDIM))
+C                 DO 53 JQ=1,MAXINT
+C                    I3=ITINTS(JQ)
+C                    CALL UNPAK
+C                    QINT=TINTS(JQ+IVOFF)
+C                    WRITE (JOUT,18) JQ,I3,I1,I2,JQ+IVOFF,QINT
+C  53             CONTINUE
+                  ICNTR=1
+C                 WRITE (JOUT,*) ' ICNTR=',ICNTR
+C                 ILOOP=ILOOP+1
+               END IF
+               I1=KL
+               I2=JTRI+ITRI*(IBKT-1)
+               CALL PAK
+               ITINTS(1)=0
+               ITINTS(2)=ICNTR
+               ITINTS(ICNTR+2)=I3
+               TINTS(IVOFF+ICNTR)=X1(K,L)
+               ICNTR=ICNTR+1
+C              WRITE (JOUT,*) ' ICNTR=',ICNTR
+C              WRITE (JOUT,18) ICNTR,ITINTS(ICNTR+2),I1,I2,IVOFF+ICNTR,
+C    .                TINTS(IVOFF+ICNTR)
+               END IF
+   32       CONTINUE
+   22    CONTINUE
+         ELSE
+C        WRITE (JOUT,*) ' BEFORE 42'
+         DO 42 K=1,NBF
+            DO 52 L=1,K
+C              WRITE (JOUT,*) ' K,L=',K,L
+               KL=KL+1
+               IF (DABS(X1(K,L)).GT.R0) THEN
+               IF (ICNTR.GT.MAXINT) THEN
+C                 CALL RGETSA(ITAP78,IAD)
+C                 WRITE (JOUT,*) ' IAD=',IAD
+C                 WRITE (JOUT,1)
+C                 WRITE (JOUT,2)
+C                 WRITE (JOUT,*)' ******   TINTS DUMP   ******'
+C                 WRITE (JOUT,2)
+C                 WRITE (JOUT,1)
+C                 DO 63 JQ=1,MAXINT
+C                    I3=ITINTS(JQ+2)
+C                    CALL UNPAK
+C                    PINT=TINTS(JQ+IVOFF)
+C                    WRITE (JOUT,18) JQ,I3,I1,I2,JQ+IVOFF,PINT
+C  63             CONTINUE
+                  CALL WRINTS (ITAP78,TINTS,LDIM,ISECTR)
+                  JBUF=JBUF+1
+                  CALL ZERO (TINTS,LDIM)
+                  ICNTR=1
+C                 WRITE (JOUT,*) ' ICNTR=',ICNTR
+               END IF
+               I1=KL
+               I2=JTRI+ITRI*(IBKT-1)
+               IF (I1.GE.I2) THEN
+                  ICC=PTOCC(I)
+                  JCC=PTOCC(J)
+                  KCC=PTOCC(K)
+                  LCC=PTOCC(L)
+                  ITMPX=MAX0(ICC,JCC)
+                  ITMPN=MIN0(ICC,JCC)
+                  ICC=ITMPX
+                  JCC=ITMPN
+                  ITMPX=MAX0(KCC,LCC)
+                  ITMPN=MIN0(KCC,LCC)
+                  KCC=ITMPX
+                  LCC=ITMPN
+                  IJCC=IOFF(ICC)+JCC
+                  KLCC=IOFF(KCC)+LCC
+                  ITMPX=MAX0(IJCC,KLCC)
+                  ITMPN=MIN0(IJCC,KLCC)
+                  IJCC=ITMPX
+                  KLCC=ITMPN
+                  ICC=IOFF1(IJCC)
+                  JCC=IOFF2(IJCC)
+                  KCC=IOFF1(KLCC)
+                  LCC=IOFF2(KLCC)
+                  IJKL=IOR(JCC,ISHFT(ICC,8))
+                  IJKL=IOR(KCC,ISHFT(IJKL,8))
+                  IJKL=IOR(LCC,ISHFT(IJKL,8))
+C                 CALL PAK
+                  ITINTS(1)=0
+                  ITINTS(2)=ICNTR
+                  ITINTS(ICNTR+2)=IJKL
+                  TINTS(IVOFF+ICNTR)=X1(K,L)
+C                 IF (KCC.GT.NO.AND.JCC.LE.NO.AND.LCC.LE.NO)
+C    .            WRITE (JOUT,39) ICC,JCC,KCC,LCC,TINTS(IVOFF+ICNTR)
+C                 WRITE (JOUT,29) I1,I2,TINTS(IVOFF+ICNTR)
+                  ICNTR=ICNTR+1
+C                 WRITE (JOUT,*) ' ICNTR=',ICNTR
+               END IF
+               END IF
+   52       CONTINUE
+   42    CONTINUE
+         END IF
+         END IF
+   10 CONTINUE
+  500 IF (ISORT.EQ.2) THEN
+         IF ((IBKT.EQ.NBKT).AND.(IFLAG.EQ.1)) ITINTS(1)=-1
+         CALL WRINTS (ITAP78,TINTS,LDIM,ISCTR)
+C        WRITE (JOUT,*) ' ICNTR=',ITINTS(2)
+         JBUF=JBUF+1
+C        IF ((IBKT.EQ.NBKT).AND.(IFLAG.EQ.1)) THEN
+C        CALL SREW(ITAP78)
+C        DO 33 IQ=1,JBUF
+            WRITE (JOUT,*) ' JBUF=',IQ
+C           CALL ZERO(TINTS,LDIM)
+C           CALL SREAD(ITAP78,TINTS,INTOWP(LDIM))
+C           WRITE (JOUT,*) ' IFLG=',ITINTS(1)
+C           CALL SETMBF(MBUF,ITINTS(2))
+C           DO 43 JQ=1,MBUF
+C              IJKL=ITINTS(JQ+2)
+C              I=ISHFT(IJKL,-24)
+C              J=IAND(ITEMP,ISHFT(IJKL,-16))
+C              K=IAND(ITEMP,ISHFT(IJKL,-8))
+C              L=IAND(ITEMP,IJKL)
+C              QINT=TINTS(IVOFF+JQ)
+C              WRITE (JOUT,*) I,J,K,L,QINT
+C  43      CONTINUE
+C  33    CONTINUE
+C     END IF
+      END IF
+      RETURN
+      END
+C
+C                         ********************
+C-------------------------******  ONEI  ******-----------------------
+C                         ********************
+C
+      SUBROUTINE ONEI(X,LBLI,STVI,INBUFS,ITAP34)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION X(MTRI),LBLI(INBUFS*2),STVI(INBUFS)
+      COMMON/BASIS/NBASIS,MTRI,NSYM
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SYMMS/IDEG(10),NDEG(10),LSYM(10)
+      DATA ZERO / 0.0D+00 /
+    1 FORMAT(2X,' ILSTI = ',I5/
+     1       2X,' NBUF  = ',I5/)
+    2 FORMAT(2X,8I5,3F15.7)
+C
+      DO 101 I=1,MTRI
+  101 X(I)=ZERO
+C
+      IBUFSZ=8942
+      IBUFS3=1491
+      INTI=0
+      NBLI=0
+  201 NBLI=NBLI+1
+      CALL SREAD(ITAP34,LBLI,IBUFSZ)
+      ILSTI=LBLI(1)
+      NBUF=LBLI(2)
+C     IF(IPRNT.GE.5)
+C    *WRITE(6,1) ILSTI,NBUF
+C***  WRITE(8,15) NBUF
+C**15 FORMAT(I5)
+      DO 102 I=1,NBUF
+      JSM=ISHFT(LBLI(I+2),-8)
+      IOR=ISHFT(JSM,-3)
+      ISM=ISHFT(IOR,-8)+1
+      IOR=IAND(IOR,255)
+      JSM=IAND(JSM,7)+1
+      JOR=IAND(LBLI(I+2),255)
+      II=IOR+IDEG(ISM)
+      JJ=JOR+IDEG(JSM)
+      IIJJ=IOFF(II)+JJ
+      STV0=STVI(I+IBUFS3)
+      X(IIJJ)=STV0
+C***  WRITE(8,10) II,JJ,STV0
+C     IF(IPRNT.LE.6) GO TO 102
+C     WRITE(6,2) I,IOR,ISM,JOR,JSM,II,JJ,IIJJ,STV0
+C**10 FORMAT(2I5,F20.10)
+  102 CONTINUE
+      INTI=INTI+NBUF
+      IF(ILSTI.EQ.0) GO TO 201
+C
+      RETURN
+      END
+C
+C                           *****************
+C---------------------------*****  PAK  *****--------------------------
+C                           *****************
+C
+      SUBROUTINE PAK
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+      COMMON /PAKQ/ IX(2),I5(2)
+C
+      INTEGER*2 I5
+C     LOGICAL*4 TRANS(2)
+C     EQUIVALENCE (IX(1),TRANS(1))
+C
+      DO 1 I=1,2
+         IF (IX(I) .GT. 65535) STOP ' PACKING PROBLEM '
+         I5(I)=IX(I)
+    1 CONTINUE
+C     I5=ITEMP
+C
+      RETURN
+C
+C----UNPAK-----------------------------------------------UNPAK
+C
+      ENTRY UNPAK
+C
+C     ITEMP=I5
+      DO 2 I=1,2
+         IX(I)=I5(I)
+    2 CONTINUE
+C
+      RETURN
+      END
+C
+C                         *********************
+C-------------------------******  RDONE  ******-----------------------
+C                         *********************
+C
+      SUBROUTINE RDONE(S,H,T,V,LBLI,STVI,INBUFS,ITAP34,JOUT)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION S(MTRI),H(MTRI),T(MTRI),V(MTRI)
+      DIMENSION LBLI(INBUFS*2),STVI(INBUFS)
+      COMMON/BASIS/NBASIS,MTRI,NSYM
+      COMMON/SIGNS/IOFF(256),IPRNT
+    1 FORMAT(//,2X,' S MATRIX'/)
+    2 FORMAT(//,2X,' T MATRIX'/)
+    3 FORMAT(//,2X,' V MATRIX'/)
+    4 FORMAT(//,2X,' H MATRIX'/)
+C
+      IPRNT = 0
+C   READ IN ONE ELECTRON INTEGRALS
+C
+C   S INTEGRALS
+      CALL ONEI(S,LBLI,STVI,INBUFS,ITAP34)
+      IF(IPRNT.LE.3) GO TO 201
+      WRITE(JOUT,1)
+      CALL PRINT(S,MTRI,NBASIS,JOUT)
+C
+C   T INTEGRALS
+  201 CONTINUE
+      CALL ONEI(T,LBLI,STVI,INBUFS,ITAP34)
+      IF(IPRNT.LE.4) GO TO 202
+      WRITE(JOUT,2)
+      CALL PRINT(T,MTRI,NBASIS,JOUT)
+C
+C   V INTEGRALS
+  202 CONTINUE
+      CALL ONEI(V,LBLI,STVI,INBUFS,ITAP34)
+      IF(IPRNT.LE.4) GO TO 203
+      WRITE(JOUT,3)
+      CALL PRINT(V,MTRI,NBASIS,JOUT)
+C
+C   TOTAL ONE ELECTRON INTEGRALS
+  203 CONTINUE
+      DO 101 I=1,MTRI
+  101 H(I)=T(I)+V(I)
+      IF(IPRNT.LE.3) GO TO 204
+      WRITE(JOUT,4)
+      CALL PRINT(H,MTRI,NBASIS,JOUT)
+C
+  204 CONTINUE
+CGES
+      ITAP67=67
+      CALL RFILE(ITAP67)
+      CALL SWRIT(ITAP67,S,INTOWP(MTRI))
+      CALL SWRIT(ITAP67,H,INTOWP(MTRI))
+      CALL RCLOSE (ITAP67,3)
+CGES
+C     DO 1000 I = 1,NBASIS
+C     DO 1000 J=1,I
+C     IJ=I*(I-1)/2+J
+C1000 WRITE(14,123) I,J,S(IJ)
+C 123 FORMAT(2I5,F20.10)
+C     DO 2000 I = 1,NBASIS
+C     DO 2000 J=1,I
+C     IJ=I*(I-1)/2+J
+C2000 WRITE(14,123) I,J,H(IJ)
+C
+      RETURN
+      END
+C
+C                         *********************
+C-------------------------******  RDTWO  ******------------------------
+C                         *********************
+C
+      SUBROUTINE RDTWO(AOINTS,LBLI,PKI,INBUFS,IDIM,ITAP34,JOUT)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION LBLI(INBUFS*2),PKI(INBUFS),AOINTS(IDIM,IDIM)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SYMMS/IDEG(10),NDEG(10),LSYM(10)
+      DATA A0 / 0.0D+00 /
+    1 FORMAT(2X,' ILSTI = ',I5/
+     1       2X,' NBUF  = ',I5/)
+    2 FORMAT(2X,9I5,3F15.7)
+      CALL ZERO(AOINTS,IDIM*IDIM)
+C
+      IBUFSZ=INBUFS*2
+      IBUFQT=(INBUFS-1)/2+1
+      IBL=0
+      INTI=0
+      INTO=0
+      NBLI=0
+      NBLO=0
+      NINT=0
+  201 NBLI=NBLI+1
+      CALL SREAD(ITAP34,LBLI,IBUFSZ)
+      ILSTI=LBLI(1)
+      NBUF=LBLI(2)
+      IF(IPRNT.GE.5)
+     *WRITE(6,1) ILSTI,NBUF
+C***  WRITE(8,15) NBUF
+C**15 FORMAT(I5)
+      DO 101 I=1,NBUF
+      LOR=ISHFT(LBLI(I+I+2),-2)
+      LSM=ISHFT(LOR,-8)
+      KOR=ISHFT(LSM,-3)
+      KSM=ISHFT(KOR,-8)+1
+      KOR=IAND(KOR,255)
+      LSM=IAND(LSM,7)+1
+      LOR=IAND(LOR,255)
+      III=IAND(LBLI(I+I+2),3)
+      JSM=ISHFT(LBLI(I+I+1),-8)
+      IOR=ISHFT(JSM,-3)
+      ISM=ISHFT(IOR,-8)+1
+      IOR=IAND(IOR,255)
+      JSM=IAND(JSM,7)+1
+      JOR=IAND(LBLI(I+I+1),255)
+      II=IOR+IDEG(ISM)
+      JJ=JOR+IDEG(JSM)
+      KK=KOR+IDEG(KSM)
+      LL=LOR+IDEG(LSM)
+CTJL  WRITE(*,*) '  IOR,JOR,KOR,LOR',IOR,JOR,KOR,LOR
+CTJL  WRITE(*,*) '  II,JJ,KK,LL ',II,JJ,KK,LL,PKI(I+IBUFQT)
+      PKII=PKI(I+IBUFQT)
+      IJ=IOFF(II)+JJ
+      KL=IOFF(KK)+LL
+      AOINTS(IJ,KL)=PKII
+      AOINTS(KL,IJ)=PKII
+  101 CONTINUE
+      INTI=INTI+NBUF
+      IF(ILSTI.EQ.0) GO TO 201
+C
+C     WRITE (JOUT,*) ' **********  AOINTS  *********',AOINTS
+      RETURN
+      END
+C
+C                         ********************
+C-------------------------****** READ30 ******-------------------------
+C                         ********************
+C
+      SUBROUTINE READ30(ITAP30,MPOINT,MCONST,MCALCS,NCALCS,NBF,NBFAO,
+     .                  NSYMHF,MXCOEF,EIGVEC,EIGVAL,NLAMDA,ITEMP,XVEC,
+     .                  JOUT,NC,NO,PTOCC,WTEMP,ITYP,NIRRED,FLOV,ORBSYM,
+     .                  NTRI,NUMSYM,IWRK,KLPNT,IJPNT,IOFF1,IOFF2)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+C
+      CHARACTER*4 CHAR,LABEL(20)
+      INTEGER NORD
+      REAL*8 EIGVEC(NBFAO,NBF),EIGVAL(NBF),XVEC(MXCOEF),WTEMP(NBF,NBF)
+      CHARACTER*4 ITYP(NSYMHF),ICSYM,CSYM1,CSYM2
+      INTEGER NLAMDA(NSYMHF),ITEMP(MCALCS),NC(NSYMHF),PTOCC(NBF),
+     .        FLOV(NIRRED,2),ORBSYM(NBF),NUMSYM(NIRRED),IWRK(NIRRED),
+     .        KLPNT(NTRI),IJPNT(NTRI),IOFF1(NTRI),IOFF2(NTRI)
+      integer symorb
+C     DATA CSYM1 /4HA'  /, CSYM2 /4HA"  /
+C
+      JPOINT = 101 + MCONST + MPOINT
+C
+      IC=0
+      DO 88 I=1,NBF
+      DO 88 J=1,I
+         IC=IC+1
+         IOFF1(IC)=I
+         IOFF2(IC)=J
+   88 CONTINUE
+C
+      CALL WREADW (ITAP30,ITEMP,MCALCS,JPOINT,JPOINT)
+      LOCCAL = ITEMP(NCALCS)
+      JPOINT = LOCCAL + 60
+      CALL WREADW (ITAP30,LOCVEC,1,JPOINT,JPOINT)
+      CALL WREADW (ITAP30,XVEC,INTOWP(MXCOEF),LOCVEC,LOCVEC)
+      CALL WREADW (ITAP30,EIGVAL,INTOWP(NBF),LOCVEC,LOCVEC)
+      CALL WREADW (ITAP30,ITYP,NSYMHF,LOCVEC,LOCVEC)
+C     WRITE(*,*) 'ITYP',ITYP
+C     DO 333 I =1,NBF
+C333  WRITE(6,*)'I=',I,'E(I)=',EIGVAL(I)
+C     LOCVEC = LOCVEC + NSYMHF
+C     WRITE(*,*) ' LOCVEC,MXCOEF = ',LOCVEC,MXCOEF
+      CALL WREADW (ITAP30,NLAMDA,NSYMHF,LOCVEC,LOCVEC)
+C     WRITE(*,*) '  NLAMDA ',NLAMDA
+      CALL WREADW (ITAP30,NC,NSYMHF,LOCVEC,LOCVEC)
+      NO=0
+      DO 555 I=1,NSYMHF
+         NO=NO+NC(I)
+C        WRITE (JOUT,*) ' NC=',NC(I)
+  555 CONTINUE
+      ICNT=0
+      IOF = 0
+      DO 558 I=1,NSYMHF
+      IF(I.NE.1) IOF = IOF + NLAMDA(I-1)
+      NOI=NC(I)
+      DO 557 J=1,NOI
+      ICNT=ICNT+1
+      IPT=IOF+J
+C     WRITE(6,*)'IPT=',IPT,ICNT
+  557 PTOCC(IPT)=ICNT
+  558 CONTINUE
+      IOF = 0
+      DO 658 I=1,NSYMHF
+      IF(I.NE.1) IOF = IOF + NLAMDA(I-1)
+      NVI=NLAMDA(I)-NC(I)
+      DO 657 J=1,NVI
+      ICNT=ICNT+1
+      IPT=IOF+NC(I) + J
+C     WRITE(6,*)'IPT=',IPT,ICNT
+  657 PTOCC(IPT)=ICNT
+  658 CONTINUE
+      DO 559 I=1,NBF
+      IPT=PTOCC(I)
+  559 WTEMP(IPT,1)=EIGVAL(I)
+      DO 569 I=1,NBF
+      EIGVAL(I)=WTEMP(I,1)
+C     WRITE(6,*)'I=',I,'E(I)=',EIGVAL(I)
+  569 CONTINUE
+      CALL ZERO(WTEMP,NBF*NBF)
+C
+C LET'S SYMMETRY BLOCK THE EIGENVECTORS
+C
+      IOF = 0
+      IJ = 0
+      DO 1001 ISYM = 1,NSYMHF
+      N = NLAMDA(ISYM)
+      DO 1002 J = 1,N
+      DO 1003 I = 1,N
+      IJ = IJ + 1
+      EIGVEC(IOF+I,IOF+J) = XVEC(IJ)
+ 1003 CONTINUE
+ 1002 CONTINUE
+      IOF = IOF + N
+ 1001 CONTINUE
+C     DO 1765 I=1,NBFAO
+C     DO 1765 J=1,NBF
+C     JPT=PTOCC(J)
+C1765 EIGVEC(I,JPT)=WTEMP(I,J)
+C
+C     WRITE(JOUT,*)
+C     WRITE(JOUT,*) ' THE SCF EIGENVECTORS '
+C     WRITE(JOUT,*)
+C     CALL MATOUT (EIGVEC,NBFAO,NBF,NBFAO,NBF,JOUT)
+C
+      DO 805 ISYM = 1,NIRRED
+      FLOV(ISYM,1) = 0
+      FLOV(ISYM,2) = -1
+  805 CONTINUE
+C
+C     GET SYMMETRY LABEL FROM INPUT
+C
+      CALL LOCATE (5,'# INPUT ###',IERR)
+      IF(IERR.NE.0) THEN
+      WRITE (6,*)'NO INPUT WAS FOUND!'
+      STOP
+      ELSE
+      READ(5,6004)LABEL
+      READ(5,6004)LABEL
+ 6004 FORMAT(20A4)
+ 6005 FORMAT(A4,5X,I1)
+      READ(5,6005)CHAR,NORD
+      WRITE(6,6024)CHAR,NORD
+ 6024 FORMAT(//,'SYMMETRY LABEL FROM INPUT',/,A4,5X,I1)
+      END IF
+C
+      ICNT=0
+      DO 705 ISYM=1,NSYMHF
+      ICSYM=ITYP(ISYM)
+      ICNTH=ICNT+1
+      NBFI=NLAMDA(ISYM)
+      DO 700 I=1,NBFI
+      ICNT=ICNT+1
+      IF(ICSYM.EQ.'A1  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'A2  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B1  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B2  ')ORBSYM(ICNT)=3
+      IF(ICSYM.EQ.'A   ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B   ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'A''  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'A"  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'AG  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B1G ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B2G ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B3G ')ORBSYM(ICNT)=3
+      IF(ICSYM.EQ.'AU  ')ORBSYM(ICNT)=4
+      IF(ICSYM.EQ.'B1U ')ORBSYM(ICNT)=5
+      IF(ICSYM.EQ.'B2U ')ORBSYM(ICNT)=6
+      IF(ICSYM.EQ.'B3U ')ORBSYM(ICNT)=7
+      IF(NIRRED.GT.4) GO TO 690
+      IF(ICSYM.EQ.'AG  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'BG  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'AU  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'BU  ')ORBSYM(ICNT)=3
+  690 CONTINUE
+      IF(CHAR.EQ.'DN  '.AND.NORD.EQ.2)THEN
+      IF(ICSYM.EQ.'A1  ')ORBSYM(ICNT)=0
+      IF(ICSYM.EQ.'B1  ')ORBSYM(ICNT)=1
+      IF(ICSYM.EQ.'B2  ')ORBSYM(ICNT)=2
+      IF(ICSYM.EQ.'B3  ')ORBSYM(ICNT)=3
+      ENDIF
+  700 CONTINUE
+      IF(ICNTH-1.NE.ICNT) THEN
+      SYMORB = ORBSYM(ICNT) + 1
+      FLOV(SYMORB,1)=ICNTH
+      FLOV(SYMORB,2)=ICNT
+      END IF
+C     WRITE(*,*)'ISYM',ISYM,'1',FLOV(ISYM,1)
+C     WRITE(*,*)'ISYM',ISYM,'2',FLOV(ISYM,2)
+  705 CONTINUE
+C     WRITE(*,*)'ORBSYM',ORBSYM
+      DO 122 I=1,NIRRED
+         IWRK(I)=0
+         NUMSYM(I)=0
+  122 CONTINUE
+      DO 123 I=1,NTRI
+         KLPNT(I)=0
+  123 CONTINUE
+      IJ=0
+      DO 124 I=1,NBF
+         ISYM=ORBSYM(I)
+      DO 124 J=1,I
+         JSYM=ORBSYM(J)
+         IJSYM=IEOR(ISYM,JSYM)
+         IJ=IJ+1
+         DO 125 IRR=1,NIRRED
+            IF (IJSYM.EQ.(IRR-1)) NUMSYM(IRR)=NUMSYM(IRR)+1
+  125    CONTINUE
+         IWRK(IJSYM+1)=IWRK(IJSYM+1)+1
+         KLPNT(IJ)=IWRK(IJSYM+1)
+  124 CONTINUE
+      IJLEN=NUMSYM(1)
+      DO 126 I=1,NTRI
+         IJPNT(I)=0
+  126 CONTINUE
+      IJ=0
+      DO 127 I=2,NBF
+         ISYM=ORBSYM(I)
+      DO 127 J=1,I
+         IJ=IJ+1
+         JSYM=ORBSYM(J)
+         IJSYM=IEOR(ISYM,JSYM)
+         IJPNT(IJ)=IJPNT(IJ-1)+IJLEN
+         IJLEN=NUMSYM(IJSYM+1)
+  127 CONTINUE
+C     WRITE (JOUT,*) ' PTOCC',PTOCC
+C     WRITE (JOUT,*) ' NUMSYM',NUMSYM
+C     WRITE (JOUT,*) ' IJPNT',IJPNT
+C     WRITE (JOUT,*) ' KLPNT',KLPNT
+      RETURN
+      END
+C
+C                         **********************
+C-------------------------******  READ34  ******-----------------------
+C                         **********************
+C
+      SUBROUTINE READ34(H,S,T,V,STVI,LBLI,IBUFHF,ITAP34,JOUT)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      CHARACTER*4 BLABEL(20)
+      INTEGER ND(10),MNL(142),MS(142),MTYPE(2,20),ITYP(20)
+      COMMON/BASIS/NBASIS,MTRI,NSYM
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SYMMS/IDEG(10),NDEG(10),LSYM(10)
+      DIMENSION S(MTRI),H(MTRI),T(MTRI),V(MTRI)
+      DIMENSION LBLI(IBUFHF*2),STVI(IBUFHF)
+C
+      IPRNT=0
+C
+      IOFF(1)=0
+      DO 101 I=1,255
+  101 IOFF(I+1)=IOFF(I)+I
+C
+C   READ IN INTEGRAL INFORMATION FROM 34 FILE
+      CALL RFILE(ITAP34)
+      CALL WREADW(ITAP34,NKIND,1,1,IEND)
+C     WRITE (JOUT,*) ' NKIND=',NKIND
+      CALL WREADW(ITAP34,ICLOS,1,IEND,IEND)
+C     WRITE (JOUT,*) ' ICLOS=',ICLOS
+      CALL WREADW(ITAP34,BLABEL,20,IEND,IEND)
+C     WRITE (JOUT,*) ' BLABEL=',BLABEL
+      CALL WREADW(ITAP34,ENUC,2,IEND,IEND)
+C     WRITE (JOUT,*) ' ENUC=',ENUC
+      CALL WREADW(ITAP34,NST,1,IEND,IEND)
+C     WRITE (JOUT,*) ' NST=',NST
+      CALL WREADW(ITAP34,ND,NST,IEND,IEND)
+C     WRITE (JOUT,*) ' ND=',ND
+      CALL WREADW(ITAP34,ITYP,NST,IEND,IEND)
+C     WRITE (JOUT,*) ' ITYP=',ITYP
+      CALL WREADW(ITAP34,NDEG,NST,IEND,IEND)
+C     WRITE (JOUT,*) ' NDEG=',NDEG
+      CALL WREADW(ITAP34,NS,1,IEND,IEND)
+C     WRITE (JOUT,*) ' NS=',NS
+      CALL WREADW(ITAP34,MTYPE,2*NS,IEND,IEND)
+C     WRITE (JOUT,*) ' MTYPE=',MTYPE
+      CALL WREADW(ITAP34,LAPU,1,IEND,IEND)
+C     WRITE (JOUT,*) ' LAPU=',LAPU
+      CALL WREADW(ITAP34,MS,LAPU,IEND,IEND)
+C     WRITE (JOUT,*) ' MS=',MS
+      CALL WREADW(ITAP34,MNL,LAPU,IEND,IPARA)
+      ITOT=25+INTOWP(1)+2*NS+3*NST+2*LAPU
+      ISADR=I2SEC(ITOT)+1
+      CALL RSETSA(ITAP34,ISADR)
+      CALL RGETSA(ITAP34,IJUNK)
+C     WRITE(*,*) ' TAPE 34 POSITIONED AT SECTOR ',IJUNK
+C
+      NSYM=0
+      NBASIS=0
+      DO 102 I=1,NST
+      IF(NDEG(I).GT.0) NSYM=NSYM+1
+      NBASIS=NBASIS+NDEG(I)
+  102 CONTINUE
+      IDEG(1)=0
+      LSYM(1)=0
+      IF(NSYM.EQ.1) GO TO 203
+      II=0
+      DO 103 I=2,NST
+      IF(NDEG(I).LE.0) GO TO 202
+  201 II=II+1
+      NN=NDEG(II)
+      IF(NN.EQ.0) GO TO 201
+      IDEG(I)=IDEG(I-1)+NN
+      LSYM(I)=LSYM(I-1)+IOFF(NN+1)
+      GO TO 103
+  202 LSYM(I)=LSYM(I-1)
+      IDEG(I)=IDEG(I-1)
+  103 CONTINUE
+  203 CONTINUE
+C     WRITE(*,*) ' NSYM,IBUFHF,MTRI',NSYM,IBUFHF,MTRI
+C     WRITE(*,*) ' IDEG = ',IDEG
+C
+C   CREATE SO INTEGRAL FILES
+C     WRITE(3,21)
+C  21 FORMAT(//,2X,' NOW YOU ARE IN RDONE'/)
+C     IBUFHF=4471
+      CALL RDONE(S,H,T,V,LBLI,STVI,IBUFHF,ITAP34,JOUT)
+C
+      RETURN
+      END
+C
+C                            ********************
+C----------------------------****** REINTS ******--------------------
+C                            ********************
+C
+      SUBROUTINE REINTS (IDISK,MOINTS,LENINT,IDIM,JOUT,IAD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*8 MOINTS(LENINT)
+      CALL RSETSA(IDISK,IAD)
+      CALL SREAD (IDISK,MOINTS,INTOWP(LENINT))
+      CALL MATOUT(MOINTS,IDIM,IDIM,IDIM,IDIM,JOUT)
+      RETURN
+      END
+C
+C                           ******************
+C---------------------------***** SETMBF *****--------------------------
+C                           ******************
+C
+      SUBROUTINE SETMBF(MBUF,IBUF)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      MBUF=IBUF
+      RETURN
+      END
+C
+C                         ********************
+C-------------------------******  SORT  ******-------------------------
+C                         ********************
+C
+      SUBROUTINE SORT(BKT,IBKT,LBLI,PKI,IBKTSP,INBUFS,NBUCK,JOUT,ITAP34
+     .           ,ITRI,ITAP77,MCHAIN,MAXBKT,NIOBF,LENGTH,MAXVAL,IWRIT)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION LBLI(INBUFS*2),PKI(INBUFS),MCHAIN(MAXBKT)
+      DIMENSION BKT(IBKTSP),IBKT(IBKTSP*2)
+      COMMON/SIGNS/IOFF(256),IPRNT
+      COMMON/SYMMS/IDEG(10),NDEG(10),LSYM(10)
+      COMMON/PAKQ/I1,I2,I3
+      DATA A0 / 0.0D+00 /
+    1 FORMAT(2X,' ILSTI = ',I5/
+     1       2X,' NBUF  = ',I5/)
+    2 FORMAT(2X,9I5,3F15.7)
+   11 FORMAT ('                                                ')
+   12 FORMAT ('************************************************')
+      MINSEC=10
+      CALL ZERO(BKT,IBKTSP)
+C
+CC    IF (NIOBF.LT.MINSEC) THEN
+CC       WRITE (JOUT,13)
+CC 13    FORMAT (' INSUFFICIENT CORE TO SORT 2 ELECTRON INTEGRALS')
+CC       CALL MABORT
+CC    END IF
+C
+      INTLEN=(INTOWP(LENGTH)-2)/INTOWP(1)
+      MAXVAL=INTOWP(INTLEN)/(1+INTOWP(1))
+CTJL  IVOFF=(MAXVAL+2)/INTOWP(1)
+      IVOFF=(MAXVAL+3)/INTOWP(1)
+      IWRIT=0
+C
+      IBUFSZ=INBUFS*2
+      IBUFQT=(INBUFS-1)/2+1
+      IBL=0
+      INTI=0
+      INTO=0
+      NBLI=0
+      NBLO=0
+      NINT=0
+  201 NBLI=NBLI+1
+      CALL SREAD(ITAP34,LBLI,IBUFSZ)
+      ILSTI=LBLI(1)
+      NBUF=LBLI(2)
+      IF(IPRNT.GE.5)
+     *WRITE(6,1) ILSTI,NBUF
+C***  WRITE(8,15) NBUF
+C**15 FORMAT(I5)
+C     WRITE (JOUT,*) ' ENTERING SORTLOOP'
+      DO 101 I=1,NBUF
+      LOR=ISHFT(LBLI(I+I+2),-2)
+      LSM=ISHFT(LOR,-8)
+      KOR=ISHFT(LSM,-3)
+      KSM=ISHFT(KOR,-8)+1
+      KOR=IAND(KOR,255)
+      LSM=IAND(LSM,7)+1
+      LOR=IAND(LOR,255)
+      III=IAND(LBLI(I+I+2),3)
+      JSM=ISHFT(LBLI(I+I+1),-8)
+      IOR=ISHFT(JSM,-3)
+      ISM=ISHFT(IOR,-8)+1
+      IOR=IAND(IOR,255)
+      JSM=IAND(JSM,7)+1
+      JOR=IAND(LBLI(I+I+1),255)
+      II=IOR+IDEG(ISM)
+      JJ=JOR+IDEG(JSM)
+      KK=KOR+IDEG(KSM)
+      LL=LOR+IDEG(LSM)
+      PKII=PKI(I+IBUFQT)
+      IJ=IOFF(II)+JJ
+      KL=IOFF(KK)+LL
+      IF (IJ.EQ.KL) GOTO 1111
+      IBUCK1=((IJ-1)/ITRI)+1
+      NOFF1=(IBUCK1-1)*LENGTH
+      IFILL1=IBKT(INTOWP(NOFF1)+2)+1
+      IF (IFILL1.GT.MAXVAL) THEN
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        WRITE (JOUT,*) ' IBUCK1=',IBUCK1
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+CC       CALL MATOUT(BKT(NOFF1+1),LENGTH,1,LENGTH,1,JOUT)
+C        DO 14 M=1,MAXVAL
+C           I3=IBKT(INTOWP(NOFF1)+2+M)
+C           CALL UNPAK
+C           IJ=I1
+C           KL=I2
+C       WRITE (JOUT,*) IBKT(INTOWP(NOFF1)+2+M),IJ,KL,BKT(NOFF1+IVOFF+M)
+C  14    CONTINUE
+         CALL BKTDMP(BKT(NOFF1+1),LENGTH,ITAP77,ICHAN1)
+         IWRIT=IWRIT+1
+C        WRITE (JOUT,*) ' ICHAN1=',ICHAN1
+         CALL ZERO(BKT(NOFF1+1),LENGTH)
+         IBKT(INTOWP(NOFF1)+1)=ICHAN1
+         IFILL1=1
+      END IF
+      I1=IJ
+      I2=KL
+      CALL PAK
+      IBKT(INTOWP(NOFF1)+2+IFILL1)=I3
+      BKT(IVOFF+NOFF1+IFILL1)=PKII
+CTJL
+C     IF(IVOFF+IFILL1.GE.1.OR.IVOFF+IFILL1.LE.10) THEN
+C     WRITE(*,*) ' IN SORT:IJ,KL,VAL=',IJ,KL,PKII
+C     END IF
+CTJL
+      IBKT(INTOWP(NOFF1)+2)=IFILL1
+CC    WRITE (JOUT,*) ' IBUCK=',IBUCK1
+CC    WRITE (JOUT,*) ' ICHAN=',IBKT(INTOWP(NOFF1)+1)
+CC    WRITE (JOUT,*) ' IFILL=',IBKT(INTOWP(NOFF1)+2)
+ 1111 IBUCK2=((KL-1)/ITRI)+1
+      NOFF2=(IBUCK2-1)*LENGTH
+      IFILL2=IBKT(INTOWP(NOFF2)+2)+1
+      IF (IFILL2.GT.MAXVAL) THEN
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        WRITE (JOUT,*) ' IBUCK2=',IBUCK2
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        CALL MATOUT(BKT(NOFF2+1),LENGTH,1,LENGTH,1,JOUT)
+C        DO 24 M=1,MAXVAL
+C           I3=IBKT(INTOWP(NOFF2)+2+M)
+C           CALL UNPAK
+C           IJ=I2
+C           KL=I1
+C       WRITE (JOUT,*) IBKT(INTOWP(NOFF2)+2+M),IJ,KL,BKT(NOFF2+IVOFF+M)
+C  24    CONTINUE
+         CALL BKTDMP(BKT(NOFF2+1),LENGTH,ITAP77,ICHAN2)
+         IWRIT=IWRIT+1
+C        WRITE (JOUT,*) ' ICHAN2=',ICHAN2
+         CALL ZERO(BKT(NOFF2+1),LENGTH)
+         IBKT(INTOWP(NOFF2)+1)=ICHAN2
+         IFILL2=1
+      END IF
+      I1=KL
+      I2=IJ
+      CALL PAK
+      IBKT(INTOWP(NOFF2)+2+IFILL2)=I3
+      BKT(IVOFF+NOFF2+IFILL2)=PKII
+      IBKT(INTOWP(NOFF2)+2)=IFILL2
+CC    WRITE (JOUT,*) ' IBUCK=',IBUCK2
+CC    WRITE (JOUT,*) ' ICHAN=',IBKT(INTOWP(NOFF2)+1)
+CC    WRITE (JOUT,*) ' IFILL=',IBKT(INTOWP(NOFF2)+2)
+  101 CONTINUE
+      INTI=INTI+NBUF
+      IF(ILSTI.EQ.0) GO TO 201
+C
+      DO 22 KBKT=1,NBUCK
+         NOFF=(KBKT-1)*LENGTH
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        WRITE (JOUT,*) ' IBUCK=',KBKT
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        DO 34 M=1,MAXVAL
+C           I3=IBKT(INTOWP(NOFF)+2+M)
+C           CALL UNPAK
+C           IJ=I1
+C           KL=I2
+C        WRITE (JOUT,*) IBKT(INTOWP(NOFF)+2+M),IJ,KL,BKT(NOFF+IVOFF+M)
+C  34    CONTINUE
+         CALL BKTDMP(BKT(NOFF+1),LENGTH,ITAP77,ICHAN)
+         IWRIT=IWRIT+1
+         MCHAIN(KBKT)=ICHAN
+C        WRITE (JOUT,*) ' ICHAN=',ICHAN
+C        WRITE(JOUT,79)KBKT,MCHAIN(KBKT)
+   79    FORMAT (' MCHAIN(',I5,')=',I5)
+   22 CONTINUE
+      CALL ZERO(BKT,IBKTSP)
+      CALL ZERO(PKI,INBUFS)
+C
+      RETURN
+      END
+C
+C                           *****************
+C---------------------------***** SORT2 *****--------------------------
+C                           *****************
+C
+      SUBROUTINE SORT2(ITAP77,ITAP78,BUF,IBUF,LENBUF,BKT,IBKT,IBKTSP,
+     .                 ITRI,MCHAIN,MAXBKT,JOUT,NBUCK,NIOBF,LENGTH,
+     .                 JBUF,MAXVAL)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION BUF(LENBUF),IBUF(LENBUF*2),MCHAIN(MAXBKT)
+      DIMENSION BKT(IBKTSP),IBKT(IBKTSP*2)
+      COMMON/PAKQ/I1,I2,I3
+C
+   11 FORMAT ('                                                ')
+   12 FORMAT ('************************************************')
+      MINSEC=10
+C     WRITE(*,*) '   IN SORT2 '
+      CALL ZERO(BKT,IBKTSP)
+C
+CC    IF (NIOBF.LT.MINSEC) THEN
+CC       WRITE (JOUT,13)
+CC 13    FORMAT (' INSUFFICIENT CORE TO SORT 2 ELECTRON INTEGRALS')
+CC       CALL MABORT
+CC    END IF
+C
+      INTLEN=(INTOWP(LENGTH)-2)/INTOWP(1)
+      MAXVAL=INTOWP(INTLEN)/(1+INTOWP(1))
+CTJL  IVOFF=(MAXVAL+2)/INTOWP(1)
+      IVOFF=(MAXVAL+3)/INTOWP(1)
+C
+      IBFLEN=(INTOWP(LENBUF)-2)/INTOWP(1)
+      MAXBUF=INTOWP(IBFLEN)/(1+INTOWP(1))
+CTJL  IBOFF=(MAXBUF+2)/INTOWP(1)
+      IBOFF=(MAXBUF+3)/INTOWP(1)
+C     WRITE (JOUT,*) ' LENBUF=',LENBUF
+C     WRITE (JOUT,*) ' MAXBUF=',MAXBUF
+      CALL SREW(ITAP78)
+C
+      DO 212 IBFCNT=1,JBUF
+CTJL     CALL SREAD(ITAP78,IBUF,INTOWP(LENBUF))
+         CALL SREAD(ITAP78,BUF,INTOWP(LENBUF))
+C
+         CALL SETMBF(MBUF,IBUF(2))
+C        WRITE (JOUT,*) ' MBUF=',MBUF
+         DO 101 I=1,MBUF
+                CALL SETMBF(I3,IBUF(2+I))
+CTJL            I3=IBUF(I+2)
+            CALL UNPAK
+            KL=I1
+C           IF (KL.EQ.0) GOTO 101
+            MUNU=I2
+            RINT=BUF(IBOFF+I)
+C           WRITE (JOUT,11)
+C           WRITE (JOUT,12)
+C           WRITE (JOUT,*) ' *********  INTS AS READ INTO SORT2 *******'
+C           WRITE (JOUT,11)
+C           WRITE (JOUT,12)
+C           WRITE (JOUT,*) KL,MUNU,BUF(IBOFF+I)
+            IBUCK1=((KL-1)/ITRI)+1
+            NOFF1=(IBUCK1-1)*LENGTH
+            IFILL1=IBKT(INTOWP(NOFF1)+2)+1
+            IF (IFILL1.GT.MAXVAL) THEN
+C              WRITE (JOUT,11)
+C              WRITE (JOUT,12)
+C              WRITE (JOUT,*) ' IBUCK1=',IBUCK1
+C              WRITE (JOUT,11)
+C              WRITE (JOUT,12)
+C              DO 14 M=1,MAXVAL
+C                 I3=IBKT(INTOWP(NOFF1)+2+M)
+C                 CALL UNPAK
+C                 IJ=I1
+C                 KL=I2
+C                 WRITE (JOUT,*) I1,I2,BKT(NOFF1+IVOFF+M)
+C  14          CONTINUE
+               CALL BKTDMP(BKT(NOFF1+1),LENGTH,ITAP77,ICHAN1)
+C              WRITE (JOUT,*) ICHAN1
+               MCHAIN(IBUCK1)=ICHAN1
+               CALL ZERO(BKT(NOFF1+1),LENGTH)
+               IBKT(INTOWP(NOFF1)+1)=ICHAN1
+               IFILL1=1
+            END IF
+CTJL
+C     IF(IVOFF+IFILL1.GE.1.OR.IVOFF+IFILL1.LE.10) THEN
+C     WRITE(*,*) ' IN SORT2:KL,MN,VAL=',KL,MUNU,RINT
+C     END IF
+CTJL
+            IBKT(INTOWP(NOFF1)+2+IFILL1)=I3
+            BKT(IVOFF+NOFF1+IFILL1)=RINT
+            IBKT(INTOWP(NOFF1)+2)=IFILL1
+  101    CONTINUE
+  212 CONTINUE
+C
+      DO 22 KBKT=1,NBUCK
+         NOFF=(KBKT-1)*LENGTH
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        WRITE (JOUT,*) ' KBKT=',KBKT
+C        WRITE (JOUT,11)
+C        WRITE (JOUT,12)
+C        DO 24 M=1,MAXVAL
+C           I3=IBKT(INTOWP(NOFF)+2+M)
+C           CALL UNPAK
+C           IJ=I1
+C           KL=I2
+C           WRITE (JOUT,*) IJ,KL,BKT(NOFF+IVOFF+M)
+C  24    CONTINUE
+         CALL BKTDMP(BKT(NOFF+1),LENGTH,ITAP77,ICHAN)
+         MCHAIN(KBKT)=ICHAN
+C        WRITE(*,*) '  IN SORT2 WROTE LAST BUFFER AT SECTOR',ICHAN
+   22 CONTINUE
+C
+      CALL ZERO(BKT,IBKTSP)
+      CALL ZERO(BUF,LENBUF)
+C
+      RETURN
+      END
+C
+C                            ********************
+C----------------------------******  SQUR  ******-----------------------
+C                            ********************
+C
+      SUBROUTINE SQUR(T,SQ,N)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      DIMENSION SQ(2),T(2)
+      IJ=0
+      II=0
+      DO 20 I=1,N
+      JJ=0
+      DO 10 J=1,I
+      IJ=IJ+1
+      SQ(II+J)=T(IJ)
+      SQ(JJ+I)=T(IJ)
+10    JJ=JJ+N
+20    II=II+N
+      RETURN
+      END
+cets The following is called by a C program which handles dynamic
+cets allocation of memory.
+      subroutine fentry(core,icore,maxcor)
+cets  PROGRAM TRANS
+      IMPLICIT REAL*8 (A-H,O-Z)
+cets  REAL*8 CORE(1)
+cets  INTEGER ICORE( 800000),I30(200)
+      real*8 core(maxcor)
+      integer icore(intowp(maxcor)),i30(200)
+      INTEGER WPADTI,SEC2I,SPACE,SPACE2
+      COMMON/BASIS/NBASIS,MTRI,NSYM
+C     COMMON/PAKQ/I1,I2,I3
+cets  EQUIVALENCE (CORE,ICORE)
+cets  MAXCOR=400000
+      call drum
+C
+      CALL TSTART(6)
+C
+      WRITE(6,6000)
+ 6000 FORMAT(//,47('-'),/,47('-'),/,
+     .' CCTRANS : INTEGRAL TRANSFORMATION FOR CC CODES',/,
+     .'     WRITTEN BY ANDY SCHEINER     ',/,47('-'),/,47('-'),//)
+C
+    1 FORMAT ('                                                ')
+    2 FORMAT ('************************************************')
+  121 FORMAT (' NOT ENOUGH CORE TO DO FINAL 2-ELECTRON HALF TRANSFORM')
+C
+      INPUT=5
+      JOUT=6
+      KOUT=8
+      ITAP30=30
+      ITAP71=71
+      ITAP72=72
+      ITAP77=77
+      ITAP78=78
+      ITAP34=34
+      IBUFHF=4471
+      IFLAG=1
+      ISORT=1
+      JBUF=0
+      INTBUF=SEC2I(100)/INTOWP(1)
+      MAXBKT=120
+C
+      CALL RFILE(ITAP30)
+C     CALL RFILE(ITAP71)
+C     CALL RFILE(ITAP72)
+      CALL RFILE(ITAP77)
+      CALL RFILE(ITAP78)
+C     WRITE (JOUT,*) ' RFILES'
+      CALL WREADW(ITAP30,I30,200,101,LWORD)
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  TAPE 30 CONSTANTS ***********'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 3 I=1,200
+C        WRITE (JOUT,*) I,I30(I)
+C   3 CONTINUE
+C
+      MPOINT=I30(2)
+      MCONST=I30(3)
+      MCALCS=I30(4)
+      NCALCS=I30(5)
+      NBF=I30(18)
+C     WRITE (JOUT,*) ' NBF=',NBF
+      NBFAO=I30(22)
+C     WRITE (JOUT,*) ' NBFAO=',NBFAO
+      NIRRED=I30(28)
+      NSYMHF=I30(41)
+C     WRITE (JOUT,*) ' NSYMHF=',NSYMHF
+C     WRITE (JOUT,*) ' MCALCS=',MCALCS
+      MXCOEF=I30(42)
+C     WRITE (JOUT,*) ' MXCOEF=',MXCOEF
+      NTRI=(NBF*(NBF+1))/2
+      NTRIAO=(NBFAO*(NBFAO+1))/2
+C     WRITE (JOUT,*) ' NTRIAO=',NTRIAO
+      MTRI=NTRIAO
+C
+      IC=0
+C
+      CALL ZERO(CORE,MAXCOR)
+C
+      K1= 1
+      K2=K1+NBF*NBFAO
+C     WRITE (JOUT,*) ' K2=',K2
+      K3=WPADTI(K2+NBF)
+C     WRITE (JOUT,*) ' K3=',K3
+      KTPO=K3+NSYMHF
+C     WRITE (JOUT,*) ' KTPO=',KTPO
+      KTYP=KTPO+NBF
+C     WRITE (JOUT,*) ' KTYP=',KTYP
+      KFLOV=KTYP+NSYMHF
+C     WRITE (JOUT,*) ' KFLOV=',KFLOV
+      KORBSM=KFLOV+2*NIRRED
+C     WRITE (JOUT,*) ' KORBSM=',KORBSM
+      KNMSM=KORBSM+NBF
+C     WRITE (JOUT,*) ' KNMSM=',KNMSM
+      KIWRK=KNMSM+NIRRED
+C     WRITE (JOUT,*) ' KIWRK=',KIWRK
+      KKLPT=KIWRK+NIRRED
+C     WRITE (JOUT,*) ' KKLPT=',KKLPT
+      KIJPT=KKLPT+NTRI
+C     WRITE (JOUT,*) ' KIJPT=',KIJPT
+      KOFF1=KIJPT+NTRI
+C     WRITE (JOUT,*) ' KOFF1=',KOFF1
+      KOFF2=KOFF1+NTRI
+C     WRITE (JOUT,*) ' KOFF2=',KOFF2
+      K4=KOFF2+NTRI
+C     WRITE (JOUT,*) ' K4=',K4
+      K5=K4+MCALCS
+C     WRITE (JOUT,*) ' K5=',K5
+      K6=IADTWP(K5+NSYMHF)
+C     WRITE (JOUT,*) ' K6=',K6
+      K7 = K6 + MXCOEF
+C     WRITE (JOUT,*) ' K7=',K7
+      KTOP=K7+NBF*NBF-1
+C     WRITE (JOUT,*) ' KTOP=',KTOP
+C
+      CALL READ30 (ITAP30,MPOINT,MCONST,MCALCS,NCALCS,NBF,NBFAO,NSYMHF,
+     .             MXCOEF,CORE(K1),CORE(K2),ICORE(K3),ICORE(K4),CORE(K6)
+     .             ,JOUT,ICORE(K5),NO,ICORE(KTPO),CORE(K7),ICORE(KTYP),
+     .             NIRRED,ICORE(KFLOV),ICORE(KORBSM),NTRI,ICORE(KNMSM),
+     .             ICORE(KIWRK),ICORE(KKLPT),ICORE(KIJPT),ICORE(KOFF1),
+     .             ICORE(KOFF2))
+      NV=NBF-NO
+C     WRITE(*,*)  '  NV = ',NV
+C     WRITE(JOUT,*)
+C     WRITE(JOUT,*) ' THE SCF EIGENVECTORS '
+C     WRITE(JOUT,*)
+C     CALL MATOUT (CORE(K1),NBFAO,NBF,NBFAO,NBF,JOUT)
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  EIGENVECTOR  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 4 I=1,196
+C        WRITE (JOUT,*) I,CORE(I)
+C   4 CONTINUE
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  EIGENVALUES  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 5 I=197,210
+C        WRITE (JOUT,*) I,CORE(I)
+C   5 CONTINUE
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  NLAMDA  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,*) ICORE (421)
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  ITEMP  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 6 I=422,521
+C        WRITE (JOUT,*) I,ICORE(I)
+C   6 CONTINUE
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  XVEC  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 7 I=262,457
+C        WRITE (JOUT,*) I,CORE(I)
+C   7 CONTINUE
+C
+      J1=IADTWP(K4)
+C     WRITE (JOUT,*) ' J1=',J1
+      J2=J1+NTRIAO
+C     WRITE (JOUT,*) ' J2=',J2
+      J3=J2+NTRIAO
+C     WRITE (JOUT,*) ' J3=',J3
+      J4=J3+NTRIAO
+C     WRITE (JOUT,*) ' J4=',J4
+      J5=J4+NTRIAO
+C     WRITE (JOUT,*) ' J5=',J5
+      J6=WPADTI(J5)
+C     WRITE (JOUT,*) ' J6=',J6
+      JTOP=J5+IBUFHF-1
+C     WRITE (JOUT,*) ' JTOP=',JTOP
+C
+      CALL READ34 (CORE(J1),CORE(J2),CORE(J3),CORE(J4),CORE(J5),ICORE(J6
+     .            ),IBUFHF,ITAP34,JOUT)
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  H MATRIX  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 8 I=212,316
+C        WRITE (JOUT,*) I,CORE(I)
+C   8 CONTINUE
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  S MATRIX  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 9 I=317,421
+C        WRITE (JOUT,*) I,CORE(I)
+C   9 CONTINUE
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  T MATRIX  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 11 I=422,526
+C        WRITE (JOUT,*) I,CORE(I)
+C  11 CONTINUE
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  V MATRIX  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     DO 12 I=527,631
+C        WRITE (JOUT,*) I,CORE(I)
+C  12 CONTINUE
+CC    WRITE (JOUT,1)
+CC    WRITE (JOUT,2)
+CC    WRITE (JOUT,*) ' ************  XVEC  *************'
+CC    WRITE (JOUT,2)
+CC    WRITE (JOUT,1)
+CC    DO 7 I=262,457
+CC       WRITE (JOUT,*) I,CORE(I)
+CC  7 CONTINUE
+C
+CA2/13LENINT=MAXCOR-IBUFHF-J2-3*NBFAO*NBFAO-(MAXBKT+1)/INTOWP(1)
+      LENINT=MAXCOR-INTBUF-J2-3*NBFAO*NBFAO-(MAXBKT+1)/INTOWP(1)
+C     WRITE (JOUT,*) ' LENINT=',LENINT
+      ITRI=LENINT/NTRIAO
+C     WRITE (JOUT,*) ' ITRI=',ITRI
+C     IF (ITRI.GE.NTRIAO*2) THEN
+C        WRITE(*,*)'DOING TRANSFORMATION IN CORE'
+C        L1=I2
+C        L2=L1+NTRIAO*NTRIAO
+C        L3=WPADTI(L2)
+C        LTOP=IADTWP(L3+IBUFHF)-1
+C        CALL ZERO(CORE(L1),MAXCOR-L1)
+C        WRITE(*,*) '  ZEROING OUT CORE BEFORE RDTWO '
+C
+C     CALL RDTWO(CORE(L1),CORE(L2),ICORE(L3),IBUFHF,NTRIAO,ITAP34,JOUT)
+C
+C        M1=L2
+C        IM1=WPADTI(M1)
+C        M2=M1+NTRIAO*NTRI
+C        M3=M2+NBFAO*NBFAO
+C        M4=M3+NBFAO*NBFAO
+C        MTOP=M4+NBFAO*NBFAO-1
+C        IF (MTOP.GT.MAXCOR) THEN
+C           WRITE(JOUT,*) ' MTOP EXCEEDS MAXCOR'
+C        END IF
+C        IFLAG=2
+C
+C        WRITE (JOUT,*) ' NTRIAO*NTRI=',NTRIAO*NTRI
+C        CALL HTRANS(CORE(M2),CORE(M3),CORE(M4),CORE(L1),
+C    .               CORE(M1),ICORE(IM1),
+C    .               NTRIAO*NTRIAO,NTRIAO*NTRI,NBFAO,CORE(K1),NBFAO,NBF,
+C    .               JOUT,NTRIAO,NTRI,IFLAG,ISORT,ITAP78,NTRIAO,1,1,
+C    .               JBUF,1,ICORE(KORBSM),ICORE(KFLOV),NIRRED,ICORE(K3),
+C    .               NSYMHF,ICORE(KKLPT),ICORE(KIJPT),NTRI,ICORE(KTPO),
+C    .               ICORE(KOFF1),ICORE(KOFF2),NO)
+C
+C        M5=L1
+C        IM5=WPADTI(M5)
+C        IF (MTOP.GT.MAXCOR) THEN
+C           WRITE(JOUT,*) ' MTOP EXCEEDS MAXCOR'
+C        END IF
+C        IFLAG=1
+C
+C        WRITE (JOUT,*) ' NTRI*NTRI=',NTRI*NTRI
+C      CALL HTRANS(CORE(M2),CORE(M3),CORE(M4),CORE(M1),
+C    .             CORE(M5),ICORE(IM5),NTRIAO
+C    .             *NTRI,NTRI*NTRI,NBFAO,CORE(K1),NBFAO,NBF,JOUT,NTRI,
+C    .              NTRI,IFLAG,ISORT,ITAP78,NTRI,1,1,JBUF,1,
+C    .              ICORE(KORBSM),ICORE(KFLOV),NIRRED,ICORE(K3),NSYMHF,
+C    .              ICORE(KKLPT),ICORE(KIJPT),NTRI,ICORE(KTPO),
+C    .              ICORE(KOFF1),ICORE(KOFF2),NO)
+C
+C
+C        CALL WRINTS(ITAP71,CORE(M4),NTRI*NTRI,IAD)
+C        CALL SREW(ITAP71)
+C        CALL RCLOSE(ITAP71,3)
+C        CALL SREW(ITAP30)
+C        CALL RCLOSE(ITAP30,3)
+C        WRITE (JOUT,*) ' IAD=',IAD
+C     ELSE
+         ISORT=2
+         IF (ITRI.GT.NTRIAO) ITRI=NTRIAO
+         NBUCK=NTRIAO/ITRI
+         MODTRI=MOD(NTRIAO,ITRI)
+         IF (ITRI*NBUCK.NE.NTRIAO) NBUCK=NBUCK+1
+C        WRITE (JOUT,*) ' NBUCK=',NBUCK
+         IBKTSP=MAXCOR-IBUFHF-J2
+     .            -(MAXBKT+1)/INTOWP(1)
+C        WRITE (JOUT,*) ' IBKTSP=',IBKTSP
+         LENGTH=IBKTSP/NBUCK
+         NIOBF=INTOWP(LENGTH)/SEC2I(1)
+         IF (NIOBF.GT.100) NIOBF=100
+         LENGTH=NIOBF*(SEC2I(1)/INTOWP(1))
+C        WRITE (JOUT,*) ' LENGTH=',LENGTH
+         SPACE=MAXCOR-LENGTH-3*NBFAO*NBFAO-J2
+     .         -(MAXBKT+1)/INTOWP(1)
+         IF (NTRIAO*ITRI.GT.SPACE) THEN
+            LENGTH=LENGTH-(NTRIAO*ITRI-SPACE)
+            NIOBF=INTOWP(LENGTH)/SEC2I(1)
+            LENGTH=NIOBF*(SEC2I(1)/INTOWP(1))
+C        WRITE (JOUT,*) ' LENGTH=',LENGTH
+         SPACE=MAXCOR-LENGTH-3*NBFAO*NBFAO-J2
+     .         -(MAXBKT+1)/INTOWP(1)
+         END IF
+         IF (SPACE.GT.NTRIAO*NTRIAO) SPACE=NTRIAO*NTRIAO
+C        WRITE (JOUT,*) ' SPACE=',SPACE
+C
+         N1=J2
+         IN1=WPADTI(N1)
+C        WRITE (JOUT,*) ' N1=',N1
+         N2=IADTWP(IN1+MAXBKT)
+C        WRITE (JOUT,*) ' N2=',N2
+         IN2=WPADTI(N2)
+C        WRITE (JOUT,*) ' IN2=',IN2
+         N3=N2+NBUCK*LENGTH
+C        WRITE (JOUT,*) ' N3=',N3
+         IN3=WPADTI(N3)
+C        WRITE (JOUT,*) ' IN3=',IN3
+         NTOP=N3+IBUFHF-1
+C        WRITE (JOUT,*) ' NTOP=',NTOP
+C        WRITE (JOUT,*) ' ENTERING SORT 1'
+         CALL ZERO(CORE(N1),MAXCOR-N1)
+        CALL SORT(CORE(N2),ICORE(IN2),ICORE(IN3),CORE(N3),NBUCK*LENGTH,
+     .     IBUFHF,NBUCK,JOUT,ITAP34,ITRI,ITAP77,ICORE(IN1),MAXBKT,NIOBF
+     .            ,LENGTH,MAXVAL,IWRIT)
+C        WRITE (JOUT,*) ' EXITING SORT 1'
+C
+c        get rid of file34
+         CALL RCLOSE(ITAP34,4)
+c        CALL RCLOSE(ITAP34,3)
+         N6=N2
+C        WRITE (JOUT,*) ' N6=',N6
+         N7=N6+SPACE
+C        WRITE (JOUT,*) ' N7=',N7
+         IN7=WPADTI(N7)
+C        WRITE (JOUT,*) ' IN7=',IN7
+         N8=N7+LENGTH
+C        WRITE (JOUT,*) ' N8=',N8
+         N9=N8+NBFAO*NBFAO
+C        WRITE (JOUT,*) ' N9=',N9
+         N10=N9+NBFAO*NBFAO
+C        WRITE (JOUT,*) ' N10=',N10
+         NTOP=N10+NBFAO*NBFAO-1
+C        WRITE (JOUT,*) ' NTOP=',NTOP
+         CALL ZERO(CORE(N6),MAXCOR-N6)
+         JBUF=0
+         DO 101 I=1,NBUCK
+C           WRITE (JOUT,*) ' ENTERING BCKCHN 1'
+C           WRITE (JOUT,*) ' NBUCK=',I
+C           WRITE (JOUT,*) ' LENGTH=',LENGTH
+C           WRITE (JOUT,*) ' SPACE=',SPACE
+C           WRITE (JOUT,*) ' MAXBKT=',MAXBKT
+            CALL BCKCHN(ICORE(IN1),I,ITAP77,CORE(N7),ICORE(IN7),LENGTH,
+     .                  MAXBKT,MAXVAL,CORE(N6),SPACE,NTRIAO,JOUT,ITRI)
+            NTRIMX=ITRI
+            IF ((I.EQ.NBUCK).AND.(MODTRI.NE.0)) NTRIMX=MODTRI
+            IFLAG=2
+            CALL HTRANS(CORE(N8),CORE(N9),CORE(N10),CORE(N6),
+     .               CORE(N7),ICORE(IN7),
+     .               SPACE,LENGTH,NBFAO,CORE(K1),NBFAO,NBF,JOUT,NTRIAO
+     .               ,NTRI,IFLAG,ISORT,ITAP78,NTRIMX,I,ITRI,JBUF,
+     .               NBUCK,ICORE(KORBSM),ICORE(KFLOV),NIRRED,ICORE(K3),
+     .               NSYMHF,ICORE(KKLPT),ICORE(KIJPT),NTRI,ICORE(KTPO),
+     .               ICORE(KOFF1),ICORE(KOFF2),NO)
+            CALL ZERO(CORE(N6),MAXCOR-N6)
+  101    CONTINUE
+         CALL RCLOSE(ITAP77,4)
+         CALL RFILE(ITAP77)
+         CALL ZERO(CORE(J2),MAXCOR-J2)
+         NBUCK=NTRI/ITRI
+         MODTRI=MOD(NTRI,ITRI)
+         IF (ITRI*NBUCK.NE.NTRI) NBUCK=NBUCK+1
+         IBKTSP=MAXCOR-LENGTH-J2
+     .            -(MAXBKT+1)/INTOWP(1)
+C        WRITE (JOUT,*) ' IBKTSP=',IBKTSP
+         LEN2=IBKTSP/NBUCK
+         NIOBF=INTOWP(LEN2)/SEC2I(1)
+         IF (NIOBF.GT.100) NIOBF=100
+         LEN2=NIOBF*(SEC2I(1)/INTOWP(1))
+C        WRITE (JOUT,*) '   *******  BEFORE SORT2 *******'
+C        WRITE (JOUT,*) ' LEN2=',LEN2
+C        WRITE (JOUT,*) ' LENGTH=',LENGTH
+C        WRITE (JOUT,*) ' NBUCK=',NBUCK
+         SPACE2=MAXCOR-LEN2-3*NBF*NBFAO-J2
+     .         -(MAXBKT+1)/INTOWP(1)
+         IF (NTRIAO*ITRI.GT.SPACE2) THEN
+            LEN2=LEN2-(NTRIAO*ITRI-SPACE2)
+            NIOBF=INTOWP(LEN2)/SEC2I(1)
+            LEN2=NIOBF*(SEC2I(1)/INTOWP(1))
+            WRITE (JOUT,*) ' LEN2=',LEN2
+         SPACE2=MAXCOR-LEN2-3*NBF*NBFAO-J2
+     .         -(MAXBKT+1)/INTOWP(1)
+         END IF
+         IF (SPACE2.GT.NTRI*NTRIAO) SPACE2=NTRI*NTRIAO
+         IF (INTBUF.GT.LEN2) THEN
+            WRITE (JOUT,121)
+            STOP
+         END IF
+ 
+C
+C        WRITE (JOUT,*) ' K1=',K1
+         N1=J2
+C        WRITE (JOUT,*) ' N1=',N1
+         IN1=WPADTI(N1)
+C        WRITE (JOUT,*) ' IN1=',IN1
+         N2=IADTWP(IN1+MAXBKT)
+C        WRITE (JOUT,*) ' N2=',N2
+         IN2=WPADTI(N2)
+C        WRITE (JOUT,*) ' IN2=',IN2
+         N3=N2+LEN2*NBUCK
+C        WRITE (JOUT,*) ' N3=',N3
+         IN3=WPADTI(N3)
+C        WRITE (JOUT,*) ' IN3=',IN3
+         NTOP=N3+LENGTH-1
+C        WRITE (JOUT,*) ' NTOP=',NTOP
+         CALL ZERO(CORE(N1),MAXCOR-N1)
+         CALL SORT2(ITAP77,ITAP78,CORE(N3),ICORE(IN3),LENGTH,CORE(N2),
+     .              ICORE(IN2),NBUCK*LEN2,ITRI,ICORE(IN1),MAXBKT,
+     .              JOUT,NBUCK,NIOBF,LEN2,JBUF,MAXVAL)
+C
+         CALL RCLOSE(ITAP78,4)
+         CALL RFILE(ITAP78)
+         N6=N2
+C        WRITE (JOUT,*) ' N6=',N6
+         N7=N6+SPACE2
+C        WRITE (JOUT,*) ' N7=',N7
+         IN7=WPADTI(N7)
+C        WRITE (JOUT,*) ' IN7=',IN7
+         N8=N7+LEN2
+C        WRITE (JOUT,*) ' N8=',N8
+         N9=N8+NBFAO*NBFAO
+C        WRITE (JOUT,*) ' N9=',N9
+         N10=N9+NBFAO*NBFAO
+C        WRITE (JOUT,*) ' N10=',N10
+         NTOP=N10+NBFAO*NBFAO-1
+C        WRITE (JOUT,*) ' SECOND NTOP=',NTOP
+         CALL ZERO(CORE(N6),MAXCOR-N6)
+         JBUF=0
+         DO 111 I=1,NBUCK
+C           WRITE (JOUT,*) ' LEN2=',LENGTH
+C           WRITE (JOUT,*) ' SPACE2=',SPACE2
+C           WRITE (JOUT,*) ' MAXBKT=',MAXBKT
+            CALL BCKCHN(ICORE(IN1),I,ITAP77,CORE(N7),ICORE(IN7),LEN2,
+     .                  MAXBKT,MAXVAL,CORE(N6),SPACE2,NTRIAO,JOUT,ITRI)
+            NTRIMX=ITRI
+            IF ((I.EQ.NBUCK).AND.(MODTRI.NE.0)) NTRIMX=MODTRI
+            IFLAG=1
+            CALL SETMBF(N8,N7+INTBUF)
+            CALL SETMBF(N9,N8+NBFAO*NBFAO)
+            CALL SETMBF(N10,N9+NBFAO*NBFAO)
+            CALL SETMBF(NTOP,N10+NBFAO*NBFAO)
+C           WRITE(*,*) '  THIRD NTOP = ',NTOP
+            CALL HTRANS(CORE(N8),CORE(N9),CORE(N10),CORE(N6),
+     .               CORE(N7),ICORE(IN7),
+     .               SPACE2,INTBUF,NBFAO,CORE(K1),NBFAO,NBF,JOUT,NTRI
+     .               ,NTRI,IFLAG,ISORT,ITAP78,NTRIMX,I,ITRI,JBUF,
+     .               NBUCK,ICORE(KORBSM),ICORE(KFLOV),NIRRED,ICORE(K3),
+     .               NSYMHF,ICORE(KKLPT),ICORE(KIJPT),NTRI,ICORE(KTPO),
+     .               ICORE(KOFF1),ICORE(KOFF2),NO)
+            CALL ZERO(CORE(N6),MAXCOR-N6)
+  111    CONTINUE
+         CALL RCLOSE(ITAP77,4)
+C     END IF
+      I1=J2
+C     WRITE (JOUT,*) ' I1=',I1
+      II1=WPADTI(I1)
+C     WRITE (JOUT,*) ' II1=',II1
+      I2=I1+INTBUF
+C     WRITE (JOUT,*) ' I2=',I2
+      I3=I2+NBFAO*NBFAO
+C     WRITE (JOUT,*) ' I3=',I3
+      I4=I3+NBFAO*NBFAO
+C     WRITE (JOUT,*) ' I4=',I4
+      ITOP=I4+NBFAO*NBFAO-1
+C     WRITE (JOUT,*) ' ITOP=',ITOP
+C
+      CALL ZERO(CORE(I1),MAXCOR-I1)
+C     WRITE (JOUT,*) ' ENTERING HTRANS'
+      ISORT=1
+      IFLAG=1
+      CALL HTRANS(CORE(I2),CORE(I3),CORE(I4),CORE(J1),
+     .            CORE(I1),ICORE(II1),NTRIAO
+     .            *1,INTBUF,NBFAO,CORE(K1),NBFAO,NBF,JOUT,1,1,IFLAG,
+     .            ISORT,ITAP78,1,1,1,JBUF,1,ICORE(KORBSM),ICORE(KFLOV),
+     .           NIRRED,ICORE(K3),NSYMHF,ICORE(KKLPT),ICORE(KIJPT),NTRI,
+     .            ICORE(KTPO),ICORE(KOFF1),ICORE(KOFF2),NO)
+C     WRITE (JOUT,1)
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,*) ' ************  TINTS  *************'
+C     WRITE (JOUT,2)
+C     WRITE (JOUT,1)
+C     CALL PRINT(CORE(I1),NTRI,NBF,JOUT)
+C     DO 13 I=317,421
+C        WRITE (JOUT,*) I,CORE(I)
+C  13 CONTINUE
+C
+C     CALL WRINTS(ITAP71,CORE(I1),NTRI,IAD)
+C     WRITE (JOUT,*) ' IAD=',IAD
+C     CALL REINTS(ITAP71,CORE(ITOP),NTRI,JOUT,IAD)
+C
+      CALL RCLOSE(ITAP30,3)
+      CALL RCLOSE(ITAP78,3)
+C     WRITE (JOUT,*) ' CALLED RCLOSE TAPE 78'
+      CALL TSTOP(6)
+C
+      END
+C
+C                            ********************
+C----------------------------****** WRINTS ******--------------------
+C                            ********************
+C
+      SUBROUTINE WRINTS (IDISK,MOINTS,LENINT,IAD)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      REAL*8 MOINTS(LENINT)
+      CALL RGETSA(IDISK,IAD)
+      CALL SWRIT (IDISK,MOINTS,INTOWP(LENINT))
+      RETURN
+      END

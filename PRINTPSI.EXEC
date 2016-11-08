@@ -1,0 +1,6 @@
+/* THIS EXEC prints the PSI MANUAL DOC       */
+ 
+ 
+" exec MYPSF2 manual doc "
+ 
+EXIT

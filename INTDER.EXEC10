@@ -1,0 +1,33 @@
+/* Generic job exec. */
+arg molecule .
+loadfiles = intder
+debug = ''
+ 
+if debug ^= 'DEBUG' then debug = ''
+ 
+say '*********' loadfiles molecule debug '***************************'
+ 
+psiinit
+fi '*' clear
+fi AFFPRINT disk job      AFFPRINT A
+fi AFFIN    term
+fi AFFON    disk job      AFFON    A
+fi  3 disk molecule CHECK   A  '('lrecl 132 block 132
+fi  5 disk molecule INTDER1 A
+fi  6 disk molecule INTDERO A  '('lrecl 132 block 132
+fi 40 disk molecule BMAT    A
+do i = 11 to 29
+  fi i disk molecule 'FILE'i A '('lrecl  80 recfm f
+  end
+do i = 80 to 99
+  fi i disk molecule 'UNIT'i A  '('lrecl 4096 recfm f xtent 100
+  end
+fi 95 disk molecule FILE95  A  '('lrecl 132 block 132
+ 
+say 'Loading ...'
+load loadfiles '(' clear noauto
+ 
+start '*' debug
+jobrc = rc
+ 
+exit jobrc

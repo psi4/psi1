@@ -1,0 +1,43 @@
+      double precision function dot(a,b,n)
+      implicit real*8 (a-h,o-z)
+      dimension a(n), b(n)
+ 
+      t = 0.d0
+      do 101 i = 1, n
+ 101    t = t + a(i)*b(i)
+      dot = t
+      return
+      end
+c----------------------------------------------------------------------
+      double precision function dott(a, ia, b, ib, n)
+      implicit real*8 (a-h,o-z)
+      dimension a(*), b(*)
+ 
+      t = 0.d0
+      ina = 1
+      inb = 1
+      if (ia .eq. 1) then
+        if (ib .eq. 1) then
+          do 101 i = 1, n
+ 101        t = t + a(i)*b(i)
+        else
+          do 102 i = 1, n
+            t = t + a(i)*b(inb)
+ 102        inb = inb + ib
+          endif
+      else
+        if (ib .eq. 1) then
+          do 103 i = 1, n
+            t = t + a(ina)*b(i)
+ 103        ina = ina + ia
+        else
+          do 104 i = 1, n
+            t = t + a(ina)*b(inb)
+            ina = ina + ia
+ 104        inb = inb + ib
+          endif
+        endif
+ 
+      dott = t
+      return
+      end

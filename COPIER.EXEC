@@ -1,0 +1,5 @@
+/* */
+arg filename filetype filemode
+newtype = fortl11
+rename filename filetype filemode filename newtype filemode
+v72 filename newtype  filemode '( FILE'

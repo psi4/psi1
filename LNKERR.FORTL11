@@ -1,0 +1,10 @@
+C
+C
+      SUBROUTINE LNKERR(error)
+c
+      character*(*) error
+c
+ 
+      stop 876
+ 
+      END

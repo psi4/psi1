@@ -1,0 +1,133 @@
+      subroutine mxmb(a,ia,ja, b,ib,jb, c,ic,jc, nrow, nlnk, ncol)
+      implicit real*8 (a-h, o-z)
+      dimension a(1), b(1), c(1)
+c IGNORE(modified for the 4381, all @process commands removed)
+c  A highly optimized mxmb simulator for an ibm3090 with vector.
+c  Written and tested Mon Nov  3  1986 by C. Janssen.
+c              (runs at about 50 mflops)
+ 
+      if ( ic .eq. 1 ) then
+          if ( ia .eq. 1 ) then
+              if ( ib .eq. 1 ) then
+                  call mxmnn(a,ja,b,jb,c,jc,nrow,nlnk,ncol)
+              else if ( jb .eq. 1 ) then
+                  call mxmnt(a,ja,b,ib,c,jc,nrow,nlnk,ncol)
+              else
+                  call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+                  endif
+          else if ( ja .eq. 1 ) then
+              if ( ib .eq. 1 ) then
+                  call mxmtn(a,ia,b,jb,c,jc,nrow,nlnk,ncol)
+              else if ( jb .eq. 1 ) then
+                  call mxmtt(a,ia,b,ib,c,jc,nrow,nlnk,ncol)
+              else
+                  call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+                  endif
+          else
+              call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+              endif
+      else if ( jc .eq. 1 ) then
+          if ( ia .eq. 1 ) then
+              if ( ib .eq. 1 ) then
+                  call mxmtt(b,jb,a,ja,c,ic,ncol,nlnk,nrow)
+              else if ( jb .eq. 1 ) then
+                  call mxmnt(b,ib,a,ja,c,ic,ncol,nlnk,nrow)
+              else
+                  call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+                  endif
+          else if ( ja .eq. 1 ) then
+              if ( ib .eq. 1 ) then
+                  call mxmtn(b,jb,a,ia,c,ic,ncol,nlnk,nrow)
+              else if ( jb .eq. 1 ) then
+                  call mxmnn(b,ib,a,ia,c,ic,ncol,nlnk,nrow)
+              else
+                  call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+                  endif
+          else
+              call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+              endif
+      else
+          call mxmbol(a,ia,ja,b,ib,jb,c,ic,jc,nrow,nlnk,ncol)
+          endif
+      return
+      end
+ 
+      subroutine mxmnn(a,ia, b,ib, c,ic, l ,m ,n )
+      implicit real*8 (a-h, o-z)
+      dimension a(ia,1), b(ib,1), c(ic,1)
+      do 100 ii = 1, l, 128
+          do 200 kk = 1, m, 48
+              do 300 i = ii, min0(ii+127,l)
+                  do 400 j = 1, n
+                      t = c(i,j)
+                      do 500 k = kk, min0(kk+48  -1,m)
+                           t = t + b(k,j)*a(i,k)
+  500                      continue
+                       c(i,j) = t
+  400                  continue
+  300              continue
+  200          continue
+  100      continue
+      return
+      end
+ 
+      subroutine mxmnt(a,ia, b,ib, c,ic, l ,m ,n )
+      implicit real*8 (a-h, o-z)
+      dimension a(ia,1), b(ib,1), c(ic,1)
+      do 100 ii = 1, l, 128
+          do 200 kk = 1, m, 48
+              do 300 i = ii, min0(ii+127,l)
+                  do 400 j = 1, n
+                      t = c(i,j)
+                      do 500 k = kk, min0(kk+48  -1,m)
+                           t = t + b(j,k)*a(i,k)
+  500                      continue
+                       c(i,j) = t
+  400                  continue
+  300              continue
+  200          continue
+  100      continue
+ 
+      return
+      end
+ 
+      subroutine mxmtn(a,ia, b,ib, c,ic, l ,m ,n )
+      implicit real*8 (a-h, o-z)
+      dimension a(ia,1), b(ib,1), c(ic,1)
+      do 100 ii = 1, l, 128
+          do 200 kk = 1, m, 48
+              do 300 i = ii, min0(ii+127,l)
+                  do 400 j = 1, n
+                      t = c(i,j)
+                      do 500 k = kk, min0(kk+48  -1,m)
+                           t = t + b(k,j)*a(k,i)
+  500                      continue
+                       c(i,j) = t
+  400                  continue
+  300              continue
+  200          continue
+  100      continue
+ 
+      return
+      end
+ 
+      subroutine mxmtt(a,ia, b,ib, c,ic, l ,m ,n )
+      implicit real*8 (a-h, o-z)
+      dimension a(ia,1), b(ib,1), c(ic,1)
+      do 100 ii = 1, l, 128
+          do 200 kk = 1, m, 48
+*ibmvdir prefer vector
+              do 300 i = ii, min0(ii+127,l)
+                  do 400 j = 1, n
+                      t = c(i,j)
+                      do 500 k = kk, min0(kk+48  -1,m)
+                           t = t + b(j,k)*a(k,i)
+  500                      continue
+                       c(i,j) = t
+  400                  continue
+  300              continue
+  200          continue
+  100      continue
+ 
+      return
+      end

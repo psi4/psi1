@@ -1,0 +1,7 @@
+C
+      SUBROUTINE ETIME(tarray)
+      real*4 tarray(2)
+      tarray(1) = 0.
+      tarray(2) = 0.
+      return
+      END
